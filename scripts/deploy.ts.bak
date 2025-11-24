@@ -1,0 +1,70 @@
+import "@nomicfoundation/hardhat-ethers";
+import { ethers } from "ethers";
+import hre from "hardhat";
+
+async function main() {
+  // Get the ethers provider and signer from Hardhat
+  const provider = hre.network.provider;
+  const deployer = new ethers.Wallet(
+    "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80", // Default Hardhat account #0
+    provider
+  );
+  
+  // Get the deployer signer
+  console.log("Deploying contracts with account:", deployer.address);
+
+  // Get contract factories using ethers
+  const AssetTokenFactory = await hre.viem.getContractFactory("AssetToken");
+  const HealthTokenFactory = await hre.viem.getContractFactory("HealthToken");
+  const HospitalFinancialsFactory = await hre.viem.getContractFactory("HospitalFinancials");
+
+  console.log("Deploying AssetToken...");
+  const assetToken = await AssetToken.deploy(await deployer.getAddress());
+  await assetToken.waitForDeployment();
+  const assetTokenAddress = await assetToken.getAddress();
+  console.log("AssetToken deployed to:", assetTokenAddress);
+
+  console.log("Deploying HealthToken...");
+  const healthToken = await HealthToken.deploy(await deployer.getAddress());
+  await healthToken.waitForDeployment();
+  const healthTokenAddress = await healthToken.getAddress();
+  console.log("HealthToken deployed to:", healthTokenAddress);
+
+  console.log("Deploying HospitalFinancials...");
+  const hospitalFinancials = await HospitalFinancials.deploy(
+    assetTokenAddress,
+    healthTokenAddress,
+    await deployer.getAddress(),
+    await deployer.getAddress() // hospitalWallet
+  );
+  await hospitalFinancials.waitForDeployment();
+  const hospitalFinancialsAddress = await hospitalFinancials.getAddress();
+  console.log("HospitalFinancials deployed to:", hospitalFinancialsAddress);
+
+  // Grant roles
+  console.log("Granting MINTER_ROLE to HospitalFinancials...");
+  const assetMinterRole = await assetToken.MINTER_ROLE();
+  const grantAssetMinterTx = await assetToken.grantRole(assetMinterRole, hospitalFinancialsAddress);
+  await grantAssetMinterTx.wait();
+  console.log("Granted MINTER_ROLE on AssetToken");
+
+  const healthMinterRole = await healthToken.MINTER_ROLE();
+  const grantHealthMinterTx = await healthToken.grantRole(healthMinterRole, hospitalFinancialsAddress);
+  await grantHealthMinterTx.wait();
+  console.log("Granted MINTER_ROLE on HealthToken");
+
+  console.log("\nDeployment Summary");
+  console.log("=================");
+  console.log("AssetToken:", assetTokenAddress);
+  console.log("HealthToken:", healthTokenAddress);
+  console.log("HospitalFinancials:", hospitalFinancialsAddress);
+  console.log("\nSetup complete! ✅");
+}
+
+// Execute deployment
+main()
+  .then(() => process.exit(0))
+  .catch((error: Error) => {
+    console.error(error);
+    process.exit(1);
+  });
