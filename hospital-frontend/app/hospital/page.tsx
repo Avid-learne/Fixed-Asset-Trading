@@ -1,207 +1,419 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import Card from "@/components/ui/Card";
-import Button from "@/components/ui/Button";
-import Input from "@/components/ui/Input";
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import StatCard from '@/components/ui/StatCard';
+import DataTable from '@/components/ui/DataTable';
+import StatusBadge from '@/components/ui/StatusBadge';
+import { getCurrentUser } from '@/lib/auth';
 
-export default function HospitalPage() {
-  const [showTradeModal, setShowTradeModal] = useState(false);
-  const [showDistributeModal, setShowDistributeModal] = useState(false);
+interface PatientOverview {
+  id: string;
+  name: string;
+  assetsCount: number;
+  totalValue: string;
+  status: 'active' | 'inactive' | 'pending';
+  joinDate: string;
+}
+
+interface Approval {
+  id: string;
+  type: string;
+  patient: string;
+  amount: string;
+  status: 'pending' | 'approved' | 'rejected';
+  date: string;
+}
+
+export default function HospitalDashboard() {
+  const router = useRouter();
+  const user = getCurrentUser();
+
+  React.useEffect(() => {
+    if (!user || user.role !== 'hospital') {
+      router.push('/hospital/login');
+    }
+  }, [user, router]);
+
+  const [statistics] = useState({
+    totalPatients: '287',
+    activeAssets: '$1,245,000.00',
+    pendingTrades: '12',
+    profitDistributed: '$85,320.00',
+  });
+
+  const [patients] = useState<PatientOverview[]>([
+    {
+      id: 'PAT-001',
+      name: 'John Doe',
+      assetsCount: 3,
+      totalValue: '$47,250.00',
+      status: 'active',
+      joinDate: '2025-06-15',
+    },
+    {
+      id: 'PAT-002',
+      name: 'Sarah Smith',
+      assetsCount: 2,
+      totalValue: '$32,100.00',
+      status: 'active',
+      joinDate: '2025-07-22',
+    },
+    {
+      id: 'PAT-003',
+      name: 'Michael Johnson',
+      assetsCount: 5,
+      totalValue: '$89,500.00',
+      status: 'active',
+      joinDate: '2025-05-08',
+    },
+    {
+      id: 'PAT-004',
+      name: 'Emma Wilson',
+      assetsCount: 1,
+      totalValue: '$15,750.00',
+      status: 'pending',
+      joinDate: '2025-11-20',
+    },
+  ]);
+
+  const [pendingApprovals] = useState<Approval[]>([
+    {
+      id: 'APR-001',
+      type: 'Asset Verification',
+      patient: 'John Doe',
+      amount: '$5,000.00',
+      status: 'pending',
+      date: '2025-11-25',
+    },
+    {
+      id: 'APR-002',
+      type: 'Trading Request',
+      patient: 'Sarah Smith',
+      amount: '$2,300.00',
+      status: 'pending',
+      date: '2025-11-26',
+    },
+    {
+      id: 'APR-003',
+      type: 'Benefit Allocation',
+      patient: 'Michael Johnson',
+      amount: '$8,500.00',
+      status: 'approved',
+      date: '2025-11-23',
+    },
+  ]);
+
+  // Patient columns
+  const patientColumns = [
+    {
+      key: 'id' as const,
+      label: 'Patient ID',
+      width: '90px',
+      align: 'left' as const,
+      render: (value: string) => (
+        <span style={{ fontFamily: 'Roboto Mono, monospace', fontSize: '12px' }}>{value}</span>
+      ),
+    },
+    {
+      key: 'name' as const,
+      label: 'Name',
+      width: '140px',
+      align: 'left' as const,
+    },
+    {
+      key: 'assetsCount' as const,
+      label: 'Assets',
+      width: '80px',
+      align: 'center' as const,
+    },
+    {
+      key: 'totalValue' as const,
+      label: 'Total Value',
+      width: '120px',
+      align: 'right' as const,
+      render: (value: string) => (
+        <span style={{ fontFamily: 'Roboto Mono, monospace', fontWeight: '500' }}>{value}</span>
+      ),
+    },
+    {
+      key: 'status' as const,
+      label: 'Status',
+      width: '100px',
+      align: 'center' as const,
+      render: (value: string) => (
+        <StatusBadge status={value as 'active' | 'inactive' | 'pending'} />
+      ),
+    },
+  ];
+
+  // Approval columns
+  const approvalColumns = [
+    {
+      key: 'id' as const,
+      label: 'Request ID',
+      width: '90px',
+      align: 'left' as const,
+      render: (value: string) => (
+        <span style={{ fontFamily: 'Roboto Mono, monospace', fontSize: '12px' }}>{value}</span>
+      ),
+    },
+    {
+      key: 'type' as const,
+      label: 'Type',
+      width: '150px',
+      align: 'left' as const,
+    },
+    {
+      key: 'patient' as const,
+      label: 'Patient',
+      width: '140px',
+      align: 'left' as const,
+    },
+    {
+      key: 'amount' as const,
+      label: 'Amount',
+      width: '120px',
+      align: 'right' as const,
+      render: (value: string) => (
+        <span style={{ fontFamily: 'Roboto Mono, monospace' }}>{value}</span>
+      ),
+    },
+    {
+      key: 'status' as const,
+      label: 'Status',
+      width: '100px',
+      align: 'center' as const,
+      render: (value: string) => (
+        <StatusBadge status={value as 'pending' | 'approved' | 'rejected'} />
+      ),
+    },
+  ];
 
   return (
-    <div className="space-y-8">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900 mb-2">Hospital Dashboard</h1>
-        <p className="text-slate-600">Manage trades and distribute health benefits</p>
+    <div style={styles.container}>
+      {/* Header */}
+      <div style={styles.header}>
+        <div>
+          <h1 style={styles.title}>Hospital Dashboard</h1>
+          <p style={styles.subtitle}>Overview of patient assets and operations</p>
+        </div>
+        <button
+          onClick={() => {
+            localStorage.removeItem('user');
+            router.push('/hospital/login');
+          }}
+          style={styles.logoutBtn}
+        >
+          Logout
+        </button>
       </div>
 
-      {/* Stats */}
-      <div className="grid md:grid-cols-4 gap-6">
-        <Card>
-          <p className="text-sm text-slate-600">Total AT Pool</p>
-          <p className="text-2xl font-bold text-blue-600">125,500</p>
-        </Card>
+      {/* Statistics Grid */}
+      <div style={styles.statsGrid}>
+        <StatCard
+          label="Total Patients"
+          value={statistics.totalPatients}
+          unit="verified"
+          trend={{ direction: 'up', percentage: '5.2' }}
+        />
+        <StatCard
+          label="Active Assets"
+          value={statistics.activeAssets}
+          unit="USD"
+          trend={{ direction: 'up', percentage: '12.8' }}
+        />
+        <StatCard
+          label="Pending Trades"
+          value={statistics.pendingTrades}
+          unit="in queue"
+          trend={{ direction: 'up', percentage: '2' }}
+        />
+        <StatCard
+          label="Profit Distributed"
+          value={statistics.profitDistributed}
+          unit="YTD"
+          trend={{ direction: 'up', percentage: '18.5' }}
+        />
+      </div>
 
-        <Card>
-          <p className="text-sm text-slate-600">Active Trades</p>
-          <p className="text-2xl font-bold text-amber-600">12</p>
-        </Card>
+      {/* Patient Overview Section */}
+      <div style={styles.section}>
+        <div style={styles.sectionHeader}>
+          <h2 style={styles.sectionTitle}>Patient Overview</h2>
+          <button
+            onClick={() => router.push('/hospital/patients')}
+            style={styles.viewAllBtn}
+          >
+            View All →
+          </button>
+        </div>
+        <DataTable data={patients} columns={patientColumns} striped hoverable />
+      </div>
 
-        <Card>
-          <p className="text-sm text-slate-600">Total Profit</p>
-          <p className="text-2xl font-bold text-green-600">$45,280</p>
-        </Card>
-
-        <Card>
-          <p className="text-sm text-slate-600">HT Distributed</p>
-          <p className="text-2xl font-bold text-purple-600">15,300</p>
-        </Card>
+      {/* Pending Approvals Section */}
+      <div style={styles.section}>
+        <div style={styles.sectionHeader}>
+          <h2 style={styles.sectionTitle}>Pending Approvals</h2>
+          <button
+            onClick={() => router.push('/hospital/requests')}
+            style={styles.viewAllBtn}
+          >
+            View All →
+          </button>
+        </div>
+        {pendingApprovals.length > 0 ? (
+          <DataTable data={pendingApprovals} columns={approvalColumns} striped />
+        ) : (
+          <p style={styles.noData}>No pending approvals</p>
+        )}
       </div>
 
       {/* Quick Actions */}
-      <Card>
-        <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
-        <div className="grid md:grid-cols-2 gap-4">
-          <Button
-            variant="primary"
-            className="w-full"
-            onClick={() => setShowTradeModal(true)}
+      <div style={styles.section}>
+        <h2 style={styles.sectionTitle}>Quick Actions</h2>
+        <div style={styles.actionsGrid}>
+          <button
+            onClick={() => router.push('/hospital/patients')}
+            style={styles.actionBtn}
           >
-            Record New Trade
-          </Button>
-          <Button
-            variant="secondary"
-            className="w-full"
-            onClick={() => setShowDistributeModal(true)}
+            Manage Patients
+          </button>
+          <button
+            onClick={() => router.push('/hospital/requests')}
+            style={styles.actionBtn}
           >
-            Distribute Health Tokens
-          </Button>
+            Review Requests
+          </button>
+          <button
+            onClick={() => router.push('/hospital/trading')}
+            style={styles.actionBtn}
+          >
+            Trading Desk
+          </button>
+          <button
+            onClick={() => router.push('/hospital/allocate')}
+            style={styles.actionBtn}
+          >
+            Allocate Benefits
+          </button>
         </div>
-      </Card>
-
-      {/* Recent Trades */}
-      <Card>
-        <h2 className="text-xl font-semibold mb-4">Recent Trades</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-200">
-                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Trade ID</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">AT Invested</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Profit Earned</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Date</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b border-slate-100 hover:bg-slate-50">
-                <td className="py-3 px-4 text-sm font-mono">#T-0015</td>
-                <td className="py-3 px-4 text-sm">5,000 AT</td>
-                <td className="py-3 px-4 text-sm font-medium text-green-600">$1,250</td>
-                <td className="py-3 px-4 text-sm text-slate-600">2025-11-25</td>
-                <td className="py-3 px-4 text-sm">Completed</td>
-              </tr>
-              <tr className="border-b border-slate-100 hover:bg-slate-50">
-                <td className="py-3 px-4 text-sm font-mono">#T-0014</td>
-                <td className="py-3 px-4 text-sm">10,000 AT</td>
-                <td className="py-3 px-4 text-sm font-medium text-green-600">$2,800</td>
-                <td className="py-3 px-4 text-sm text-slate-600">2025-11-24</td>
-                <td className="py-3 px-4 text-sm">Distributed</td>
-              </tr>
-              <tr className="border-b border-slate-100 hover:bg-slate-50">
-                <td className="py-3 px-4 text-sm font-mono">#T-0013</td>
-                <td className="py-3 px-4 text-sm">7,500 AT</td>
-                <td className="py-3 px-4 text-sm font-medium text-green-600">$1,890</td>
-                <td className="py-3 px-4 text-sm text-slate-600">2025-11-23</td>
-                <td className="py-3 px-4 text-sm">Distributed</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      {/* Record Trade Modal */}
-      {showTradeModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="max-w-md w-full mx-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-semibold">Record New Trade</h3>
-              <button onClick={() => setShowTradeModal(false)}>
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <form className="space-y-4">
-              <Input
-                label="Asset Tokens Invested"
-                type="number"
-                placeholder="e.g., 5000"
-              />
-              <Input
-                label="Profit Earned (USD)"
-                type="number"
-                placeholder="e.g., 1250"
-              />
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Trade Notes
-                </label>
-                <textarea
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  rows={3}
-                  placeholder="Add trade details..."
-                />
-              </div>
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => setShowTradeModal(false)}
-                >
-                  Cancel
-                </Button>
-                <Button variant="primary" className="flex-1">
-                  Record Trade
-                </Button>
-              </div>
-            </form>
-          </Card>
-        </div>
-      )}
-
-      {/* Distribute HT Modal */}
-      {showDistributeModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-semibold">Distribute Health Tokens</h3>
-              <button onClick={() => setShowDistributeModal(false)}>
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="space-y-4">
-              <Input
-                label="Select Trade"
-                type="text"
-                placeholder="Trade ID"
-                defaultValue="#T-0015"
-              />
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <p className="text-sm text-blue-900">
-                  <strong>Trade Details:</strong> AT Invested: 5,000 | Profit: $1,250
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Recipients (Address:Amount)
-                </label>
-                <textarea
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
-                  rows={5}
-                  placeholder="0x742d...4e8f:100&#10;0x9a3c...7d2b:150&#10;0x1f8e...3c9a:75"
-                />
-              </div>
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => setShowDistributeModal(false)}
-                >
-                  Cancel
-                </Button>
-                <Button variant="secondary" className="flex-1">
-                  Distribute HT
-                </Button>
-              </div>
-            </div>
-          </Card>
-        </div>
-      )}
+      </div>
     </div>
   );
 }
+
+const styles = {
+  container: {
+    padding: 'var(--spacing-lg)',
+    maxWidth: '1280px',
+    margin: '0 auto',
+    backgroundColor: '#fafafa',
+    minHeight: '100vh',
+  } as React.CSSProperties,
+
+  header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 'var(--spacing-xl)',
+  } as React.CSSProperties,
+
+  title: {
+    fontSize: '32px',
+    fontWeight: 'bold',
+    color: 'var(--color-primary-900)',
+    margin: '0 0 var(--spacing-sm) 0',
+    fontFamily: 'Inter, sans-serif',
+  } as React.CSSProperties,
+
+  subtitle: {
+    fontSize: '14px',
+    color: 'var(--color-neutral-600)',
+    margin: 0,
+    fontFamily: 'Inter, sans-serif',
+  } as React.CSSProperties,
+
+  logoutBtn: {
+    padding: 'var(--spacing-sm) var(--spacing-md)',
+    backgroundColor: 'transparent',
+    border: `1px solid var(--color-neutral-300)`,
+    borderRadius: 'var(--radius-md)',
+    color: 'var(--color-neutral-700)',
+    fontSize: '14px',
+    fontWeight: '500',
+    cursor: 'pointer',
+    fontFamily: 'Inter, sans-serif',
+    transition: 'all 0.2s',
+  } as React.CSSProperties,
+
+  statsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+    gap: 'var(--spacing-lg)',
+    marginBottom: 'var(--spacing-xl)',
+  } as React.CSSProperties,
+
+  section: {
+    backgroundColor: 'white',
+    borderRadius: 'var(--radius-lg)',
+    padding: 'var(--spacing-lg)',
+    marginBottom: 'var(--spacing-lg)',
+    border: `1px solid var(--color-neutral-200)`,
+    boxShadow: 'var(--shadow-sm)',
+  } as React.CSSProperties,
+
+  sectionHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 'var(--spacing-md)',
+  } as React.CSSProperties,
+
+  sectionTitle: {
+    fontSize: '18px',
+    fontWeight: '600',
+    color: 'var(--color-primary-900)',
+    margin: 0,
+    fontFamily: 'Inter, sans-serif',
+  } as React.CSSProperties,
+
+  viewAllBtn: {
+    background: 'none',
+    border: 'none',
+    color: 'var(--color-primary-900)',
+    fontSize: '13px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    padding: 0,
+    fontFamily: 'Inter, sans-serif',
+  } as React.CSSProperties,
+
+  noData: {
+    fontSize: '14px',
+    color: 'var(--color-neutral-600)',
+    padding: 'var(--spacing-lg)',
+    margin: 0,
+    textAlign: 'center',
+    fontFamily: 'Inter, sans-serif',
+  } as React.CSSProperties,
+
+  actionsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: 'var(--spacing-md)',
+  } as React.CSSProperties,
+
+  actionBtn: {
+    padding: 'var(--spacing-md) var(--spacing-lg)',
+    backgroundColor: 'var(--color-primary-900)',
+    color: 'white',
+    border: 'none',
+    borderRadius: 'var(--radius-md)',
+    fontSize: '14px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    fontFamily: 'Inter, sans-serif',
+    transition: 'all 0.2s',
+  } as React.CSSProperties,
+};

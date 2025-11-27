@@ -136,3 +136,7 @@ export function requireAuth(role?: User["role"]) {
   if (role && s.role !== role) return null;
   return s;
 }
+
+export function getCurrentUser() {
+  return getSession();
+}

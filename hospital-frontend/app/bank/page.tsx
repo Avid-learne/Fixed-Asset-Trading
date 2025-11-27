@@ -1,200 +1,483 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import Card from "@/components/ui/Card";
-import Button from "@/components/ui/Button";
-import Input from "@/components/ui/Input";
-import Badge from "@/components/ui/Badge";
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import StatCard from '@/components/ui/StatCard';
+import DataTable from '@/components/ui/DataTable';
+import StatusBadge from '@/components/ui/StatusBadge';
+import { getCurrentUser } from '@/lib/auth';
 
-export default function BankPage() {
-  const [pendingRequests] = useState([
-    { id: 1, patient: "0x742d...4e8f", asset: "Gold Jewelry", value: "5,000", date: "2025-11-25" },
-    { id: 2, patient: "0x9a3c...7d2b", asset: "Property Deed", value: "50,000", date: "2025-11-24" },
-    { id: 3, patient: "0x1f8e...3c9a", asset: "Vehicle", value: "15,000", date: "2025-11-23" },
+// Type definitions
+interface MintingRequest {
+  id: string;
+  patient: string;
+  amount: string;
+  date: string;
+  status: 'pending' | 'verified' | 'approved' | 'rejected';
+}
+
+interface InsurancePolicy {
+  id: string;
+  hospital: string;
+  coverage: string;
+  premium: string;
+  status: 'active' | 'inactive';
+}
+
+interface Transaction {
+  id: string;
+  type: string;
+  amount: string;
+  date: string;
+  status: 'completed' | 'pending';
+}
+
+export default function BankDashboard() {
+  const router = useRouter();
+  const user = getCurrentUser();
+
+  // Redirect if not authenticated or wrong role
+  React.useEffect(() => {
+    if (!user || user.role !== 'bank') {
+      router.push('/bank/login');
+    }
+  }, [user, router]);
+
+  // Mock statistics
+  const [statistics] = useState({
+    totalValue: '$12,580,000.00',
+    activeMints: '47',
+    tokensIssued: '1,250,000 HBT',
+    insuranceBalance: '$8,450,000.00',
+  });
+
+  // Mock minting queue
+  const [mintingQueue] = useState<MintingRequest[]>([
+    {
+      id: 'MR001',
+      patient: 'John Doe',
+      amount: '$50,000',
+      date: '2025-11-27',
+      status: 'pending',
+    },
+    {
+      id: 'MR002',
+      patient: 'Sarah Johnson',
+      amount: '$75,000',
+      date: '2025-11-27',
+      status: 'verified',
+    },
+    {
+      id: 'MR003',
+      patient: 'Mike Chen',
+      amount: '$30,000',
+      date: '2025-11-26',
+      status: 'approved',
+    },
+    {
+      id: 'MR004',
+      patient: 'Emma Wilson',
+      amount: '$45,000',
+      date: '2025-11-26',
+      status: 'pending',
+    },
   ]);
 
-  const [selectedRequest, setSelectedRequest] = useState<number | null>(null);
+  // Mock insurance policies
+  const [insuranceSummary] = useState<InsurancePolicy[]>([
+    {
+      id: 'POL001',
+      hospital: 'Central Hospital',
+      coverage: '$5,000,000',
+      premium: '$125,000/month',
+      status: 'active',
+    },
+    {
+      id: 'POL002',
+      hospital: 'St. Mary Medical Center',
+      coverage: '$3,000,000',
+      premium: '$75,000/month',
+      status: 'active',
+    },
+    {
+      id: 'POL003',
+      hospital: 'City Hospital',
+      coverage: '$2,450,000',
+      premium: '$65,000/month',
+      status: 'inactive',
+    },
+  ]);
+
+  // Mock recent transactions
+  const [recentTransactions] = useState<Transaction[]>([
+    {
+      id: 'TXN001',
+      type: 'Token Mint',
+      amount: '$250,000',
+      date: '2025-11-27',
+      status: 'completed',
+    },
+    {
+      id: 'TXN002',
+      type: 'Insurance Premium',
+      amount: '$125,000',
+      date: '2025-11-27',
+      status: 'completed',
+    },
+    {
+      id: 'TXN003',
+      type: 'Token Redemption',
+      amount: '$180,000',
+      date: '2025-11-26',
+      status: 'completed',
+    },
+    {
+      id: 'TXN004',
+      type: 'Asset Transfer',
+      amount: '$95,000',
+      date: '2025-11-26',
+      status: 'pending',
+    },
+  ]);
+
+  const handleNavigate = (path: string) => {
+    router.push(path);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('hospital_session');
+    router.push('/bank/login');
+  };
 
   return (
-    <div className="space-y-8">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900 mb-2">Bank Dashboard</h1>
-        <p className="text-slate-600">Verify deposits and mint asset tokens</p>
-      </div>
-
-      {/* Stats */}
-      <div className="grid md:grid-cols-3 gap-6">
-        <Card>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-600">Pending Requests</p>
-              <p className="text-3xl font-bold text-amber-600">3</p>
-            </div>
-            <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center">
-              <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
+    <div style={{ backgroundColor: 'var(--color-bg-secondary)', minHeight: '100vh', padding: 'var(--spacing-xl)' }}>
+      <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-xl)' }}>
+          <div>
+            <h1 style={{
+              fontSize: '32px',
+              fontWeight: 700,
+              color: 'var(--color-text-primary)',
+              marginBottom: 'var(--spacing-sm)',
+            }}>
+              Bank Dashboard
+            </h1>
+            <p style={{ color: 'var(--color-text-tertiary)', fontSize: '14px' }}>
+              Welcome back, {user?.name || 'Bank Admin'}. Manage tokens, insurance, and asset verification.
+            </p>
           </div>
-        </Card>
-
-        <Card>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-600">Verified Today</p>
-              <p className="text-3xl font-bold text-green-600">7</p>
-            </div>
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-          </div>
-        </Card>
-
-        <Card>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-600">Total AT Minted</p>
-              <p className="text-3xl font-bold text-blue-600">125,500</p>
-            </div>
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* Pending Requests */}
-      <Card>
-        <h2 className="text-xl font-semibold mb-4">Pending Deposit Requests</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-200">
-                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Patient</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Asset</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Value (USD)</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Date</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pendingRequests.map((request) => (
-                <tr key={request.id} className="border-b border-slate-100 hover:bg-slate-50">
-                  <td className="py-3 px-4 text-sm font-mono">{request.patient}</td>
-                  <td className="py-3 px-4 text-sm">{request.asset}</td>
-                  <td className="py-3 px-4 text-sm font-medium">${request.value}</td>
-                  <td className="py-3 px-4 text-sm text-slate-600">{request.date}</td>
-                  <td className="py-3 px-4">
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => setSelectedRequest(request.id)}
-                    >
-                      Review
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <button
+            onClick={handleLogout}
+            style={{
+              padding: 'var(--spacing-md) var(--spacing-lg)',
+              backgroundColor: 'var(--color-danger)',
+              color: 'var(--color-text-inverse)',
+              border: 'none',
+              borderRadius: 'var(--radius-md)',
+              fontSize: '14px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'background-color 0.2s',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#b71c1c'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--color-danger)'}
+          >
+            Logout
+          </button>
         </div>
-      </Card>
 
-      {/* Verification Modal */}
-      {selectedRequest && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-2xl font-semibold">Verify Asset Deposit</h3>
-              <button onClick={() => setSelectedRequest(null)}>
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+        {/* Key Metrics */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+          gap: 'var(--spacing-lg)',
+          marginBottom: 'var(--spacing-xl)',
+        }}>
+          <StatCard
+            label="Total Value Under Management"
+            value={statistics.totalValue}
+            trend={{ direction: 'up', value: 12.5 }}
+          />
+          <StatCard
+            label="Active Mint Requests"
+            value={statistics.activeMints}
+            trend={{ direction: 'down', value: 2.3 }}
+          />
+          <StatCard
+            label="Health Tokens Issued"
+            value={statistics.tokensIssued}
+            trend={{ direction: 'up', value: 18.7 }}
+          />
+          <StatCard
+            label="Insurance Reserve Balance"
+            value={statistics.insuranceBalance}
+            trend={{ direction: 'up', value: 5.2 }}
+          />
+        </div>
+
+        {/* Quick Actions */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: 'var(--spacing-lg)',
+          marginBottom: 'var(--spacing-xl)',
+        }}>
+          <button
+            onClick={() => handleNavigate('/bank/minting')}
+            style={{
+              padding: 'var(--spacing-lg)',
+              backgroundColor: 'var(--color-bg)',
+              border: '2px solid var(--color-primary)',
+              borderRadius: 'var(--radius-lg)',
+              fontSize: '14px',
+              fontWeight: 600,
+              color: 'var(--color-primary)',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-primary)';
+              e.currentTarget.style.color = 'var(--color-text-inverse)';
+              e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-bg)';
+              e.currentTarget.style.color = 'var(--color-primary)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+          >
+            Review Mint Requests
+          </button>
+          <button
+            onClick={() => handleNavigate('/bank/ledger')}
+            style={{
+              padding: 'var(--spacing-lg)',
+              backgroundColor: 'var(--color-bg)',
+              border: '2px solid var(--color-secondary)',
+              borderRadius: 'var(--radius-lg)',
+              fontSize: '14px',
+              fontWeight: 600,
+              color: 'var(--color-secondary)',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-secondary)';
+              e.currentTarget.style.color = 'var(--color-text-inverse)';
+              e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-bg)';
+              e.currentTarget.style.color = 'var(--color-secondary)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+          >
+            View Token Ledger
+          </button>
+          <button
+            onClick={() => handleNavigate('/bank/insurance')}
+            style={{
+              padding: 'var(--spacing-lg)',
+              backgroundColor: 'var(--color-bg)',
+              border: '2px solid var(--color-warning)',
+              borderRadius: 'var(--radius-lg)',
+              fontSize: '14px',
+              fontWeight: 600,
+              color: 'var(--color-warning)',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-warning)';
+              e.currentTarget.style.color = 'var(--color-text-inverse)';
+              e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-bg)';
+              e.currentTarget.style.color = 'var(--color-warning)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+          >
+            Manage Insurance
+          </button>
+          <button
+            onClick={() => handleNavigate('/bank/audit')}
+            style={{
+              padding: 'var(--spacing-lg)',
+              backgroundColor: 'var(--color-bg)',
+              border: '2px solid var(--color-neutral)',
+              borderRadius: 'var(--radius-lg)',
+              fontSize: '14px',
+              fontWeight: 600,
+              color: 'var(--color-neutral)',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-neutral)';
+              e.currentTarget.style.color = 'var(--color-text-inverse)';
+              e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-bg)';
+              e.currentTarget.style.color = 'var(--color-neutral)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+          >
+            Audit Reports
+          </button>
+        </div>
+
+        {/* Content Grid */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '2fr 1fr',
+          gap: 'var(--spacing-lg)',
+          marginBottom: 'var(--spacing-xl)',
+        }}>
+          {/* Minting Queue */}
+          <div style={{
+            backgroundColor: 'var(--color-bg)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-lg)',
+            padding: 'var(--spacing-xl)',
+            boxShadow: 'var(--shadow-sm)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-lg)' }}>
+              <h2 style={{
+                fontSize: '18px',
+                fontWeight: 600,
+                color: 'var(--color-text-primary)',
+              }}>
+                Minting Queue
+              </h2>
+              <a
+                href="/bank/minting"
+                style={{
+                  fontSize: '12px',
+                  color: 'var(--color-primary)',
+                  textDecoration: 'none',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                View All →
+              </a>
             </div>
+            <DataTable
+              columns={['ID', 'Patient', 'Amount', 'Date', 'Status']}
+              rows={mintingQueue.map((request) => [
+                request.id,
+                request.patient,
+                request.amount,
+                request.date,
+                <StatusBadge key={request.id} status={request.status} />,
+              ])}
+            />
+          </div>
 
-            <div className="space-y-6">
-              {/* Asset Details */}
-              <div>
-                <h4 className="font-semibold mb-3">Asset Details</h4>
-                <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg">
-                  <div>
-                    <p className="text-sm text-slate-600">Patient Address</p>
-                    <p className="font-mono text-sm">0x742d...4e8f</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-600">Asset Type</p>
-                    <p className="text-sm">Gold Jewelry</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-600">Estimated Value</p>
-                    <p className="text-sm font-semibold">$5,000</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-600">Deposit ID</p>
-                    <p className="font-mono text-sm">DEP-2025-001</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Verification Form */}
-              <div>
-                <h4 className="font-semibold mb-3">Verification</h4>
-                <div className="space-y-4">
-                  <Input
-                    label="Verified Value (USD)"
-                    type="number"
-                    placeholder="5000"
-                    defaultValue="5000"
-                  />
-                  <Input
-                    label="Asset Tokens to Mint"
-                    type="number"
-                    placeholder="5000"
-                    defaultValue="5000"
-                  />
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Verification Notes
-                    </label>
-                    <textarea
-                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      rows={3}
-                      placeholder="Add verification notes..."
-                    />
-                  </div>
-                  <Input
-                    label="IPFS Metadata Hash"
-                    placeholder="QmX..."
-                  />
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-3 pt-4">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => setSelectedRequest(null)}
+          {/* Insurance Summary */}
+          <div style={{
+            backgroundColor: 'var(--color-bg)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-lg)',
+            padding: 'var(--spacing-xl)',
+            boxShadow: 'var(--shadow-sm)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-lg)' }}>
+              <h2 style={{
+                fontSize: '18px',
+                fontWeight: 600,
+                color: 'var(--color-text-primary)',
+              }}>
+                Active Insurance Policies
+              </h2>
+              <a
+                href="/bank/insurance"
+                style={{
+                  fontSize: '12px',
+                  color: 'var(--color-primary)',
+                  textDecoration: 'none',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Manage →
+              </a>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+              {insuranceSummary.slice(0, 3).map((policy) => (
+                <div
+                  key={policy.id}
+                  style={{
+                    padding: 'var(--spacing-lg)',
+                    backgroundColor: 'var(--color-bg-secondary)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-md)',
+                  }}
                 >
-                  Cancel
-                </Button>
-                <Button variant="danger" className="flex-1">
-                  Reject
-                </Button>
-                <Button variant="primary" className="flex-1">
-                  Approve & Mint AT
-                </Button>
-              </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 'var(--spacing-sm)' }}>
+                    <div>
+                      <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 'var(--spacing-xs)' }}>
+                        {policy.hospital}
+                      </p>
+                      <p style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
+                        Coverage: {policy.coverage}
+                      </p>
+                    </div>
+                    <StatusBadge status={policy.status} />
+                  </div>
+                  <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', fontFamily: 'Roboto Mono' }}>
+                    {policy.premium}
+                  </p>
+                </div>
+              ))}
             </div>
-          </Card>
+          </div>
         </div>
-      )}
+
+        {/* Recent Transactions Ledger Preview */}
+        <div style={{
+          backgroundColor: 'var(--color-bg)',
+          border: '1px solid var(--color-border)',
+          borderRadius: 'var(--radius-lg)',
+          padding: 'var(--spacing-xl)',
+          boxShadow: 'var(--shadow-sm)',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-lg)' }}>
+            <h2 style={{
+              fontSize: '18px',
+              fontWeight: 600,
+              color: 'var(--color-text-primary)',
+            }}>
+              Recent Transactions
+            </h2>
+            <a
+              href="/bank/ledger"
+              style={{
+                fontSize: '12px',
+                color: 'var(--color-primary)',
+                textDecoration: 'none',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              View Full Ledger →
+            </a>
+          </div>
+          <DataTable
+            columns={['ID', 'Type', 'Amount', 'Date', 'Status']}
+            rows={recentTransactions.map((txn) => [
+              txn.id,
+              txn.type,
+              txn.amount,
+              txn.date,
+              <StatusBadge key={txn.id} status={txn.status as any} />,
+            ])}
+          />
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import MainContent from "@/components/layout/MainContent";
 // hospital-frontend/app/layout.tsx
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
@@ -6,6 +7,7 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import Sidebar from "@/components/layout/Sidebar";
 import { Web3Provider } from "@/lib/useWeb3";
+import { SidebarProvider } from "@/lib/useSidebar";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -22,16 +24,16 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <div className="min-h-screen flex flex-col bg-slate-50">
+        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--color-bg-secondary)' }}>
           <Web3Provider>
-            <Header />
-            <div className="flex flex-1">
-              <Sidebar />
-              <main className="flex-1 container mx-auto px-4 py-8">
-                {children}
-              </main>
-            </div>
-            <Footer />
+            <SidebarProvider>
+              <Header />
+              <div style={{ display: 'flex', flex: 1, position: 'relative' }}>
+                <Sidebar />
+                <MainContent>{children}</MainContent>
+              </div>
+              <Footer />
+            </SidebarProvider>
           </Web3Provider>
         </div>
       </body>
