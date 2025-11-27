@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import { useSidebar } from '@/lib/useSidebar';
+import { useHydration } from '@/lib/useHydration';
 import React from 'react';
 
 interface MenuItem {
@@ -15,10 +16,17 @@ interface MenuItem {
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const session = getCurrentUser();
   const { isOpen } = useSidebar();
+  const isHydrated = useHydration();
+  const [session, setSession] = React.useState<any>(null);
 
-  if (!session) return null;
+  React.useEffect(() => {
+    const user = getCurrentUser();
+    setSession(user);
+  }, []);
+
+  // Don't render until hydrated and session is loaded
+  if (!isHydrated || !session) return null;
 
   const patientMenu: MenuItem[] = [
     { name: 'Dashboard', href: '/patients', icon: '📊' },
