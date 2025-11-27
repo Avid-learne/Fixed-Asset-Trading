@@ -1,16 +1,40 @@
+// hospital-frontend/app/patients/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { getSession } from "@/lib/auth";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Badge from "@/components/ui/Badge";
 
 export default function PatientsPage() {
+  const router = useRouter();
+  const [session, setSession] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [atBalance] = useState("1,250.00");
   const [htBalance] = useState("350.00");
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
-  
+
+  useEffect(() => {
+    const currentSession = getSession();
+    if (!currentSession || currentSession.role !== "patient") {
+      router.push("/login");
+      return;
+    }
+    setSession(currentSession);
+    setLoading(false);
+  }, [router]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900"></div>
+      </div>
+    );
+  }
+
   const recentTransactions = [
     { id: 1, type: "Deposit", amount: "500 AT", date: "2025-11-20", status: "Completed" },
     { id: 2, type: "Received", amount: "50 HT", date: "2025-11-18", status: "Completed" },
@@ -19,10 +43,10 @@ export default function PatientsPage() {
 
   return (
     <div className="space-y-8">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900 mb-2">Patient Dashboard</h1>
-        <p className="text-slate-600">Manage your assets and view your health token benefits</p>
+      {/* Welcome Section */}
+      <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-2xl p-8 text-white">
+        <h1 className="text-3xl font-bold mb-2">Welcome back, {session?.name || "Patient"}</h1>
+        <p className="text-slate-300">Manage your tokenized assets and healthcare benefits</p>
       </div>
 
       {/* Token Balances */}
@@ -30,12 +54,12 @@ export default function PatientsPage() {
         <Card>
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm text-slate-600 mb-1">Asset Token (AT)</p>
-              <p className="text-3xl font-bold text-blue-600">{atBalance}</p>
-              <p className="text-xs text-slate-500 mt-1">Represents your deposited assets</p>
+              <p className="text-sm text-slate-600 mb-2 font-medium">Asset Token (AT)</p>
+              <p className="text-4xl font-bold text-slate-900 mb-1">{atBalance}</p>
+              <p className="text-xs text-slate-500">Represents your deposited assets</p>
             </div>
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-14 h-14 bg-blue-50 rounded-xl flex items-center justify-center">
+              <svg className="w-7 h-7 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
@@ -45,12 +69,12 @@ export default function PatientsPage() {
         <Card>
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm text-slate-600 mb-1">Health Token (HT)</p>
-              <p className="text-3xl font-bold text-green-600">{htBalance}</p>
-              <p className="text-xs text-slate-500 mt-1">Redeemable for healthcare benefits</p>
+              <p className="text-sm text-slate-600 mb-2 font-medium">Health Token (HT)</p>
+              <p className="text-4xl font-bold text-emerald-600 mb-1">{htBalance}</p>
+              <p className="text-xs text-slate-500">Redeemable for healthcare benefits</p>
             </div>
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-14 h-14 bg-emerald-50 rounded-xl flex items-center justify-center">
+              <svg className="w-7 h-7 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
               </svg>
             </div>
@@ -58,22 +82,22 @@ export default function PatientsPage() {
         </Card>
       </div>
 
-      {/* Actions */}
+      {/* Quick Actions */}
       <Card>
         <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
         <div className="grid md:grid-cols-2 gap-4">
           <Button
             variant="primary"
-            className="w-full"
+            className="w-full h-14 text-base"
             onClick={() => setIsDepositModalOpen(true)}
           >
-            <svg className="w-5 h-5 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             Deposit Asset
           </Button>
-          <Button variant="secondary" className="w-full">
-            <svg className="w-5 h-5 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <Button variant="secondary" className="w-full h-14 text-base">
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             Redeem Benefits
@@ -112,10 +136,10 @@ export default function PatientsPage() {
         </div>
       </Card>
 
-      {/* Deposit Modal (Simple) */}
+      {/* Deposit Modal */}
       {isDepositModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="max-w-md w-full mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <Card className="max-w-md w-full">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-semibold">Deposit Asset</h3>
               <button onClick={() => setIsDepositModalOpen(false)}>
@@ -128,7 +152,7 @@ export default function PatientsPage() {
               <Input label="Asset Description" placeholder="e.g., Gold jewelry, 24 carat" />
               <Input label="Estimated Value (USD)" type="number" placeholder="e.g., 5000" />
               <Input label="Asset ID / Reference" placeholder="e.g., GLD-2025-001" />
-              <div className="flex gap-3">
+              <div className="flex gap-3 pt-4">
                 <Button variant="outline" className="flex-1" onClick={() => setIsDepositModalOpen(false)}>
                   Cancel
                 </Button>
