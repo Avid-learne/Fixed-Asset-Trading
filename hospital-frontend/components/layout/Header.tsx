@@ -5,6 +5,34 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { getSession, logout } from "@/lib/auth";
 import { useRouter } from "next/navigation";
+import { useWeb3 } from "@/lib/useWeb3";
+
+function ConnectWalletButton() {
+  const { address, connect, disconnect } = useWeb3();
+
+  const short = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : null;
+
+  if (address) {
+    return (
+      <button
+        onClick={() => disconnect()}
+        className="px-3 py-1 bg-slate-100 text-slate-800 rounded-lg text-sm border border-slate-200"
+        title={address}
+      >
+        {short}
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => connect().catch(() => {})}
+      className="px-3 py-1 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors"
+    >
+      Connect Wallet
+    </button>
+  );
+}
 
 export default function Header() {
   const router = useRouter();
@@ -20,8 +48,17 @@ export default function Header() {
     router.push("/login");
   };
 
+  const getRoleName = (role: string) => {
+    const roles: Record<string, string> = {
+      patient: 'Patient',
+      bank: 'Bank',
+      hospital: 'Hospital',
+    };
+    return roles[role] || role;
+  };
+
   return (
-    <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
+    <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
       <nav className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -47,13 +84,13 @@ export default function Header() {
                   Dashboard
                 </Link>
                 
-                {/* User Menu */}
-                <div className="flex items-center gap-4">
+                {/* User Info */}
+                <div className="flex items-center gap-4 border-l border-slate-200 pl-6">
                   <div className="text-right">
                     <p className="text-sm font-medium text-slate-900">{session.name || "User"}</p>
-                    <p className="text-xs text-slate-500 capitalize">{session.role}</p>
+                    <p className="text-xs text-slate-500">{getRoleName(session.role)}</p>
                   </div>
-                  <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
+                  <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center border border-slate-200">
                     <span className="text-sm font-medium text-slate-700">
                       {(session.name || session.address || "U").charAt(0).toUpperCase()}
                     </span>
@@ -76,17 +113,18 @@ export default function Header() {
                 </Link>
                 <Link
                   href="/register"
-                  className="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors"
+                  className="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors shadow-sm"
                 >
                   Register
                 </Link>
+                <ConnectWalletButton />
               </>
             )}
           </div>
 
           {/* Mobile Menu Button */}
           <button
-            className="md:hidden p-2 rounded-lg hover:bg-slate-100"
+            className="md:hidden p-2 rounded-lg hover:bg-slate-100 transition-colors"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             aria-label="Toggle menu"
           >
@@ -102,12 +140,12 @@ export default function Header() {
 
         {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="md:hidden py-4 border-t border-slate-200">
+          <div className="md:hidden py-4 border-t border-slate-200 animate-fade-in">
             {session ? (
               <div className="space-y-3">
-                <div className="px-4 py-3 bg-slate-50 rounded-lg">
+                <div className="px-4 py-3 bg-slate-50 rounded-lg border border-slate-200">
                   <p className="text-sm font-medium text-slate-900">{session.name || "User"}</p>
-                  <p className="text-xs text-slate-500 capitalize">{session.role}</p>
+                  <p className="text-xs text-slate-500 mt-1">{getRoleName(session.role)}</p>
                   <p className="text-xs text-slate-400 font-mono mt-1">
                     {session.address?.slice(0, 6)}...{session.address?.slice(-4)}
                   </p>

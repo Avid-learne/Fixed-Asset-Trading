@@ -1,49 +1,58 @@
 // hospital-frontend/lib/auth.ts
-import { hash, compare } from 'bcryptjs';
+"use client";
+
+import { hash, compare } from "bcryptjs";
+
+export type Session = {
+  userId?: string;
+  role: "patient" | "bank" | "hospital" | string;
+  name?: string;
+  address?: string;
+  timestamp?: number;
+};
 
 export interface User {
   id: string;
   address: string;
-  role: 'patient' | 'bank' | 'hospital';
+  role: "patient" | "bank" | "hospital";
   passwordHash: string;
   name?: string;
   createdAt: number;
 }
 
-// In a real application, this would be a database
-// For demo purposes, we'll use localStorage with encryption
-const USERS_KEY = 'hospital_users';
-const SESSION_KEY = 'hospital_session';
+const USERS_KEY = "hospital_users";
+const SESSION_KEY = "hospital_session";
 
 export async function hashPassword(password: string): Promise<string> {
   return await hash(password, 10);
 }
 
-export async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  return await compare(password, hash);
+export async function verifyPassword(password: string, hashed: string): Promise<boolean> {
+  return await compare(password, hashed);
 }
 
 export function getUsers(): User[] {
-  if (typeof window === 'undefined') return [];
-  const data = localStorage.getItem(USERS_KEY);
-  return data ? JSON.parse(data) : [];
+  if (typeof window === "undefined") return [];
+  const raw = localStorage.getItem(USERS_KEY);
+  return raw ? JSON.parse(raw) : [];
 }
 
 export function saveUsers(users: User[]): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return;
   localStorage.setItem(USERS_KEY, JSON.stringify(users));
 }
 
 export async function registerUser(
   address: string,
   password: string,
-  role: User['role'],
+  role: User["role"],
   name?: string
 ): Promise<{ success: boolean; error?: string }> {
+  if (typeof window === "undefined") return { success: false, error: "No window" };
+
   const users = getUsers();
-  
-  if (users.find(u => u.address.toLowerCase() === address.toLowerCase())) {
-    return { success: false, error: 'Address already registered' };
+  if (users.find((u) => u.address.toLowerCase() === address.toLowerCase())) {
+    return { success: false, error: "Address already registered" };
   }
 
   const passwordHash = await hashPassword(password);
@@ -58,66 +67,72 @@ export async function registerUser(
 
   users.push(newUser);
   saveUsers(users);
-  
   return { success: true };
 }
 
 export async function loginUser(
   address: string,
   password: string,
-  role: User['role']
-): Promise<{ success: boolean; user?: Omit<User, 'passwordHash'>; error?: string }> {
+  role: User["role"]
+): Promise<{ success: boolean; user?: Omit<User, "passwordHash">; error?: string }> {
+  if (typeof window === "undefined") return { success: false, error: "No window" };
+
   const users = getUsers();
-  const user = users.find(
-    u => u.address.toLowerCase() === address.toLowerCase() && u.role === role
-  );
+  const user = users.find((u) => u.address.toLowerCase() === address.toLowerCase() && u.role === role);
+  if (!user) return { success: false, error: "Invalid credentials" };
 
-  if (!user) {
-    return { success: false, error: 'Invalid credentials' };
-  }
+  const valid = await verifyPassword(password, user.passwordHash);
+  if (!valid) return { success: false, error: "Invalid credentials" };
 
-  const isValid = await verifyPassword(password, user.passwordHash);
-  if (!isValid) {
-    return { success: false, error: 'Invalid credentials' };
-  }
-
-  const session = {
+  const session: Session = {
     userId: user.id,
-    address: user.address,
     role: user.role,
     name: user.name,
+    address: user.address,
     timestamp: Date.now(),
   };
 
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
 
-  const { passwordHash, ...userWithoutPassword } = user;
-  return { success: true, user: userWithoutPassword };
+  const { passwordHash, ...userNoPw } = user;
+  return { success: true, user: userNoPw };
 }
 
-export function getSession() {
-  if (typeof window === 'undefined') return null;
-  const data = localStorage.getItem(SESSION_KEY);
-  if (!data) return null;
-  
-  const session = JSON.parse(data);
-  // Check if session is older than 24 hours
-  if (Date.now() - session.timestamp > 24 * 60 * 60 * 1000) {
-    logout();
+export function setSession(session: Session) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+}
+
+export function getSession(): Session | null {
+  if (typeof window === "undefined") return null;
+  const raw = localStorage.getItem(SESSION_KEY);
+  if (!raw) return null;
+  try {
+    const s = JSON.parse(raw) as Session;
+    if (s.timestamp && Date.now() - s.timestamp > 24 * 60 * 60 * 1000) {
+      logout();
+      return null;
+    }
+    return s;
+  } catch (e) {
     return null;
   }
-  
-  return session;
 }
 
 export function logout(): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return;
   localStorage.removeItem(SESSION_KEY);
 }
 
-export function requireAuth(role?: User['role']) {
-  const session = getSession();
-  if (!session) return null;
-  if (role && session.role !== role) return null;
-  return session;
+export function createSessionForRole(role: Session["role"], address?: string, name?: string) {
+  const s: Session = { role, address, name, timestamp: Date.now() };
+  setSession(s);
+  return s;
+}
+
+export function requireAuth(role?: User["role"]) {
+  const s = getSession();
+  if (!s) return null;
+  if (role && s.role !== role) return null;
+  return s;
 }

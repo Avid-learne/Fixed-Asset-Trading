@@ -1,4 +1,3 @@
-// hospital-frontend/app/login/page.tsx
 "use client";
 
 import { useState } from "react";
@@ -23,9 +22,8 @@ export default function LoginPage() {
 
     try {
       const result = await loginUser(address, password, role);
-      
+
       if (result.success) {
-        // Redirect based on role
         const redirectPath = role === "patient" ? "/patients" : `/${role}`;
         router.push(redirectPath);
       } else {
@@ -41,7 +39,6 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
-        {/* Logo/Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-900 rounded-2xl mb-4">
             <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -52,8 +49,7 @@ export default function LoginPage() {
           <p className="text-slate-600">Secure blockchain-based healthcare system</p>
         </div>
 
-        {/* Login Card */}
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="bg-white rounded-2xl shadow-xl p-8 border border-slate-200">
           <h2 className="text-2xl font-semibold text-slate-900 mb-6">Sign In</h2>
 
           {error && (
@@ -63,35 +59,28 @@ export default function LoginPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Role Selection */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-3">
-                Select Role
-              </label>
+              <label className="block text-sm font-medium text-slate-700 mb-3">Select Role</label>
               <div className="grid grid-cols-3 gap-3">
                 {[
-                  { value: "patient", label: "Patient", icon: "👤" },
-                  { value: "bank", label: "Bank", icon: "🏦" },
-                  { value: "hospital", label: "Hospital", icon: "🏥" },
+                  { value: "patient", label: "Patient" },
+                  { value: "bank", label: "Bank" },
+                  { value: "hospital", label: "Hospital" },
                 ].map((option) => (
                   <button
                     key={option.value}
                     type="button"
                     onClick={() => setRole(option.value as UserRole)}
                     className={`p-4 rounded-xl border-2 transition-all duration-200 ${
-                      role === option.value
-                        ? "border-slate-900 bg-slate-50"
-                        : "border-slate-200 hover:border-slate-300"
+                      role === option.value ? "border-slate-900 bg-slate-50 shadow-sm" : "border-slate-200 hover:border-slate-300"
                     }`}
                   >
-                    <div className="text-2xl mb-2">{option.icon}</div>
                     <div className="text-sm font-medium text-slate-900">{option.label}</div>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Wallet Address */}
             <div>
               <label htmlFor="address" className="block text-sm font-medium text-slate-700 mb-2">
                 Wallet Address
@@ -107,7 +96,6 @@ export default function LoginPage() {
               />
             </div>
 
-            {/* Password */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-2">
                 Password
@@ -124,7 +112,6 @@ export default function LoginPage() {
               />
             </div>
 
-            {/* Submit Button */}
             <button
               type="submit"
               disabled={loading}
@@ -144,7 +131,6 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Register Link */}
           <div className="mt-6 text-center">
             <p className="text-sm text-slate-600">
               Don't have an account?{" "}
@@ -155,10 +141,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Footer */}
-        <p className="text-center text-sm text-slate-500 mt-8">
-          Secured with blockchain technology
-        </p>
+        <p className="text-center text-sm text-slate-500 mt-8">Secured with blockchain technology</p>
       </div>
     </div>
   );

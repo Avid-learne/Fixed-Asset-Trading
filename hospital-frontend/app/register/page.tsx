@@ -1,4 +1,3 @@
-// hospital-frontend/app/register/page.tsx
 "use client";
 
 import { useState } from "react";
@@ -22,7 +21,6 @@ export default function RegisterPage() {
     e.preventDefault();
     setError("");
 
-    // Validation
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
@@ -62,15 +60,15 @@ export default function RegisterPage() {
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-900 rounded-2xl mb-4">
             <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
           </div>
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Create Account</h1>
-          <p className="text-slate-600">Join the Hospital Asset Platform</p>
+          <p className="text-slate-600">Register for the Hospital Asset Platform</p>
         </div>
 
         {/* Registration Card */}
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="bg-white rounded-2xl shadow-xl p-8 border border-slate-200">
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-sm text-red-800">{error}</p>
@@ -85,9 +83,9 @@ export default function RegisterPage() {
               </label>
               <div className="grid grid-cols-3 gap-3">
                 {[
-                  { value: "patient", label: "Patient", icon: "👤" },
-                  { value: "bank", label: "Bank", icon: "🏦" },
-                  { value: "hospital", label: "Hospital", icon: "🏥" },
+                  { value: "patient", label: "Patient" },
+                  { value: "bank", label: "Bank" },
+                  { value: "hospital", label: "Hospital" },
                 ].map((option) => (
                   <button
                     key={option.value}
@@ -95,11 +93,10 @@ export default function RegisterPage() {
                     onClick={() => setRole(option.value as UserRole)}
                     className={`p-4 rounded-xl border-2 transition-all duration-200 ${
                       role === option.value
-                        ? "border-slate-900 bg-slate-50"
+                        ? "border-slate-900 bg-slate-50 shadow-sm"
                         : "border-slate-200 hover:border-slate-300"
                     }`}
                   >
-                    <div className="text-2xl mb-2">{option.icon}</div>
                     <div className="text-sm font-medium text-slate-900">{option.label}</div>
                   </button>
                 ))}
@@ -116,7 +113,7 @@ export default function RegisterPage() {
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Enter your name"
+                placeholder="Enter your full name"
                 required
                 className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all"
               />
