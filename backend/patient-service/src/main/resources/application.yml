@@ -1,7 +1,7 @@
 spring:
   datasource:
-    url: jdbc:postgresql://db.bvjphekkgeoclhyguikl.supabase.co:5432/postgres?sslmode=require&ssl=true&sslfactory=org.postgresql.ssl.DefaultSSLFactory
-    username: postgres
+    url: jdbc:postgresql://aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres?sslmode=require
+    username: postgres.bvjphekkgeoclhyguikl
     password: m3Slh7oAt1BiFQIf
     driver-class-name: org.postgresql.Driver
 
@@ -13,10 +13,6 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
-      javax:
-        persistence:
-          validation:
-            mode: none
 
   cloud:
     compatibility-verifier:
@@ -24,6 +20,24 @@ spring:
 
 server:
   port: 8081
+
+# Blockchain Configuration
+blockchain:
+  rpc:
+    url: http://localhost:8545
+  asset-token:
+    contract-address: "0xAssetTokenAddress"
+  health-token:
+    contract-address: "0xHealthTokenAddress"
+  hospital-financials:
+    contract-address: "0xHospitalFinancialsAddress"
+
+# Service Configuration
+service:
+  token:
+    conversion-rate: 100.0
+  benefits:
+    profit-share-percentage: 20.0
 
 # Logging configuration
 logging:
