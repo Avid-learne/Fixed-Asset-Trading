@@ -1,4 +1,4 @@
-package com.hospital.patient;
+package com.fixed_asset.patient_service;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
