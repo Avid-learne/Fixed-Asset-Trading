@@ -3,16 +3,48 @@
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Coins, Shield, Building, TrendingUp, Users, CheckCircle } from 'lucide-react'
+import { Coins, Shield, Building, TrendingUp, Users, CheckCircle, HeartPulse, Lock, ArrowRight } from 'lucide-react'
 
 export default function LandingPage() {
+  const benefits = [
+    {
+      icon: <Shield className="w-8 h-8 text-primary" />,
+      title: 'Asset Security',
+      description: 'Your assets are stored securely with institutional-grade custody solutions.',
+    },
+    {
+      icon: <TrendingUp className="w-8 h-8 text-primary" />,
+      title: 'Financial Growth',
+      description: 'Participate in a growing digital asset ecosystem with potential for appreciation.',
+    },
+    {
+      icon: <HeartPulse className="w-8 h-8 text-primary" />,
+      title: 'Healthcare Access',
+      description: 'Seamlessly pay for medical services using your tokenized assets.',
+    },
+    {
+      icon: <Users className="w-8 h-8 text-primary" />,
+      title: 'Community Trust',
+      description: 'Join a network of trusted hospitals, banks, and patients.',
+    },
+    {
+      icon: <Lock className="w-8 h-8 text-primary" />,
+      title: 'Data Privacy',
+      description: 'Your financial and medical data is protected with the highest security standards.',
+    },
+    {
+      icon: <CheckCircle className="w-8 h-8 text-primary" />,
+      title: 'Transparent Audits',
+      description: 'All transactions are recorded on an immutable blockchain for full transparency.',
+    },
+  ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gray-50 text-gray-800">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200">
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
               <Coins className="w-6 h-6 text-white" />
             </div>
@@ -25,104 +57,111 @@ export default function LandingPage() {
       </header>
 
       {/* Hero Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <div className="text-center max-w-3xl mx-auto">
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
-            Secure Healthcare Financing Through Asset Tokenization
-          </h1>
-          <p className="text-xl text-gray-600 mb-8">
-            Convert your physical assets into health tokens. Access premium healthcare services while maintaining financial flexibility.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4">
-            <Link href="/auth/signin">
-              <Button size="lg" className="w-full sm:w-auto">
-                Get Started
-              </Button>
-            </Link>
-            <Button size="lg" variant="outline" className="w-full sm:w-auto">
-              Learn More
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 text-center">
+        <h1 className="text-4xl md:text-6xl font-extrabold text-gray-900 mb-6 leading-tight">
+          Revolutionizing Healthcare Financing with Asset Tokenization
+        </h1>
+        <p className="text-xl text-gray-600 mb-10 max-w-3xl mx-auto">
+          Unlock the value of your physical assets to secure premium healthcare services. A modern solution for financial flexibility and peace of mind.
+        </p>
+        <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4">
+          <Link href="/auth/signin">
+            <Button size="lg" className="w-full sm:w-auto group">
+              Get Started <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
             </Button>
-          </div>
+          </Link>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">How It Works</h2>
-          <p className="text-lg text-gray-600">A transparent, secure system backed by blockchain technology</p>
-        </div>
+      {/* How It Works Section */}
+      <section className="bg-white py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">How It Works</h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">A simple, transparent, and secure process powered by blockchain technology.</p>
+          </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <Card className="text-center">
-            <CardHeader>
-              <div className="w-16 h-16 bg-primary-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Building className="w-8 h-8 text-primary" />
-              </div>
-              <CardTitle>Deposit Assets</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600">
-                Submit your physical assets for professional valuation and secure custody with our partner hospitals.
-              </p>
-            </CardContent>
-          </Card>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+            <Card className="text-center border-2 border-transparent hover:border-primary hover:shadow-xl transition-all">
+              <CardHeader>
+                <div className="w-16 h-16 bg-primary-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Building className="w-8 h-8 text-primary" />
+                </div>
+                <CardTitle className="text-xl font-semibold">1. Deposit Assets</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600">
+                  Submit your physical assets for professional valuation and secure custody with our trusted partner hospitals.
+                </p>
+              </CardContent>
+            </Card>
 
-          <Card className="text-center">
-            <CardHeader>
-              <div className="w-16 h-16 bg-accent-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Coins className="w-8 h-8 text-accent" />
-              </div>
-              <CardTitle>Receive Tokens</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600">
-                After approval, receive health tokens based on your asset value, secured on the blockchain.
-              </p>
-            </CardContent>
-          </Card>
+            <Card className="text-center border-2 border-transparent hover:border-primary hover:shadow-xl transition-all">
+              <CardHeader>
+                <div className="w-16 h-16 bg-primary-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Coins className="w-8 h-8 text-primary" />
+                </div>
+                <CardTitle className="text-xl font-semibold">2. Receive Health Tokens</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600">
+                  Receive health tokens equivalent to your asset's value, securely recorded on the blockchain.
+                </p>
+              </CardContent>
+            </Card>
 
-          <Card className="text-center">
-            <CardHeader>
-              <div className="w-16 h-16 bg-success-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <TrendingUp className="w-8 h-8 text-success" />
-              </div>
-              <CardTitle>Access Benefits</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600">
-                Redeem tokens for healthcare services, medications, and wellness programs at partner facilities.
-              </p>
-            </CardContent>
-          </Card>
+            <Card className="text-center border-2 border-transparent hover:border-primary hover:shadow-xl transition-all">
+              <CardHeader>
+                <div className="w-16 h-16 bg-primary-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <TrendingUp className="w-8 h-8 text-primary" />
+                </div>
+                <CardTitle className="text-xl font-semibold">3. Access Benefits</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600">
+                  Redeem your tokens for a wide range of healthcare services, medications, and wellness programs.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </section>
 
       {/* Benefits Section */}
-      <section className="bg-white py-16">
+      <section className="py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Why Choose Our Platform</h2>
-            <p className="text-lg text-gray-600">Trusted by patients, hospitals, and financial institutions</p>
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Why Choose Our Platform?</h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">Trusted by patients, hospitals, and financial institutions for a secure and transparent experience.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {/* Repeat all benefit cards here, same as your original code */}
+            {benefits.map((benefit, index) => (
+              <div key={index} className="flex items-start space-x-4">
+                <div className="w-12 h-12 bg-primary-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                  {benefit.icon}
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1">{benefit.title}</h3>
+                  <p className="text-gray-600">{benefit.description}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* CTA Section */}
-      <section className="bg-primary py-16">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <section className="bg-primary">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
           <h2 className="text-3xl font-bold text-white mb-4">
-            Ready to Get Started?
+            Ready to Secure Your Healthcare Future?
           </h2>
           <p className="text-xl text-primary-100 mb-8">
-            Join thousands of patients who have secured their healthcare future through asset tokenization.
+            Join thousands of patients who are taking control of their healthcare financing.
           </p>
           <Link href="/auth/signin">
-            <Button size="lg" variant="secondary">
+            <Button size="lg" variant="secondary" className="w-full sm:w-auto">
               Create Your Account
             </Button>
           </Link>
@@ -130,9 +169,15 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-gray-400 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Repeat footer content same as your original code */}
+      <footer className="bg-gray-900 text-gray-400">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="flex flex-col md:flex-row justify-between items-center">
+            <p>&copy; {new Date().getFullYear()} Fixed Asset Trading. All rights reserved.</p>
+            <div className="flex space-x-4 mt-4 md:mt-0">
+              <Link href="#" className="hover:text-white">Privacy Policy</Link>
+              <Link href="#" className="hover:text-white">Terms of Service</Link>
+            </div>
+          </div>
         </div>
       </footer>
     </div>

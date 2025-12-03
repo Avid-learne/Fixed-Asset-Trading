@@ -30,22 +30,41 @@ export default function SignInPage() {
       const result = await signIn('credentials', {
         email: formData.email,
         password: formData.password,
-        redirect: false, // Don't redirect automatically
+        redirect: false,
       })
 
       if (result?.error) {
-        // Show specific error messages
         if (result.error.includes('CredentialsSignin')) {
           setError('Invalid email or password')
         } else {
           setError(`Authentication failed: ${result.error}`)
         }
       } else if (result?.ok) {
-        // Successful login - redirect based on user role
-        // We'll redirect to the callback URL or home
-        // The middleware or layout will handle the role-based routing
-        router.push(callbackUrl)
-        router.refresh() // Refresh to update session
+        // Successful login - determine redirect based on user role
+        let redirectPath = '/'
+        
+        // Determine role from email (for demo purposes)
+        // In production, you would get this from the session or token
+        const email = formData.email.toLowerCase()
+        
+        if (email.includes('patient')) {
+          redirectPath = '/patient'
+        } else if (email.includes('staff') || email.includes('admin@example.com')) {
+          redirectPath = '/hospital'
+        } else if (email.includes('bank')) {
+          redirectPath = '/bank'
+        } else if (email.includes('super')) {
+          redirectPath = '/admin'
+        } else {
+          // Default fallback - try to use callbackUrl if it's not the landing page
+          redirectPath = callbackUrl !== '/' ? callbackUrl : '/patient'
+        }
+        
+        // Add small delay to ensure session is set
+        setTimeout(() => {
+          router.push(redirectPath)
+          router.refresh()
+        }, 100)
       }
     } catch (error: any) {
       console.error('Sign in error:', error)
@@ -149,11 +168,21 @@ export default function SignInPage() {
               >
                 <span className="font-medium">Bank Officer:</span> bank@example.com / password
               </button>
+              <button
+                type="button"
+                onClick={() => fillDemoAccount('superadmin@example.com', 'password')}
+                className="block w-full p-2 text-xs bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+              >
+                <span className="font-medium">Super Admin:</span> superadmin@example.com / password
+              </button>
             </div>
             
             <div className="mt-4 pt-4 border-t border-gray-200">
               <p className="text-xs text-gray-500">
                 All demo accounts use <code className="bg-gray-100 px-1 rounded">password</code> as password
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                After login, you'll be redirected to your role-specific dashboard
               </p>
             </div>
           </div>
