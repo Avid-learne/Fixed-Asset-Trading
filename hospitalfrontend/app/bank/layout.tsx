@@ -1,4 +1,3 @@
-// app/bank/layout.tsx
 'use client'
 
 import { useEffect } from 'react'
@@ -7,7 +6,6 @@ import { useRouter } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Header } from '@/components/layout/Header'
 import { useAuthStore } from '@/store/authStore'
-import { UserRole } from '@/types'
 
 export default function BankLayout({
   children,
@@ -19,14 +17,11 @@ export default function BankLayout({
   const { setUser, user } = useAuthStore()
 
   useEffect(() => {
+    // Only redirect if user is not logged in
     if (status === 'unauthenticated') {
       router.push('/auth/signin')
     } else if (session?.user) {
       setUser(session.user as any)
-      
-      if (session.user.role !== UserRole.BANK_OFFICER) {
-        router.push(`/${session.user.role.toLowerCase().replace('_', '')}`)
-      }
     }
   }, [session, status, router, setUser])
 
@@ -40,7 +35,7 @@ export default function BankLayout({
 
   return (
     <div className="flex h-screen bg-background">
-      <Sidebar userRole={UserRole.BANK_OFFICER} />
+      <Sidebar userRole={session?.user?.role} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
         <main className="flex-1 overflow-y-auto p-6">

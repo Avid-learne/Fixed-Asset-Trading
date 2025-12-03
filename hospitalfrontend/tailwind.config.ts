@@ -1,66 +1,63 @@
+// hospitalfrontend/tailwind.config.ts
 import type { Config } from 'tailwindcss'
 
 const config: Config = {
-  darkMode: ["class"],
   content: [
-    './pages/**/*.{ts,tsx}',
-    './components/**/*.{ts,tsx}',
-    './app/**/*.{ts,tsx}',
-    './src/**/*.{ts,tsx}',
+    './pages/**/*.{js,ts,jsx,tsx,mdx}',
+    './components/**/*.{js,ts,jsx,tsx,mdx}',
+    './app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
-    container: {
-      center: true,
-      padding: "2rem",
-      screens: {
-        "2xl": "1400px",
-      },
-    },
     extend: {
       colors: {
-        background: 'hsl(var(--background))',
-        foreground: 'hsl(var(--foreground))',
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
-        card: {
-          DEFAULT: 'hsl(var(--card))',
-          foreground: 'hsl(var(--card-foreground))',
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
+        primary: {
+          DEFAULT: '#0A3D62',
+          50: '#E8F0F7',
+          100: '#D1E1EF',
+          200: '#A3C3DF',
+          300: '#75A5CF',
+          400: '#4787BF',
+          500: '#0A3D62',
+          600: '#08314E',
+          700: '#06253B',
+          800: '#041927',
+          900: '#020C14',
+          foreground: '#FFFFFF',
         },
-        popover: {
-          DEFAULT: 'hsl(var(--popover))',
-          foreground: 'hsl(var(--popover-foreground))',
+        secondary: {
+          DEFAULT: '#3C6382',
+          foreground: '#FFFFFF',
         },
+        accent: {
+          DEFAULT: '#38ADA9',
+          50: '#E8F7F6',
+          foreground: '#FFFFFF',
+        },
+        success: '#27AE60',
+        warning: '#E2B93B',
+        error: '#E74C3C',
         muted: {
           DEFAULT: 'hsl(var(--muted))',
           foreground: 'hsl(var(--muted-foreground))',
         },
-        primary: { DEFAULT: '#0A3D62', foreground: '#FFFFFF' },
-        secondary: { DEFAULT: '#3C6382', foreground: '#FFFFFF' },
-        accent: { DEFAULT: '#38ADA9', foreground: '#FFFFFF' },
-        success: '#27AE60',
-        warning: '#E2B93B',
-        error: '#C0392B',
+        card: {
+          DEFAULT: 'hsl(var(--card))',
+          foreground: 'hsl(var(--card-foreground))',
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
       },
-      fontFamily: {
-        sans: ['Inter', 'IBM Plex Sans', 'system-ui', 'sans-serif'],
-      },
-      keyframes: {
-        'accordion-down': { from: { height: '0' }, to: { height: 'var(--radix-accordion-content-height)' } },
-        'accordion-up': { from: { height: 'var(--radix-accordion-content-height)' }, to: { height: '0' } },
-      },
-      animation: {
-        'accordion-down': 'accordion-down 0.2s ease-out',
-        'accordion-up': 'accordion-up 0.2s ease-out',
-      },
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [],
 }
 
 export default config
