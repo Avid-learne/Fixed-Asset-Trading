@@ -2,7 +2,6 @@
 import type { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 
-// Define your demo users
 const demoUsers = [
   {
     id: '1',
@@ -39,68 +38,60 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: 'credentials',
       credentials: {
-        email: { label: 'Email', type: 'email' },
+        email: { label: 'Email', type: 'text' },
         password: { label: 'Password', type: 'password' }
       },
       async authorize(credentials) {
-        try {
-          // Simple demo authentication
-          if (!credentials?.email || !credentials?.password) {
-            return null
-          }
+        if (!credentials?.email || !credentials?.password) return null
 
-          const user = demoUsers.find(
-            user => user.email === credentials.email && user.password === credentials.password
-          )
+        const user = demoUsers.find(
+          u => u.email === credentials.email && u.password === credentials.password
+        )
 
-          if (!user) {
-            throw new Error('Invalid email or password')
-          }
+        if (!user) return null
 
-          // Return user object without password
-          return {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            role: user.role
-          }
-        } catch (error) {
-          console.error('Auth error:', error)
-          return null
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role
         }
       }
     })
   ],
+
   callbacks: {
     async jwt({ token, user }) {
-      // Add role to token on initial sign in
       if (user) {
         token.id = user.id
-        token.role = user.role
         token.email = user.email
         token.name = user.name
+        token.role = user.role
       }
       return token
     },
+
     async session({ session, token }) {
-      // Add role to session
       if (session.user) {
         session.user.id = token.id as string
-        session.user.role = token.role as string
         session.user.email = token.email as string
         session.user.name = token.name as string
+        session.user.role = token.role as string
       }
       return session
     }
   },
+
   session: {
     strategy: 'jwt',
-    maxAge: 24 * 60 * 60, // 24 hours
+    maxAge: 24 * 60 * 60
   },
+
   pages: {
     signIn: '/auth/signin',
     error: '/auth/error'
   },
-  debug: true, // Enable debug in development
-  secret: process.env.NEXTAUTH_SECRET,
+
+  debug: true,
+  secret: process.env.NEXTAUTH_SECRET
 }

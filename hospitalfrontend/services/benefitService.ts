@@ -1,4 +1,4 @@
-// src/services/benefitService.ts
+// services/benefitService.ts
 import { api } from '@/lib/api'
 import { Benefit, BenefitRedemption, ApiResponse, PaginatedResponse } from '@/types'
 

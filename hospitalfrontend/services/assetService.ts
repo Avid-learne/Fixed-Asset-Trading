@@ -1,4 +1,4 @@
-// src/services/assetService.ts
+// services/assetService.ts
 import { api } from '@/lib/api'
 import { Asset, ApiResponse, PaginatedResponse, FilterOptions } from '@/types'
 
@@ -11,8 +11,8 @@ export const assetService = {
     if (filters?.dateTo) params.append('dateTo', filters.dateTo)
     if (filters?.sortBy) params.append('sortBy', filters.sortBy)
     if (filters?.sortOrder) params.append('sortOrder', filters.sortOrder)
-    if (filters?.page) params.append('page', filters.page.toString())
-    if (filters?.pageSize) params.append('pageSize', filters.pageSize.toString())
+    params.append('page', (filters?.page || 1).toString())
+    params.append('pageSize', (filters?.pageSize || 20).toString())
 
     return api.get<PaginatedResponse<Asset>>(`/assets?${params.toString()}`)
   },

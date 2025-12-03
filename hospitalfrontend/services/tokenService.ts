@@ -1,4 +1,4 @@
-// src/services/tokenService.ts
+// services/tokenService.ts
 import { api } from '@/lib/api'
 import { TokenBalance, TokenHistory, ApiResponse, PaginatedResponse, ChartDataPoint } from '@/types'
 
