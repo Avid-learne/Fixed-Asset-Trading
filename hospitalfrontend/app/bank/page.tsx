@@ -2,43 +2,30 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { Skeleton } from '@/components/ui/Skeleton'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { Shield, Building, DollarSign, TrendingUp, FileText, AlertCircle } from 'lucide-react'
 import { formatCurrency, formatNumber } from '@/lib/utils'
 
-const COLORS = ['#0A3D62', '#3C6382', '#38ADA9', '#E2B93B', '#27AE60']
+const COLORS: string[] = []
 
 export default function BankDashboard() {
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({
-    totalAssets: 12500000,
-    activePolicies: 48,
-    totalTokens: 2450000,
-    complianceScore: 98.5
+    totalAssets: 0,
+    activePolicies: 0,
+    totalTokens: 0,
+    complianceScore: 0
   })
 
   useEffect(() => {
     setTimeout(() => setLoading(false), 1000)
   }, [])
 
-  const assetDistribution = [
-    { name: 'Real Estate', value: 5500000 },
-    { name: 'Vehicles', value: 2300000 },
-    { name: 'Securities', value: 3200000 },
-    { name: 'Commodities', value: 1000000 },
-    { name: 'Other', value: 500000 }
-  ]
+  const assetDistribution: { name: string; value: number }[] = []
 
-  const monthlyData = [
-    { month: 'Jan', assets: 10200000, tokens: 2100000 },
-    { month: 'Feb', assets: 10800000, tokens: 2200000 },
-    { month: 'Mar', assets: 11200000, tokens: 2300000 },
-    { month: 'Apr', assets: 11800000, tokens: 2350000 },
-    { month: 'May', assets: 12200000, tokens: 2400000 },
-    { month: 'Jun', assets: 12500000, tokens: 2450000 }
-  ]
+  const monthlyData: { month: string; assets: number; tokens: number }[] = []
 
   if (loading) {
     return (
@@ -124,25 +111,29 @@ export default function BankDashboard() {
             <CardTitle>Asset Distribution</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={assetDistribution}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}
-                  outerRadius={100}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {assetDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => formatCurrency(value as number)} />
-              </PieChart>
-            </ResponsiveContainer>
+            {assetDistribution.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">No asset distribution data</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={assetDistribution}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {assetDistribution.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={'#0A3D62'} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => formatCurrency(value as number)} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
@@ -151,19 +142,23 @@ export default function BankDashboard() {
             <CardTitle>Monthly Growth Trends</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={monthlyData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis tickFormatter={(value) => `$${(value / 1000000).toFixed(1)}M`} />
-                <Tooltip 
-                  formatter={(value) => formatCurrency(value as number)}
-                />
-                <Legend />
-                <Bar dataKey="assets" fill="#0A3D62" name="Assets" />
-                <Bar dataKey="tokens" fill="#38ADA9" name="Tokens" />
-              </BarChart>
-            </ResponsiveContainer>
+            {monthlyData.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">No monthly trend data</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={monthlyData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis tickFormatter={(value) => `$${(value / 1000000).toFixed(1)}M`} />
+                  <Tooltip 
+                    formatter={(value) => formatCurrency(value as number)}
+                  />
+                  <Legend />
+                  <Bar dataKey="assets" fill="#0A3D62" name="Assets" />
+                  <Bar dataKey="tokens" fill="#38ADA9" name="Tokens" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -173,59 +168,7 @@ export default function BankDashboard() {
           <CardTitle>Risk Assessment & Compliance</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-full bg-success flex items-center justify-center">
-                  <Shield className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900">Asset Valuation Accuracy</p>
-                  <p className="text-sm text-gray-600">All assets properly evaluated</p>
-                </div>
-              </div>
-              <span className="text-success font-semibold">97.5%</span>
-            </div>
-
-            <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-full bg-success flex items-center justify-center">
-                  <FileText className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900">Documentation Compliance</p>
-                  <p className="text-sm text-gray-600">All required documents in order</p>
-                </div>
-              </div>
-              <span className="text-success font-semibold">100%</span>
-            </div>
-
-            <div className="flex items-center justify-between p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-full bg-warning flex items-center justify-center">
-                  <AlertCircle className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900">Risk Exposure</p>
-                  <p className="text-sm text-gray-600">Moderate risk in securities portfolio</p>
-                </div>
-              </div>
-              <span className="text-warning font-semibold">Medium</span>
-            </div>
-
-            <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-full bg-success flex items-center justify-center">
-                  <DollarSign className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900">Liquidity Ratio</p>
-                  <p className="text-sm text-gray-600">Sufficient reserves maintained</p>
-                </div>
-              </div>
-              <span className="text-success font-semibold">Healthy</span>
-            </div>
-          </div>
+            <div className="text-center py-12 text-muted-foreground">No risk or compliance insights</div>
         </CardContent>
       </Card>
 
@@ -235,32 +178,7 @@ export default function BankDashboard() {
             <CardTitle>Recent Policy Updates</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-start space-x-3 pb-4 border-b border-gray-200">
-                <div className="w-2 h-2 bg-primary rounded-full mt-2" />
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900">Asset Valuation Policy Updated</p>
-                  <p className="text-sm text-gray-600 mt-1">New guidelines for real estate appraisal</p>
-                  <p className="text-xs text-gray-400 mt-1">2 days ago</p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3 pb-4 border-b border-gray-200">
-                <div className="w-2 h-2 bg-accent rounded-full mt-2" />
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900">Compliance Check Completed</p>
-                  <p className="text-sm text-gray-600 mt-1">Q2 2024 audit passed successfully</p>
-                  <p className="text-xs text-gray-400 mt-1">1 week ago</p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <div className="w-2 h-2 bg-success rounded-full mt-2" />
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900">Risk Framework Enhanced</p>
-                  <p className="text-sm text-gray-600 mt-1">New risk assessment protocols implemented</p>
-                  <p className="text-xs text-gray-400 mt-1">2 weeks ago</p>
-                </div>
-              </div>
-            </div>
+            <div className="text-center py-12 text-muted-foreground">No recent policy updates</div>
           </CardContent>
         </Card>
 
@@ -269,47 +187,7 @@ export default function BankDashboard() {
             <CardTitle>Asset Performance Metrics</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">Asset Utilization Rate</span>
-                  <span className="text-sm font-medium text-gray-900">86%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-success h-2 rounded-full" style={{ width: '86%' }} />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">Token Redemption Rate</span>
-                  <span className="text-sm font-medium text-gray-900">72%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-primary h-2 rounded-full" style={{ width: '72%' }} />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">Portfolio Diversification</span>
-                  <span className="text-sm font-medium text-gray-900">91%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-accent h-2 rounded-full" style={{ width: '91%' }} />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">Regulatory Compliance</span>
-                  <span className="text-sm font-medium text-gray-900">98%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-success h-2 rounded-full" style={{ width: '98%' }} />
-                </div>
-              </div>
-            </div>
+            <div className="text-center py-12 text-muted-foreground">No performance metrics available</div>
           </CardContent>
         </Card>
       </div>

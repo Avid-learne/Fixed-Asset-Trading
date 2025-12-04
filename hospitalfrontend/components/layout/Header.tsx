@@ -6,7 +6,8 @@ import { Bell, ChevronDown, LogOut, User as UserIcon, X } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useNotificationStore } from '@/store/notificationStore'
 import { signOut } from 'next-auth/react'
-import { Badge } from '@/components/ui/Badge'
+import { Badge } from '@/components/ui/badge'
+import { SidebarTrigger } from '@/components/ui/sidebar'
 import { formatRelativeTime } from '@/lib/utils'
 
 export const Header: React.FC = () => {
@@ -39,11 +40,14 @@ export const Header: React.FC = () => {
 
   return (
     <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 relative">
-      <div className="flex-1">
-        <h1 className="text-lg font-semibold text-gray-800">
-          Welcome back, {user?.name || 'User'}
-        </h1>
-        <p className="text-sm text-gray-500">{user?.role || 'Guest'}</p>
+      <div className="flex items-center gap-4 flex-1">
+        <SidebarTrigger />
+        <div>
+          <h1 className="text-lg font-semibold text-gray-800">
+            Welcome back, {user?.name || 'User'}
+          </h1>
+          <p className="text-sm text-gray-500">{user?.role || 'Guest'}</p>
+        </div>
       </div>
 
       <div className="flex items-center space-x-4">

@@ -1,484 +1,253 @@
-// src/app/hospitaladmin/page.tsx
 'use client'
 
-import React, { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
-import { Badge } from '@/components/ui/Badge'
-import { Skeleton } from '@/components/ui/Skeleton'
-import { useAuthStore } from '@/store/authStore'
-import { UserRole } from '@/types'
+import React, { useState } from 'react'
 import Link from 'next/link'
-import { 
-  Users, 
-  Shield, 
-  Coins, 
-  TrendingUp, 
-  FileText, 
-  Settings,
-  Clock,
-  CheckCircle,
-  AlertCircle,
-  BarChart3,
-  Database,
-  Activity
-} from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts'
+import { Coins, Users, TrendingUp, AlertCircle, Building, Wallet, ArrowUpRight, Activity, DollarSign, CheckCircle, Clock, ArrowDownRight } from 'lucide-react'
 
-interface DashboardStats {
-  totalPatients: number
-  pendingDeposits: number
-  approvedDeposits: number
-  totalTokensMinted: number
-  activeStaff: number
-  tradingVolume: number
-  systemHealth: number
-  complianceScore: number
-}
+const mintingData = [
+  { month: 'Jan', minted: 4000 },
+  { month: 'Feb', minted: 3000 },
+  { month: 'Mar', minted: 2000 },
+  { month: 'Apr', minted: 2780 },
+  { month: 'May', minted: 1890 },
+  { month: 'Jun', minted: 2390 },
+]
 
-export default function HospitalAdminPage() {
-  const { user, hasRole } = useAuthStore()
-  const [loading, setLoading] = useState(true)
-  const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [isAdmin, setIsAdmin] = useState(false)
+const allocationData = [
+  { month: 'Jan', allocated: 2400 },
+  { month: 'Feb', allocated: 1398 },
+  { month: 'Mar', allocated: 9800 },
+  { month: 'Apr', allocated: 3908 },
+  { month: 'May', allocated: 4800 },
+  { month: 'Jun', allocated: 3800 },
+]
 
-  useEffect(() => {
-    // Check if user has admin privileges
-    const checkAdmin = hasRole([UserRole.HOSPITAL_ADMIN, UserRole.SUPER_ADMIN])
-    setIsAdmin(checkAdmin)
-    
-    // Simulate loading data
-    setTimeout(() => {
-      setStats({
-        totalPatients: 1245,
-        pendingDeposits: 23,
-        approvedDeposits: 156,
-        totalTokensMinted: 1250000,
-        activeStaff: 48,
-        tradingVolume: 5430000,
-        systemHealth: 98,
-        complianceScore: 96.5
-      })
-      setLoading(false)
-    }, 1000)
-  }, [hasRole])
+const assetTypeDistribution = [
+  { name: 'Real Estate', value: 45, color: '#3b82f6' },
+  { name: 'Medical Equipment', value: 30, color: '#10b981' },
+  { name: 'Vehicles', value: 15, color: '#f59e0b' },
+  { name: 'Other Assets', value: 10, color: '#6366f1' },
+]
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-32 w-full" />
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Skeleton className="h-32" />
-          <Skeleton className="h-32" />
-          <Skeleton className="h-32" />
-          <Skeleton className="h-32" />
-        </div>
-      </div>
-    )
-  }
+const recentActivity = [
+  { action: 'Token Minting', description: 'Minted 5,000 AT for Real Estate Pool', time: '5 mins ago', status: 'success' },
+  { action: 'Deposit Approved', description: 'Approved DEP-1024 - Medical Equipment', time: '12 mins ago', status: 'success' },
+  { action: 'Profit Distribution', description: 'Allocated $50K in HT to patients', time: '1 hour ago', status: 'success' },
+  { action: 'Bank Verification', description: 'DEP-1025 pending bank approval', time: '2 hours ago', status: 'pending' },
+]
+
+export default function HospitalAdminHome() {
+  const [timeRange, setTimeRange] = useState('month')
+  
+  const stats = [
+    { label: 'Total AT Minted', value: '12.5M', icon: Coins, change: '+12%', trend: 'up', subtext: 'this month' },
+    { label: 'Total HT Allocated', value: '8.2M', icon: Users, change: '+5%', trend: 'up', subtext: 'this month' },
+    { label: 'Pending Deposits', value: '14', icon: Clock, change: '3 urgent', trend: 'neutral', subtext: 'requires action' },
+    { label: 'Hospital Revenue', value: '$450K', icon: DollarSign, change: '+8%', trend: 'up', subtext: 'this month' },
+    { label: 'Active Patients', value: '1,247', icon: Activity, change: '+23', trend: 'up', subtext: 'this week' },
+    { label: 'Trading Volume', value: '$2.3M', icon: TrendingUp, change: '+15%', trend: 'up', subtext: 'last 30 days' },
+  ]
 
   return (
     <div className="space-y-6">
-      {/* Header with role badge */}
-      <div className="flex items-center justify-between">
+      <div className="flex justify-between items-center">
         <div>
-          <div className="flex items-center space-x-3">
-            <h1 className="text-3xl font-bold text-gray-900">Hospital Administration</h1>
-            <Badge variant={isAdmin ? 'success' : 'default'}>
-              {isAdmin ? 'Hospital Admin' : 'Hospital Staff'}
-            </Badge>
-          </div>
-          <p className="text-gray-500 mt-1">
-            {isAdmin 
-              ? 'Full administrative control over hospital operations' 
-              : 'Manage patient deposits and token operations'}
-          </p>
+          <h1 className="text-3xl font-bold text-foreground">Hospital Admin Dashboard</h1>
+          <p className="text-muted-foreground mt-1">Overview of minting, allocation, and hospital performance.</p>
         </div>
-        <div className="flex items-center space-x-2">
-          <span className="text-sm text-gray-600">Welcome,</span>
-          <span className="font-medium text-gray-900">{user?.name || user?.email}</span>
+        <div className="flex gap-2">
+             <Link href="/hospitaladmin/minting"><Button>Mint Tokens</Button></Link>
+             <Link href="/hospitaladmin/trading"><Button variant="outline">Simulate Trade</Button></Link>
         </div>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Pending Deposits</CardTitle>
-            <Clock className="w-4 h-4 text-warning" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{stats?.pendingDeposits || 0}</div>
-            <p className="text-xs text-gray-500 mt-1">Awaiting approval</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Patients</CardTitle>
-            <Users className="w-4 h-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{stats?.totalPatients || 0}</div>
-            <p className="text-xs text-gray-500 mt-1">Registered patients</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Tokens Minted</CardTitle>
-            <Coins className="w-4 h-4 text-accent" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">
-              {stats?.totalTokensMinted.toLocaleString() || 0}
-            </div>
-            <p className="text-xs text-success mt-1">
-              <TrendingUp className="w-3 h-3 inline mr-1" />
-              +12% this month
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">System Health</CardTitle>
-            <Activity className="w-4 h-4 text-success" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{stats?.systemHealth || 0}%</div>
-            <p className="text-xs text-gray-500 mt-1">Optimal performance</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Main Action Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Core Operations - Visible to all staff */}
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader>
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-primary-50 rounded-lg flex items-center justify-center">
-                <FileText className="w-5 h-5 text-primary" />
-              </div>
-              <CardTitle>Approve Deposits</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-gray-600">
-              Review and approve patient asset deposits. Mint tokens for approved assets.
-            </p>
-            <div className="flex space-x-2">
-              <Link href="/hospital/deposits" className="flex-1">
-                <Button className="w-full">Review Deposits</Button>
-              </Link>
-              <Link href="/hospital/minting" className="flex-1">
-                <Button variant="outline" className="w-full">Mint Tokens</Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader>
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-accent-50 rounded-lg flex items-center justify-center">
-                <BarChart3 className="w-5 h-5 text-accent" />
-              </div>
-              <CardTitle>Trading Operations</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-gray-600">
-              Simulate trading with tokenized assets to generate returns for patients.
-            </p>
-            <Link href="/hospital/trading">
-              <Button className="w-full">Start Trading</Button>
-            </Link>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader>
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-success-50 rounded-lg flex items-center justify-center">
-                <Users className="w-5 h-5 text-success" />
-              </div>
-              <CardTitle>Patient Management</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-gray-600">
-              View patient profiles, track their assets, and manage benefits.
-            </p>
-            <div className="flex space-x-2">
-              <Link href="/hospital/patients" className="flex-1">
-                <Button className="w-full">View Patients</Button>
-              </Link>
-              <Link href="/hospital/audit" className="flex-1">
-                <Button variant="outline" className="w-full">Audit Logs</Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Admin-only sections */}
-        {isAdmin && (
-          <>
-            <Card className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-warning-50 rounded-lg flex items-center justify-center">
-                    <Shield className="w-5 h-5 text-warning" />
+        {stats.map((stat, index) => {
+          const Icon = stat.icon
+          const isPositive = stat.trend === 'up'
+          const TrendIcon = isPositive ? ArrowUpRight : ArrowDownRight
+          
+          return (
+            <Card key={index} className="hover:shadow-lg transition-shadow">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm text-muted-foreground">{stat.label}</CardTitle>
+                  <div className={`p-2 rounded-lg ${isPositive ? 'bg-green-50' : 'bg-muted'}`}>
+                    <Icon className={`w-5 h-5 ${isPositive ? 'text-green-600' : 'text-primary'}`} />
                   </div>
-                  <CardTitle>System Security</CardTitle>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-gray-600">
-                  Configure security settings, manage staff permissions, and monitor access.
-                </p>
-                <div className="flex space-x-2">
-                  <Link href="/hospital/settings" className="flex-1">
-                    <Button className="w-full">Settings</Button>
-                  </Link>
-                  <Button variant="outline" className="flex-1">
-                    Security Logs
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center">
-                    <Database className="w-5 h-5 text-purple-600" />
-                  </div>
-                  <CardTitle>System Management</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-gray-600">
-                  Manage system configurations, database, and integration settings.
-                </p>
+              <CardContent>
                 <div className="space-y-2">
-                  <Button variant="outline" className="w-full">Database Backup</Button>
-                  <Button variant="outline" className="w-full">System Logs</Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
-                    <Settings className="w-5 h-5 text-blue-600" />
+                  <p className="text-3xl font-bold text-foreground">{stat.value}</p>
+                  <div className="flex items-center gap-2">
+                    {stat.trend !== 'neutral' && (
+                      <Badge variant={isPositive ? 'default' : 'secondary'} className="text-xs">
+                        <TrendIcon className="w-3 h-3 mr-1" />
+                        {stat.change}
+                      </Badge>
+                    )}
+                    <span className="text-xs text-muted-foreground">{stat.subtext}</span>
                   </div>
-                  <CardTitle>Administration</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-gray-600">
-                  Advanced system configuration and administrative controls.
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button variant="outline" size="sm">Staff Management</Button>
-                  <Button variant="outline" size="sm">API Settings</Button>
-                  <Button variant="outline" size="sm">Blockchain Config</Button>
-                  <Button variant="outline" size="sm">Notifications</Button>
                 </div>
               </CardContent>
             </Card>
-          </>
-        )}
+          )
+        })}
       </div>
 
-      {/* Recent Activity & Alerts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>AT Minting History</CardTitle>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setTimeRange('week')}>Week</Button>
+                <Button variant="outline" size="sm" onClick={() => setTimeRange('month')}>Month</Button>
+                <Button variant="outline" size="sm" onClick={() => setTimeRange('year')}>Year</Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {[
-                { icon: CheckCircle, color: 'text-success', text: 'Asset "Gold Jewelry" approved for Patient #P-2345', time: '2 min ago' },
-                { icon: Coins, color: 'text-accent', text: 'Minted 150 tokens for Patient #P-1892', time: '15 min ago' },
-                { icon: FileText, color: 'text-primary', text: 'New deposit submitted: "Commercial Property"', time: '30 min ago' },
-                { icon: TrendingUp, color: 'text-warning', text: 'Trading session completed: +$2,450 profit', time: '1 hour ago' },
-                { icon: Users, color: 'text-purple-600', text: 'New patient registration: John Smith', time: '2 hours ago' },
-              ].map((activity, index) => (
-                <div key={index} className="flex items-start space-x-3">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center ${activity.color} bg-opacity-10`}>
-                    <activity.icon className="w-3 h-3" />
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={mintingData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="minted" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>HT Allocation Trend</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={allocationData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip />
+                <Line type="monotone" dataKey="allocated" stroke="var(--color-secondary)" strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Asset Type Distribution</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={250}>
+              <PieChart>
+                <Pie
+                  data={assetTypeDistribution}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {assetTypeDistribution.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="mt-4 space-y-2">
+              {assetTypeDistribution.map((item, index) => (
+                <div key={index} className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                    <span>{item.name}</span>
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-900">{activity.text}</p>
-                    <p className="text-xs text-gray-400">{activity.time}</p>
-                  </div>
+                  <span className="font-medium">{item.value}%</span>
                 </div>
               ))}
             </div>
           </CardContent>
         </Card>
-
-        <Card>
+          
+        <Card className="lg:col-span-2">
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>System Alerts</CardTitle>
-              <Badge variant="outline">{isAdmin ? 'Admin View' : 'Staff View'}</Badge>
-            </div>
+            <CardTitle>Recent Activity</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {isAdmin ? (
-                // Admin alerts
-                <>
-                  <div className="flex items-center justify-between p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <AlertCircle className="w-5 h-5 text-warning" />
-                      <div>
-                        <p className="font-medium text-gray-900">Database Backup Required</p>
-                        <p className="text-sm text-gray-600">Last backup was 6 days ago</p>
-                      </div>
-                    </div>
-                    <Button size="sm">Backup Now</Button>
+              {recentActivity.map((activity, index) => (
+                <div key={index} className="flex items-start gap-4 p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
+                  <div className={`mt-1 p-2 rounded-full ${
+                    activity.status === 'success' ? 'bg-green-100' : 'bg-yellow-100'
+                  }`}>
+                    {activity.status === 'success' ? (
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <Clock className="w-4 h-4 text-yellow-600" />
+                    )}
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <Shield className="w-5 h-5 text-primary" />
+                  <div className="flex-1">
+                    <div className="flex justify-between items-start">
                       <div>
-                        <p className="font-medium text-gray-900">Security Audit Due</p>
-                        <p className="text-sm text-gray-600">Monthly security review pending</p>
+                        <h4 className="font-medium text-sm">{activity.action}</h4>
+                        <p className="text-xs text-muted-foreground mt-1">{activity.description}</p>
                       </div>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap ml-4">{activity.time}</span>
                     </div>
-                    <Button size="sm" variant="outline">Schedule</Button>
-                  </div>
-                </>
-              ) : (
-                // Staff alerts
-                <>
-                  <div className="flex items-center justify-between p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <Clock className="w-5 h-5 text-warning" />
-                      <div>
-                        <p className="font-medium text-gray-900">Pending Deposits</p>
-                        <p className="text-sm text-gray-600">{stats?.pendingDeposits} assets need review</p>
-                      </div>
-                    </div>
-                    <Link href="/hospital/deposits">
-                      <Button size="sm">Review</Button>
-                    </Link>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <CheckCircle className="w-5 h-5 text-success" />
-                      <div>
-                        <p className="font-medium text-gray-900">Tokens Ready to Mint</p>
-                        <p className="text-sm text-gray-600">15 approved assets awaiting token minting</p>
-                      </div>
-                    </div>
-                    <Link href="/hospital/minting">
-                      <Button size="sm">Mint Tokens</Button>
-                    </Link>
-                  </div>
-                </>
-              )}
-              
-              {/* Common alert for all */}
-              <div className="flex items-center justify-between p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <Activity className="w-5 h-5 text-purple-600" />
-                  <div>
-                    <p className="font-medium text-gray-900">System Health</p>
-                    <p className="text-sm text-gray-600">All systems operational</p>
                   </div>
                 </div>
-                <Badge variant="success">Healthy</Badge>
-              </div>
+              ))}
             </div>
+            <Button variant="ghost" className="w-full mt-4">View All Activity</Button>
           </CardContent>
         </Card>
       </div>
-
-      {/* Role Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Role Information</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h4 className="font-medium text-gray-900 mb-3">Current Permissions</h4>
-              <ul className="space-y-2 text-sm text-gray-600">
-                <li className="flex items-center">
-                  <CheckCircle className="w-4 h-4 text-success mr-2" />
-                  Approve/reject asset deposits
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="w-4 h-4 text-success mr-2" />
-                  Mint health tokens
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="w-4 h-4 text-success mr-2" />
-                  Access patient profiles
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="w-4 h-4 text-success mr-2" />
-                  View audit logs
-                </li>
-                {isAdmin && (
-                  <>
-                    <li className="flex items-center">
-                      <CheckCircle className="w-4 h-4 text-success mr-2" />
-                      System configuration
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="w-4 h-4 text-success mr-2" />
-                      Staff management
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="w-4 h-4 text-success mr-2" />
-                      Security settings
-                    </li>
-                  </>
-                )}
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-medium text-gray-900 mb-3">Quick Links</h4>
-              <div className="space-y-2">
-                <Link href="/hospital/deposits">
-                  <Button variant="outline" className="w-full justify-start">
-                    <FileText className="w-4 h-4 mr-2" />
-                    Approve Deposits
-                  </Button>
-                </Link>
-                <Link href="/hospital/trading">
-                  <Button variant="outline" className="w-full justify-start">
-                    <TrendingUp className="w-4 h-4 mr-2" />
-                    Trading Simulation
-                  </Button>
-                </Link>
-                <Link href="/hospital/patients">
-                  <Button variant="outline" className="w-full justify-start">
-                    <Users className="w-4 h-4 mr-2" />
-                    Patient Directory
-                  </Button>
-                </Link>
-                {isAdmin && (
-                  <Link href="/hospital/settings">
-                    <Button variant="outline" className="w-full justify-start">
-                      <Settings className="w-4 h-4 mr-2" />
-                      System Settings
-                    </Button>
-                  </Link>
-                )}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card className="lg:col-span-2">
+            <CardHeader>
+                <CardTitle>System Alerts</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="space-y-4">
+                    {[1,2,3].map((i) => (
+                        <div key={i} className="flex items-start gap-4 p-3 bg-muted/50 rounded-lg">
+                            <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
+                            <div>
+                                <p className="font-medium text-sm">Bank Verification Delayed</p>
+                                <p className="text-xs text-muted-foreground">Deposit #DEP-{1000+i} is pending bank approval for over 48 hours.</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </CardContent>
+          </Card>
+          
+           <Card>
+            <CardHeader>
+                <CardTitle>Quick Actions</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+                <Link href="/hospitaladmin/deposits" className="block"><Button variant="ghost" className="w-full justify-start">Review Pending Deposits</Button></Link>
+                <Link href="/hospitaladmin/allocation" className="block"><Button variant="ghost" className="w-full justify-start">Allocate Profits</Button></Link>
+                <Link href="/hospitaladmin/staff" className="block"><Button variant="ghost" className="w-full justify-start">Manage Staff</Button></Link>
+                <Link href="/hospitaladmin/reports" className="block"><Button variant="ghost" className="w-full justify-start">Generate Monthly Report</Button></Link>
+            </CardContent>
+          </Card>
+      </div>
     </div>
   )
 }

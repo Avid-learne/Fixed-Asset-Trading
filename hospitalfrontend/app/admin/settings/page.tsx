@@ -2,9 +2,10 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { FormField } from '@/components/ui/form-field'
 import { Settings, Shield, Database, Bell, Globe, Lock } from 'lucide-react'
 
 export default function SystemSettingsPage() {
@@ -30,8 +31,8 @@ export default function SystemSettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">System Settings</h1>
-        <p className="text-gray-500 mt-1">Configure platform-wide settings</p>
+        <h1 className="text-3xl font-bold text-foreground">System Settings</h1>
+        <p className="text-muted-foreground mt-1">Configure platform-wide settings</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -46,8 +47,8 @@ export default function SystemSettingsPage() {
                     onClick={() => setActiveTab(tab.id)}
                     className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
                       activeTab === tab.id
-                        ? 'bg-primary text-white'
-                        : 'text-gray-700 hover:bg-gray-50'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:bg-muted'
                     }`}
                   >
                     <Icon className="w-4 h-4" />
@@ -66,13 +67,13 @@ export default function SystemSettingsPage() {
                 <CardTitle>General Settings</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Input
+                <FormField
                   label="Platform Name"
                   defaultValue="Fixed Asset Trading"
                   placeholder="Enter platform name"
                 />
                 
-                <Input
+                <FormField
                   label="Support Email"
                   type="email"
                   defaultValue="support@fixedassettrading.com"
@@ -80,29 +81,29 @@ export default function SystemSettingsPage() {
                 />
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-foreground mb-1">
                     Platform Description
                   </label>
                   <textarea
                     rows={4}
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                    className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm"
                     defaultValue="Healthcare financing through asset tokenization"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-foreground mb-1">
                     Maintenance Mode
                   </label>
                   <div className="flex items-center space-x-2">
-                    <input type="checkbox" className="w-4 h-4 text-primary" />
-                    <span className="text-sm text-gray-600">Enable maintenance mode</span>
+                    <input type="checkbox" className="w-4 h-4 accent-[hsl(var(--primary))]" />
+                    <span className="text-sm text-muted-foreground">Enable maintenance mode</span>
                   </div>
                 </div>
 
                 <div className="flex justify-end pt-4">
-                  <Button onClick={handleSave} loading={loading}>
-                    Save Changes
+                  <Button onClick={handleSave} disabled={loading}>
+                    {loading ? 'Saving…' : 'Save Changes'}
                   </Button>
                 </div>
               </CardContent>
@@ -118,37 +119,37 @@ export default function SystemSettingsPage() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between py-3 border-b">
                     <div>
-                      <p className="font-medium text-gray-900">Require Two-Factor Authentication</p>
-                      <p className="text-sm text-gray-600">Enforce 2FA for all users</p>
+                      <p className="font-medium text-foreground">Require Two-Factor Authentication</p>
+                      <p className="text-sm text-muted-foreground">Enforce 2FA for all users</p>
                     </div>
-                    <input type="checkbox" defaultChecked className="w-5 h-5 text-primary" />
+                    <input type="checkbox" defaultChecked className="w-5 h-5 accent-[hsl(var(--primary))]" />
                   </div>
 
                   <div className="flex items-center justify-between py-3 border-b">
                     <div>
-                      <p className="font-medium text-gray-900">Password Complexity</p>
-                      <p className="text-sm text-gray-600">Require strong passwords</p>
+                      <p className="font-medium text-foreground">Password Complexity</p>
+                      <p className="text-sm text-muted-foreground">Require strong passwords</p>
                     </div>
-                    <input type="checkbox" defaultChecked className="w-5 h-5 text-primary" />
+                    <input type="checkbox" defaultChecked className="w-5 h-5 accent-[hsl(var(--primary))]" />
                   </div>
 
                   <div className="flex items-center justify-between py-3 border-b">
                     <div>
-                      <p className="font-medium text-gray-900">IP Whitelisting</p>
-                      <p className="text-sm text-gray-600">Restrict access by IP address</p>
+                      <p className="font-medium text-foreground">IP Whitelisting</p>
+                      <p className="text-sm text-muted-foreground">Restrict access by IP address</p>
                     </div>
-                    <input type="checkbox" className="w-5 h-5 text-primary" />
+                    <input type="checkbox" className="w-5 h-5 accent-[hsl(var(--primary))]" />
                   </div>
                 </div>
 
-                <Input
+                <FormField
                   label="Session Timeout (minutes)"
                   type="number"
                   defaultValue="30"
                   placeholder="30"
                 />
 
-                <Input
+                <FormField
                   label="Password Expiry (days)"
                   type="number"
                   defaultValue="90"
@@ -156,9 +157,47 @@ export default function SystemSettingsPage() {
                 />
 
                 <div className="flex justify-end pt-4">
-                  <Button onClick={handleSave} loading={loading}>
-                    Update Security Settings
+                  <Button onClick={handleSave} disabled={loading}>
+                    {loading ? 'Updating…' : 'Update Security Settings'}
                   </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {activeTab === 'database' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Database Configuration</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-muted border border-border rounded-lg p-4 mb-4">
+                  <p className="text-sm text-muted-foreground">
+                    <Database className="w-4 h-4 inline mr-2" />
+                    Database settings are configured in environment variables
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <p className="font-medium text-foreground mb-2">Database Status</p>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <span className="text-sm text-muted-foreground">Connected - 12.4ms latency</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="font-medium text-foreground mb-2">Backup Status</p>
+                    <p className="text-sm text-muted-foreground">Last backup: 2 hours ago</p>
+                    <Button className="mt-3">Backup Now</Button>
+                  </div>
+
+                  <div>
+                    <p className="font-medium text-foreground mb-2">Database Optimization</p>
+                    <p className="text-sm text-muted-foreground">Regular maintenance and index optimization</p>
+                    <Button className="mt-3">Optimize Database</Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -170,43 +209,43 @@ export default function SystemSettingsPage() {
                 <CardTitle>Blockchain Configuration</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Input
+                <FormField
                   label="Network RPC URL"
                   defaultValue={process.env.NEXT_PUBLIC_RPC_URL || ''}
                   placeholder="https://..."
                 />
 
-                <Input
+                <FormField
                   label="Chain ID"
                   type="number"
                   defaultValue={process.env.NEXT_PUBLIC_CHAIN_ID || ''}
                   placeholder="1"
                 />
 
-                <Input
+                <FormField
                   label="Asset Token Contract"
                   defaultValue={process.env.NEXT_PUBLIC_ASSET_TOKEN_ADDRESS || ''}
                   className="font-mono text-sm"
                   disabled
                 />
 
-                <Input
+                <FormField
                   label="Health Token Contract"
                   defaultValue={process.env.NEXT_PUBLIC_HEALTH_TOKEN_ADDRESS || ''}
                   className="font-mono text-sm"
                   disabled
                 />
 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm text-blue-800">
+                <div className="bg-muted border border-border rounded-lg p-4">
+                  <p className="text-sm text-muted-foreground">
                     <Lock className="w-4 h-4 inline mr-2" />
                     Contract addresses are read-only and configured at deployment
                   </p>
                 </div>
 
                 <div className="flex justify-end pt-4">
-                  <Button onClick={handleSave} loading={loading}>
-                    Save Configuration
+                  <Button onClick={handleSave} disabled={loading}>
+                    {loading ? 'Saving…' : 'Save Configuration'}
                   </Button>
                 </div>
               </CardContent>
@@ -222,32 +261,32 @@ export default function SystemSettingsPage() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between py-3 border-b">
                     <div>
-                      <p className="font-medium text-gray-900">Email Notifications</p>
-                      <p className="text-sm text-gray-600">Send notifications via email</p>
+                      <p className="font-medium text-foreground">Email Notifications</p>
+                      <p className="text-sm text-muted-foreground">Send notifications via email</p>
                     </div>
-                    <input type="checkbox" defaultChecked className="w-5 h-5 text-primary" />
+                    <input type="checkbox" defaultChecked className="w-5 h-5 accent-[hsl(var(--primary))]" />
                   </div>
 
                   <div className="flex items-center justify-between py-3 border-b">
                     <div>
-                      <p className="font-medium text-gray-900">SMS Notifications</p>
-                      <p className="text-sm text-gray-600">Send notifications via SMS</p>
+                      <p className="font-medium text-foreground">SMS Notifications</p>
+                      <p className="text-sm text-muted-foreground">Send notifications via SMS</p>
                     </div>
-                    <input type="checkbox" className="w-5 h-5 text-primary" />
+                    <input type="checkbox" className="w-5 h-5 accent-[hsl(var(--primary))]" />
                   </div>
 
                   <div className="flex items-center justify-between py-3 border-b">
                     <div>
-                      <p className="font-medium text-gray-900">System Alerts</p>
-                      <p className="text-sm text-gray-600">Critical system notifications</p>
+                      <p className="font-medium text-foreground">System Alerts</p>
+                      <p className="text-sm text-muted-foreground">Critical system notifications</p>
                     </div>
-                    <input type="checkbox" defaultChecked className="w-5 h-5 text-primary" />
+                    <input type="checkbox" defaultChecked className="w-5 h-5 accent-[hsl(var(--primary))]" />
                   </div>
                 </div>
 
                 <div className="flex justify-end pt-4">
-                  <Button onClick={handleSave} loading={loading}>
-                    Save Settings
+                  <Button onClick={handleSave} disabled={loading}>
+                    {loading ? 'Saving…' : 'Save Settings'}
                   </Button>
                 </div>
               </CardContent>

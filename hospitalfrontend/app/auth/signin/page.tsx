@@ -2,12 +2,15 @@
 'use client'
 
 import React, { useState } from 'react'
-import { signIn } from 'next-auth/react'
+import { signIn, getSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { Input } from '@/components/ui/Input'
-import { Button } from '@/components/ui/Button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { FormField } from '@/components/ui/form-field'
+import { Button } from '@/components/ui/button'
 import { Coins } from 'lucide-react'
+import { roleToPath } from '@/lib/roleToPath'
+import { UserRole } from '@/types'
 
 export default function SignInPage() {
   const router = useRouter()
@@ -40,31 +43,17 @@ export default function SignInPage() {
           setError(`Authentication failed: ${result.error}`)
         }
       } else if (result?.ok) {
-        // Successful login - determine redirect based on user role
-        let redirectPath = '/'
-        
-        // Determine role from email (for demo purposes)
-        // In production, you would get this from the session or token
-        const email = formData.email.toLowerCase()
-        
-        if (email.includes('patient')) {
-          redirectPath = '/patient'
-        } else if (email.includes('staff') || email.includes('admin@example.com')) {
-          redirectPath = '/hospital'
-        } else if (email.includes('bank')) {
-          redirectPath = '/bank'
-        } else if (email.includes('super')) {
-          redirectPath = '/admin'
-        } else {
-          // Default fallback - try to use callbackUrl if it's not the landing page
-          redirectPath = callbackUrl !== '/' ? callbackUrl : '/patient'
-        }
-        
-        // Add small delay to ensure session is set
-        setTimeout(() => {
+        // Successful login, get session to find user's role
+        const session = await getSession()
+        if (session?.user?.role) {
+          const redirectPath = roleToPath(session.user.role as UserRole)
           router.push(redirectPath)
+          router.refresh() // Refresh to ensure layout gets new session
+        } else {
+          // Fallback if role is not in session for some reason
+          router.push(callbackUrl)
           router.refresh()
-        }, 100)
+        }
       }
     } catch (error: any) {
       console.error('Sign in error:', error)
@@ -108,7 +97,7 @@ export default function SignInPage() {
               </div>
             )}
 
-            <Input
+            <FormField
               label="Email Address"
               type="email"
               name="email"
@@ -118,7 +107,7 @@ export default function SignInPage() {
               required
             />
 
-            <Input
+            <FormField
               label="Password"
               type="password"
               name="password"
@@ -131,9 +120,9 @@ export default function SignInPage() {
             <Button
               type="submit"
               className="w-full"
-              loading={loading}
+              disabled={loading}
             >
-              Sign In
+              {loading ? 'Signing in…' : 'Sign In'}
             </Button>
           </form>
 

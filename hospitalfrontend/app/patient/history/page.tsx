@@ -2,13 +2,13 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
-import { Badge } from '@/components/ui/Badge'
-import { Skeleton } from '@/components/ui/Skeleton'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table'
-import { Search, Download, Filter } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Search, Download, Filter, Upload, Sparkles, RefreshCcw, Gift, ArrowRight, FileText } from 'lucide-react'
 import { tokenService } from '@/services/tokenService'
 import { formatNumber, formatDateTime, getStatusColor } from '@/lib/utils'
 import { TokenHistory, TransactionType } from '@/types'
@@ -39,14 +39,14 @@ export default function HistoryPage() {
   }
 
   const getTypeIcon = (type: TransactionType) => {
-    const icons = {
-      [TransactionType.DEPOSIT]: '⬆️',
-      [TransactionType.MINT]: '✨',
-      [TransactionType.TRADE]: '🔄',
-      [TransactionType.REDEEM]: '🎁',
-      [TransactionType.TRANSFER]: '➡️',
+    const iconMap: Record<string, React.ReactNode> = {
+      [TransactionType.DEPOSIT]: <Upload className="w-4 h-4 mr-1" />,
+      [TransactionType.MINT]: <Sparkles className="w-4 h-4 mr-1" />,
+      [TransactionType.TRADE]: <RefreshCcw className="w-4 h-4 mr-1" />,
+      [TransactionType.REDEEM]: <Gift className="w-4 h-4 mr-1" />,
+      [TransactionType.TRANSFER]: <ArrowRight className="w-4 h-4 mr-1" />,
     }
-    return icons[type] || '📝'
+    return iconMap[type] || <FileText className="w-4 h-4 mr-1" />
   }
 
   const getTypeColor = (type: TransactionType) => {
@@ -163,7 +163,7 @@ export default function HistoryPage() {
                     </TableCell>
                     <TableCell>
                       <Badge className={getTypeColor(item.type)}>
-                        {getTypeIcon(item.type)} {item.type}
+                        <span className="inline-flex items-center">{getTypeIcon(item.type)} {item.type}</span>
                       </Badge>
                     </TableCell>
                     <TableCell className="max-w-md">

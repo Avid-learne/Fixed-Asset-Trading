@@ -5,9 +5,11 @@ import { useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { Header } from '@/components/layout/Header'
 import { useAuthStore } from '@/store/authStore'
 import { UserRole } from '@/types'
+import { roleToPath } from '@/lib/roleToPath'
 
 export default function PatientLayout({
   children,
@@ -25,7 +27,7 @@ export default function PatientLayout({
       setUser(session.user as any)
       
       if (session.user.role !== UserRole.PATIENT) {
-        router.push(`/${session.user.role.toLowerCase().replace('_', '')}`)
+        router.push(roleToPath(session.user.role))
       }
     }
   }, [session, status, router, setUser])
@@ -39,14 +41,14 @@ export default function PatientLayout({
   }
 
   return (
-    <div className="flex h-screen bg-background">
-      <Sidebar userRole={UserRole.PATIENT} />
-      <div className="flex-1 flex flex-col overflow-hidden">
+    <SidebarProvider>
+      <Sidebar userRole={UserRole.PATIENT} withProvider={false} />
+      <SidebarInset className="flex-1 flex flex-col overflow-hidden bg-background">
         <Header />
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-6 w-full">
           {children}
         </main>
-      </div>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }

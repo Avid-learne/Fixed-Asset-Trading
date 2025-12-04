@@ -2,11 +2,12 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
-import { Badge } from '@/components/ui/Badge'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { FormField } from '@/components/ui/form-field'
+import { Badge } from '@/components/ui/badge'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/Modal'
 import { Coins, CheckCircle, TrendingUp, AlertCircle } from 'lucide-react'
 import { assetService } from '@/services/assetService'
@@ -271,7 +272,7 @@ export default function TokenMintingPage() {
                 </div>
               </div>
 
-              <Input
+              <FormField
                 label="Number of Tokens to Mint"
                 type="number"
                 value={tokenAmount}
@@ -311,11 +312,10 @@ export default function TokenMintingPage() {
             </Button>
             <Button 
               onClick={handleMintTokens} 
-              loading={minting}
-              disabled={!tokenAmount || parseInt(tokenAmount) <= 0}
+              disabled={!tokenAmount || parseInt(tokenAmount) <= 0 || minting}
             >
               <Coins className="w-4 h-4 mr-2" />
-              Mint Tokens
+              {minting ? 'Minting...' : 'Mint Tokens'}
             </Button>
           </ModalFooter>
         </ModalContent>

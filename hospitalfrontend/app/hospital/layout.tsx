@@ -5,9 +5,11 @@ import { useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { Header } from '@/components/layout/Header'
 import { useAuthStore } from '@/store/authStore'
 import { UserRole } from '@/types'
+import { roleToPath } from '@/lib/roleToPath'
 
 export default function HospitalLayout({
   children,
@@ -24,8 +26,8 @@ export default function HospitalLayout({
     } else if (session?.user) {
       setUser(session.user as any)
       
-      if (!hasRole([UserRole.HOSPITAL_STAFF, UserRole.HOSPITAL_ADMIN])) {
-        router.push(`/${session.user.role.toLowerCase().replace('_', '')}`)
+      if (!hasRole([UserRole.HOSPITAL_STAFF])) {
+        router.push(roleToPath(session.user.role))
       }
     }
   }, [session, status, router, setUser, hasRole])
@@ -39,14 +41,14 @@ export default function HospitalLayout({
   }
 
   return (
-    <div className="flex h-screen bg-background">
-      <Sidebar userRole={user.role} />
-      <div className="flex-1 flex flex-col overflow-hidden">
+    <SidebarProvider>
+      <Sidebar userRole={user?.role as UserRole || UserRole.HOSPITAL_STAFF} withProvider={false} />
+      <SidebarInset className="flex-1 flex flex-col overflow-hidden bg-background">
         <Header />
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-6 w-full">
           {children}
         </main>
-      </div>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }

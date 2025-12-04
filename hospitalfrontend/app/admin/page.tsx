@@ -1,163 +1,94 @@
 // hospitalfrontend/app/admin/page.tsx
 'use client'
 
-import React, { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { Skeleton } from '@/components/ui/Skeleton'
-import { Badge } from '@/components/ui/Badge'
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
-import { Users, Shield, Activity, Database, AlertTriangle, TrendingUp } from 'lucide-react'
-import { formatNumber } from '@/lib/utils'
+import React from 'react'
+import Link from 'next/link'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts'
+import { Building2, Users, Banknote, Coins, TrendingUp, AlertCircle } from 'lucide-react'
 
-const COLORS = ['#0A3D62', '#3C6382', '#38ADA9', '#E2B93B', '#27AE60']
+const systemData: any[] = []
 
-export default function AdminDashboard() {
-  const [loading, setLoading] = useState(true)
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    activeUsers: 0,
-    totalTransactions: 0,
-    systemHealth: 0,
-    pendingApprovals: 0,
-    securityAlerts: 0
-  })
+const tradingVolumeData: any[] = []
 
-  useEffect(() => {
-    setTimeout(() => setLoading(false), 1000)
-  }, [])
-
-  const usersByRole = [
-    { name: 'Patients', value: 0 },
-    { name: 'Hospital Staff', value: 0 },
-    { name: 'Bank Officers', value: 0 },
-    { name: 'Admins', value: 0 }
+export default function AdminHome() {
+  const stats = [
+    { label: 'Hospitals', value: '0', icon: Building2, change: '0 this month' },
+    { label: 'Total Patients', value: '0', icon: Users, change: '0 this month' },
+    { label: 'Tokens Minted', value: '0', icon: Coins, change: '0 this month' },
+    { label: 'Trading Volume', value: '$0', icon: TrendingUp, change: '0 this month' },
+    { label: 'Banks', value: '0', icon: Banknote, change: 'All active' },
+    { label: 'System Health', value: '100%', icon: AlertCircle, change: 'Operational' },
   ]
-
-  const systemMetrics = [
-    { month: 'Jan', users: 0, transactions: 0 },
-    { month: 'Feb', users: 0, transactions: 0 },
-    { month: 'Mar', users: 0, transactions: 0 },
-    { month: 'Apr', users: 0, transactions: 0 },
-    { month: 'May', users: 0, transactions: 0 },
-    { month: 'Jun', users: 0, transactions: 0 }
-  ]
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-32 w-full" />
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-32" />)}
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">System Administration</h1>
-        <p className="text-gray-500 mt-1">Monitor and manage platform operations</p>
+        <h1 className="text-3xl font-bold text-foreground">System Overview Dashboard</h1>
+        <p className="text-muted-foreground mt-1">Monitor all system activity, hospitals, patients, and financial metrics.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Users</CardTitle>
-            <Users className="w-4 h-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">
-              {formatNumber(stats.totalUsers)}
-            </div>
-            <p className="text-xs text-success mt-1">
-              <TrendingUp className="w-3 h-3 inline mr-1" />
-              +12% from last month
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Active Users</CardTitle>
-            <Activity className="w-4 h-4 text-success" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">
-              {formatNumber(stats.activeUsers)}
-            </div>
-            <p className="text-xs text-gray-500 mt-1">Currently online</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Transactions</CardTitle>
-            <Database className="w-4 h-4 text-accent" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">
-              {formatNumber(stats.totalTransactions)}
-            </div>
-            <p className="text-xs text-gray-500 mt-1">All-time total</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Security Alerts</CardTitle>
-            <AlertTriangle className="w-4 h-4 text-warning" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-warning">
-              {stats.securityAlerts}
-            </div>
-            <p className="text-xs text-gray-500 mt-1">Requires attention</p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {stats.map((stat, index) => {
+          const Icon = stat.icon
+          return (
+            <Card key={index}>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
+                  {stat.label}
+                  <Icon className="w-5 h-5" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                <p className="text-xs text-muted-foreground mt-1">{stat.change}</p>
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>User Distribution</CardTitle>
+            <CardTitle>System Growth Metrics</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={usersByRole}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={100}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {usersByRole.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
+              <BarChart data={systemData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                <XAxis dataKey="month" />
+                <YAxis yAxisId="left" />
+                <YAxis yAxisId="right" orientation="right" />
                 <Tooltip />
-              </PieChart>
+                <Legend />
+                <Bar yAxisId="left" dataKey="hospitals" fill="var(--color-primary)" name="Hospitals" />
+                <Bar yAxisId="right" dataKey="patients" fill="var(--color-secondary)" name="Patients" />
+              </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>System Activity</CardTitle>
+            <CardTitle>Trading Volume Trend</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={systemMetrics}>
-                <CartesianGrid strokeDasharray="3 3" />
+              <LineChart data={tradingVolumeData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                 <XAxis dataKey="month" />
                 <YAxis />
                 <Tooltip />
-                <Line type="monotone" dataKey="users" stroke="#0A3D62" strokeWidth={2} name="Users" />
-                <Line type="monotone" dataKey="transactions" stroke="#38ADA9" strokeWidth={2} name="Transactions" />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="volume"
+                  stroke="var(--color-primary)"
+                  strokeWidth={2}
+                  name="Trading Volume ($)"
+                />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -166,51 +97,47 @@ export default function AdminDashboard() {
 
       <Card>
         <CardHeader>
-          <CardTitle>System Health Monitoring</CardTitle>
+          <CardTitle>Recent System Activity</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-full bg-success flex items-center justify-center">
-                  <Shield className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900">API Services</p>
-                  <p className="text-sm text-gray-600">All services operational</p>
-                </div>
+          <div className="space-y-3">
+            <div className="flex items-start justify-between border-b border-border pb-3">
+              <div>
+                <p className="font-medium text-foreground">New Hospital Registered</p>
+                <p className="text-sm text-muted-foreground">Grand Medical Center - Pending Approval</p>
               </div>
-              <Badge variant="success">Healthy</Badge>
+              <p className="text-xs text-muted-foreground">2 hours ago</p>
             </div>
-
-            <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-full bg-success flex items-center justify-center">
-                  <Database className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900">Database</p>
-                  <p className="text-sm text-gray-600">Connection stable, optimal performance</p>
-                </div>
+            <div className="flex items-start justify-between border-b border-border pb-3">
+              <div>
+                <p className="font-medium text-foreground">System Update Completed</p>
+                <p className="text-sm text-muted-foreground">Blockchain integration v2.1 deployed</p>
               </div>
-              <Badge variant="success">Healthy</Badge>
+              <p className="text-xs text-muted-foreground">5 hours ago</p>
             </div>
-
-            <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-full bg-success flex items-center justify-center">
-                  <Activity className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900">Blockchain Network</p>
-                  <p className="text-sm text-gray-600">All contracts responding normally</p>
-                </div>
+            <div className="flex items-start justify-between border-b border-border pb-3">
+              <div>
+                <p className="font-medium text-foreground">Token Minting Activity</p>
+                <p className="text-sm text-muted-foreground">5 hospitals minted 500K tokens</p>
               </div>
-              <Badge variant="success">Healthy</Badge>
+              <p className="text-xs text-muted-foreground">1 day ago</p>
+            </div>
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="font-medium text-foreground">New Bank Partnership</p>
+                <p className="text-sm text-muted-foreground">International Finance Corp onboarded</p>
+              </div>
+              <p className="text-xs text-muted-foreground">2 days ago</p>
             </div>
           </div>
         </CardContent>
       </Card>
+
+      <div className="flex justify-end">
+        <Button asChild variant="outline">
+          <Link href="/">← Back to Portals</Link>
+        </Button>
+      </div>
     </div>
   )
 }

@@ -31,6 +31,14 @@ const demoUsers = [
     name: 'Bank Officer',
     role: 'BANK_OFFICER'
   }
+  ,
+  {
+    id: '5',
+    email: 'superadmin@example.com',
+    password: 'password',
+    name: 'Super Admin',
+    role: 'SUPER_ADMIN'
+  }
 ]
 
 export const authOptions: NextAuthOptions = {

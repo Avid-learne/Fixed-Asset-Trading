@@ -2,9 +2,10 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { Input } from '@/components/ui/Input'
-import { Button } from '@/components/ui/Button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { FormField } from '@/components/ui/form-field'
 import { Stepper, Step } from '@/components/ui/Stepper'
 import { Upload, FileText, DollarSign } from 'lucide-react'
 import { assetService } from '@/services/assetService'
@@ -138,14 +139,14 @@ export default function DepositAssetPage() {
                 {errors.assetType && <p className="mt-1 text-sm text-error">{errors.assetType}</p>}
               </div>
 
-              <Input
+              <FormField
                 label="Asset Name"
                 name="assetName"
                 value={formData.assetName}
-                onChange={handleInputChange}
+                onChange={handleInputChange as any}
                 placeholder="Enter asset name"
-                error={errors.assetName}
               />
+              {errors.assetName && <p className="mt-1 text-sm text-error">{errors.assetName}</p>}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -162,15 +163,15 @@ export default function DepositAssetPage() {
                 {errors.description && <p className="mt-1 text-sm text-error">{errors.description}</p>}
               </div>
 
-              <Input
+              <FormField
                 label="Estimated Value (USD)"
                 name="estimatedValue"
                 type="number"
                 value={formData.estimatedValue}
-                onChange={handleInputChange}
+                onChange={handleInputChange as any}
                 placeholder="0.00"
-                error={errors.estimatedValue}
               />
+              {errors.estimatedValue && <p className="mt-1 text-sm text-error">{errors.estimatedValue}</p>}
 
               <div className="flex justify-end">
                 <Button onClick={handleNext}>Next</Button>
@@ -252,7 +253,9 @@ export default function DepositAssetPage() {
 
               <div className="flex justify-between">
                 <Button variant="outline" onClick={handleBack}>Back</Button>
-                <Button onClick={handleSubmit} loading={loading}>Submit Asset</Button>
+                <Button onClick={handleSubmit} disabled={loading}>
+                  {loading ? 'Submitting…' : 'Submit Asset'}
+                </Button>
               </div>
             </div>
           )}

@@ -2,10 +2,10 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { Skeleton } from '@/components/ui/Skeleton'
-import { Button } from '@/components/ui/Button'
-import { Badge } from '@/components/ui/Badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { Clock, CheckCircle, XCircle, Users, Coins, TrendingUp } from 'lucide-react'
 import { assetService } from '@/services/assetService'
@@ -78,60 +78,60 @@ export default function HospitalDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Hospital Dashboard</h1>
-        <p className="text-gray-500 mt-1">Manage asset deposits and token minting</p>
+        <h1 className="text-3xl font-bold text-foreground">Hospital Dashboard</h1>
+        <p className="text-muted-foreground mt-1">Manage asset deposits and token minting</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Pending Deposits</CardTitle>
-            <Clock className="w-4 h-4 text-warning" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">Pending Deposits</CardTitle>
+            <Clock className="w-4 h-4 text-secondary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900">
+            <div className="text-2xl font-bold text-foreground">
               {stats?.pendingDeposits || 0}
             </div>
-            <p className="text-xs text-gray-500 mt-1">Awaiting approval</p>
+            <p className="text-xs text-muted-foreground mt-1">Awaiting approval</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Assets</CardTitle>
-            <CheckCircle className="w-4 h-4 text-success" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Assets</CardTitle>
+            <CheckCircle className="w-4 h-4 text-secondary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900">
+            <div className="text-2xl font-bold text-foreground">
               {formatNumber(stats?.totalAssets || 0)}
             </div>
-            <p className="text-xs text-gray-500 mt-1">Processed assets</p>
+            <p className="text-xs text-muted-foreground mt-1">Processed assets</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Active Patients</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Active Patients</CardTitle>
             <Users className="w-4 h-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900">
+            <div className="text-2xl font-bold text-foreground">
               {formatNumber(stats?.activePatients || 0)}
             </div>
-            <p className="text-xs text-gray-500 mt-1">Registered users</p>
+            <p className="text-xs text-muted-foreground mt-1">Registered users</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Tokens Minted</CardTitle>
-            <Coins className="w-4 h-4 text-accent" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">Tokens Minted</CardTitle>
+            <Coins className="w-4 h-4 text-secondary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900">
+            <div className="text-2xl font-bold text-foreground">
               {formatNumber(stats?.totalTokens || 0)}
             </div>
-            <p className="text-xs text-success mt-1">
+            <p className="text-xs text-secondary mt-1">
               <TrendingUp className="w-3 h-3 inline mr-1" />
               +{stats?.monthlyGrowth}% this month
             </p>
@@ -151,8 +151,8 @@ export default function HospitalDashboard() {
                 <XAxis dataKey="name" />
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="deposits" fill="#3C6382" name="Deposits" />
-                <Bar dataKey="approved" fill="#38ADA9" name="Approved" />
+                <Bar dataKey="deposits" fill="#2C3E50" name="Deposits" />
+                <Bar dataKey="approved" fill="#1B4F72" name="Approved" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -196,31 +196,31 @@ export default function HospitalDashboard() {
         <CardContent>
           {pendingAssets.length === 0 ? (
             <div className="text-center py-12">
-              <CheckCircle className="w-16 h-16 text-success mx-auto mb-4" />
-              <p className="text-gray-500">No pending deposits at this time</p>
+              <CheckCircle className="w-16 h-16 text-secondary mx-auto mb-4" />
+              <p className="text-muted-foreground">No pending deposits at this time</p>
             </div>
           ) : (
             <div className="space-y-4">
               {pendingAssets.slice(0, 5).map((asset) => (
-                <div key={asset.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+                <div key={asset.id} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted">
                   <div className="flex-1">
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 rounded-full bg-primary-50 flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
                         <span className="text-sm font-medium text-primary">
                           {asset.patientId.substring(0, 2).toUpperCase()}
                         </span>
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">{asset.assetName}</p>
-                        <p className="text-sm text-gray-500">{asset.assetType}</p>
+                        <p className="font-medium text-foreground">{asset.assetName}</p>
+                        <p className="text-sm text-muted-foreground">{asset.assetType}</p>
                       </div>
                     </div>
                   </div>
                   <div className="text-right mr-6">
-                    <p className="font-medium text-gray-900">
+                    <p className="font-medium text-foreground">
                       ${formatNumber(asset.estimatedValue)}
                     </p>
-                    <p className="text-sm text-gray-500">{formatDate(asset.submittedAt)}</p>
+                    <p className="text-sm text-muted-foreground">{formatDate(asset.submittedAt)}</p>
                   </div>
                   <div>
                     <Badge className={getStatusColor(asset.status)}>

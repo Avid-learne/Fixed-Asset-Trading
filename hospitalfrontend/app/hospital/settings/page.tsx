@@ -2,9 +2,10 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { FormField } from '@/components/ui/form-field'
 import { Building, Lock, Bell, Shield, Users, Coins } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 
@@ -93,7 +94,7 @@ export default function HospitalSettingsPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <Input
+                  <FormField
                     label="Hospital Name"
                     value={hospitalInfo.name}
                     onChange={(e) => setHospitalInfo({ ...hospitalInfo, name: e.target.value })}
@@ -114,7 +115,7 @@ export default function HospitalSettingsPage() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <Input
+                    <FormField
                       label="Contact Phone"
                       type="tel"
                       value={hospitalInfo.phone}
@@ -122,7 +123,7 @@ export default function HospitalSettingsPage() {
                       placeholder="Enter phone number"
                     />
 
-                    <Input
+                    <FormField
                       label="Contact Email"
                       type="email"
                       value={hospitalInfo.email}
@@ -131,7 +132,7 @@ export default function HospitalSettingsPage() {
                     />
                   </div>
 
-                  <Input
+                  <FormField
                     label="License Number"
                     value={hospitalInfo.licenseNumber}
                     onChange={(e) => setHospitalInfo({ ...hospitalInfo, licenseNumber: e.target.value })}
@@ -139,8 +140,8 @@ export default function HospitalSettingsPage() {
                   />
 
                   <div className="flex justify-end">
-                    <Button onClick={handleSaveGeneral} loading={loading}>
-                      Save Changes
+                    <Button onClick={handleSaveGeneral} disabled={loading}>
+                      {loading ? 'Saving…' : 'Save Changes'}
                     </Button>
                   </div>
                 </div>
@@ -168,7 +169,7 @@ export default function HospitalSettingsPage() {
                     />
                   </div>
 
-                  <Input
+                  <FormField
                     label="Session Timeout (minutes)"
                     type="number"
                     value={securitySettings.sessionTimeout}
@@ -176,7 +177,7 @@ export default function HospitalSettingsPage() {
                     placeholder="30"
                   />
 
-                  <Input
+                  <FormField
                     label="Password Expiry (days)"
                     type="number"
                     value={securitySettings.passwordExpiry}
@@ -192,8 +193,8 @@ export default function HospitalSettingsPage() {
                   </div>
 
                   <div className="flex justify-end">
-                    <Button onClick={handleSaveSecurity} loading={loading}>
-                      Update Security Settings
+                    <Button onClick={handleSaveSecurity} disabled={loading}>
+                      {loading ? 'Updating…' : 'Update Security Settings'}
                     </Button>
                   </div>
                 </div>

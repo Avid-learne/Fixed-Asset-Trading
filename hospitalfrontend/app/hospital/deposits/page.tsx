@@ -2,13 +2,14 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
-import { Badge } from '@/components/ui/Badge'
-import { Input } from '@/components/ui/Input'
-import { Skeleton } from '@/components/ui/Skeleton'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { FormField } from '@/components/ui/form-field'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/Modal'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Search, CheckCircle, XCircle, Eye, Download } from 'lucide-react'
 import { assetService } from '@/services/assetService'
 import { formatCurrency, formatDate, getStatusColor } from '@/lib/utils'
@@ -97,8 +98,8 @@ export default function ApproveDepositsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Approve Deposits</h1>
-        <p className="text-gray-500 mt-1">Review and approve patient asset deposits</p>
+        <h1 className="text-3xl font-bold text-foreground">Approve Deposits</h1>
+        <p className="text-muted-foreground mt-1">Review and approve patient asset deposits</p>
       </div>
 
       <Card>
@@ -107,7 +108,7 @@ export default function ApproveDepositsPage() {
             <CardTitle>Asset Deposits</CardTitle>
             <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   placeholder="Search assets..."
                   value={searchTerm}
@@ -118,7 +119,7 @@ export default function ApproveDepositsPage() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                className="h-10 rounded-md border border-border bg-card px-3 py-2 text-sm"
               >
                 <option value="all">All Status</option>
                 <option value={DepositStatus.PENDING}>Pending</option>
@@ -145,7 +146,7 @@ export default function ApproveDepositsPage() {
             <TableBody>
               {filteredAssets.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     No assets found
                   </TableCell>
                 </TableRow>
@@ -154,18 +155,18 @@ export default function ApproveDepositsPage() {
                   <TableRow key={asset.id}>
                     <TableCell>
                       <div className="flex items-center space-x-2">
-                        <div className="w-8 h-8 rounded-full bg-primary-50 flex items-center justify-center">
+                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
                           <span className="text-xs font-medium text-primary">
                             {asset.patientId.substring(0, 2).toUpperCase()}
                           </span>
                         </div>
-                        <span className="text-sm text-gray-900">{asset.patientId}</span>
+                        <span className="text-sm text-foreground">{asset.patientId}</span>
                       </div>
                     </TableCell>
                     <TableCell className="font-medium">{asset.assetName}</TableCell>
-                    <TableCell className="text-gray-600">{asset.assetType}</TableCell>
+                    <TableCell className="text-muted-foreground">{asset.assetType}</TableCell>
                     <TableCell className="font-medium">{formatCurrency(asset.estimatedValue)}</TableCell>
-                    <TableCell className="text-gray-600">{formatDate(asset.submittedAt)}</TableCell>
+                    <TableCell className="text-muted-foreground">{formatDate(asset.submittedAt)}</TableCell>
                     <TableCell>
                       <Badge className={getStatusColor(asset.status)}>
                         {asset.status}
@@ -197,31 +198,31 @@ export default function ApproveDepositsPage() {
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Patient ID</label>
-                  <p className="text-gray-900 mt-1">{selectedAsset.patientId}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Patient ID</label>
+                  <p className="text-foreground mt-1">{selectedAsset.patientId}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Asset Type</label>
-                  <p className="text-gray-900 mt-1">{selectedAsset.assetType}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Asset Type</label>
+                  <p className="text-foreground mt-1">{selectedAsset.assetType}</p>
                 </div>
                 <div className="col-span-2">
-                  <label className="text-sm font-medium text-gray-500">Asset Name</label>
-                  <p className="text-gray-900 mt-1">{selectedAsset.assetName}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Asset Name</label>
+                  <p className="text-foreground mt-1">{selectedAsset.assetName}</p>
                 </div>
                 <div className="col-span-2">
-                  <label className="text-sm font-medium text-gray-500">Description</label>
-                  <p className="text-gray-900 mt-1">{selectedAsset.description}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Description</label>
+                  <p className="text-foreground mt-1">{selectedAsset.description}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Estimated Value</label>
-                  <p className="text-gray-900 mt-1 font-semibold">{formatCurrency(selectedAsset.estimatedValue)}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Estimated Value</label>
+                  <p className="text-foreground mt-1 font-semibold">{formatCurrency(selectedAsset.estimatedValue)}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Submitted Date</label>
-                  <p className="text-gray-900 mt-1">{formatDate(selectedAsset.submittedAt)}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Submitted Date</label>
+                  <p className="text-foreground mt-1">{formatDate(selectedAsset.submittedAt)}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Status</label>
+                  <label className="text-sm font-medium text-muted-foreground">Status</label>
                   <div className="mt-1">
                     <Badge className={getStatusColor(selectedAsset.status)}>
                       {selectedAsset.status}
@@ -243,7 +244,7 @@ export default function ApproveDepositsPage() {
               {selectedAsset.status === DepositStatus.PENDING && (
                 <div className="border-t pt-6 space-y-4">
                   <div>
-                    <Input
+                    <FormField
                       label="Tokens to Mint"
                       type="number"
                       value={tokensToMint}
@@ -253,14 +254,14 @@ export default function ApproveDepositsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-foreground mb-1">
                       Rejection Reason (optional)
                     </label>
                     <textarea
                       value={rejectionReason}
                       onChange={(e) => setRejectionReason(e.target.value)}
                       rows={3}
-                      className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                      className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm"
                       placeholder="Enter reason for rejection"
                     />
                   </div>
@@ -273,20 +274,18 @@ export default function ApproveDepositsPage() {
               <Button
                 variant="destructive"
                 onClick={handleReject}
-                loading={processing}
-                disabled={!rejectionReason}
+                disabled={!rejectionReason || processing}
               >
                 <XCircle className="w-4 h-4 mr-2" />
-                Reject
+                {processing ? 'Processing...' : 'Reject'}
               </Button>
               <Button
-                variant="success"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
                 onClick={handleApprove}
-                loading={processing}
-                disabled={!tokensToMint}
+                disabled={!tokensToMint || processing}
               >
                 <CheckCircle className="w-4 h-4 mr-2" />
-                Approve & Mint
+                {processing ? 'Processing...' : 'Approve & Mint'}
               </Button>
             </ModalFooter>
           )}

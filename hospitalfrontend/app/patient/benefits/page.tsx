@@ -2,10 +2,10 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
-import { Badge } from '@/components/ui/Badge'
-import { Skeleton } from '@/components/ui/Skeleton'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/Modal'
 import { Gift, Coins, Calendar, CheckCircle } from 'lucide-react'
 import { benefitService } from '@/services/benefitService'
@@ -153,7 +153,7 @@ export default function BenefitsPage() {
 
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-500">Status</span>
-                    <Badge variant={benefit.available ? 'success' : 'error'}>
+                    <Badge className={benefit.available ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'}>
                       {benefit.available ? 'Available' : 'Unavailable'}
                     </Badge>
                   </div>
@@ -237,8 +237,8 @@ export default function BenefitsPage() {
             <Button variant="outline" onClick={() => setSelectedBenefit(null)}>
               Cancel
             </Button>
-            <Button onClick={handleRedeem} loading={redeeming}>
-              Confirm Redemption
+            <Button onClick={handleRedeem} disabled={redeeming}>
+              {redeeming ? 'Processing…' : 'Confirm Redemption'}
             </Button>
           </ModalFooter>
         </ModalContent>

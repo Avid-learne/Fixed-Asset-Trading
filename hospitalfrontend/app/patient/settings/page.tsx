@@ -2,10 +2,10 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
-import { Badge } from '@/components/ui/Badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { FormField } from '@/components/ui/form-field'
 import { User, Lock, Shield, Bell, Smartphone, Monitor } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { validatePassword } from '@/lib/utils'
@@ -110,14 +110,14 @@ export default function SettingsPage() {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleProfileUpdate} className="space-y-4">
-                  <Input
+                  <FormField
                     label="Full Name"
                     value={profileData.name}
                     onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
                     placeholder="Enter your full name"
                   />
 
-                  <Input
+                  <FormField
                     label="Email Address"
                     type="email"
                     value={profileData.email}
@@ -125,7 +125,7 @@ export default function SettingsPage() {
                     placeholder="Enter your email"
                   />
 
-                  <Input
+                  <FormField
                     label="Phone Number"
                     type="tel"
                     value={profileData.phone}
@@ -147,8 +147,8 @@ export default function SettingsPage() {
                   </div>
 
                   <div className="flex justify-end">
-                    <Button type="submit" loading={loading}>
-                      Save Changes
+                    <Button type="submit" disabled={loading}>
+                      {loading ? 'Saving…' : 'Save Changes'}
                     </Button>
                   </div>
                 </form>
@@ -163,7 +163,7 @@ export default function SettingsPage() {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handlePasswordChange} className="space-y-4">
-                  <Input
+                  <FormField
                     label="Current Password"
                     type="password"
                     value={passwordData.currentPassword}
@@ -171,7 +171,7 @@ export default function SettingsPage() {
                     placeholder="Enter current password"
                   />
 
-                  <Input
+                  <FormField
                     label="New Password"
                     type="password"
                     value={passwordData.newPassword}
@@ -179,7 +179,7 @@ export default function SettingsPage() {
                     placeholder="Enter new password"
                   />
 
-                  <Input
+                  <FormField
                     label="Confirm New Password"
                     type="password"
                     value={passwordData.confirmPassword}
@@ -198,8 +198,8 @@ export default function SettingsPage() {
                   </div>
 
                   <div className="flex justify-end">
-                    <Button type="submit" loading={loading}>
-                      Change Password
+                    <Button type="submit" disabled={loading}>
+                      {loading ? 'Changing…' : 'Change Password'}
                     </Button>
                   </div>
                 </form>
@@ -220,7 +220,10 @@ export default function SettingsPage() {
                   <div className="flex-1">
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="font-semibold text-gray-900">Authenticator App</h3>
-                      <Badge variant={user?.mfaEnabled ? 'success' : 'outline'}>
+                      <Badge
+                        variant={user?.mfaEnabled ? 'default' : 'outline'}
+                        className={user?.mfaEnabled ? 'bg-green-100 text-green-800 border border-green-200' : ''}
+                      >
                         {user?.mfaEnabled ? 'Enabled' : 'Disabled'}
                       </Badge>
                     </div>
@@ -329,7 +332,7 @@ export default function SettingsPage() {
                       <p className="font-medium text-gray-900">Chrome on Windows</p>
                       <p className="text-sm text-gray-600">Karachi, Pakistan</p>
                       <p className="text-xs text-gray-400 mt-1">Last active: Just now</p>
-                      <Badge variant="success" className="mt-2">Current Session</Badge>
+                      <Badge className="mt-2 bg-green-100 text-green-800 border border-green-200">Current Session</Badge>
                     </div>
                   </div>
                   <Button size="sm" variant="outline" disabled>

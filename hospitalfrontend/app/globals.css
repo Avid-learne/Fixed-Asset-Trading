@@ -24,6 +24,62 @@
   --input: 214.3 31.8% 91.4%;
   --ring: 210 100% 21%;
   --radius: 0.5rem;
+  
+  --sidebar-background: 0 0% 100%;
+  --sidebar-foreground: 240 5.3% 26.1%;
+  --sidebar-primary: 240 5.9% 10%;
+  --sidebar-primary-foreground: 0 0% 98%;
+  --sidebar-accent: 210 40% 96.1%;
+  --sidebar-accent-foreground: 210 100% 21%;
+  --sidebar-border: 220 13% 91%;
+  --sidebar-ring: 217.2 91.2% 59.8%;
+}
+
+/* Animated hero background (Ken Burns + subtle pan) */
+@keyframes hero-kenburns {
+  0% {
+    transform: scale(1) translate(0, 0);
+  }
+  50% {
+    transform: scale(1.08) translate(-1%, -1%);
+  }
+  100% {
+    transform: scale(1) translate(0, 0);
+  }
+}
+
+@keyframes hero-pan {
+  0% {
+    background-position: 50% 50%;
+  }
+  50% {
+    background-position: 48% 52%;
+  }
+  100% {
+    background-position: 50% 50%;
+  }
+}
+
+@layer components {
+  .hero-animated-bg {
+    position: absolute;
+    inset: 0;
+    background-image: url('/hero-image.png');
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center;
+    transform-origin: center;
+    will-change: transform, background-position;
+    animation: hero-kenburns 28s ease-in-out infinite, hero-pan 28s ease-in-out infinite;
+  }
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .hero-animated-bg {
+    animation: none !important;
+    transform: none !important;
+  }
 }
 
 .dark {
@@ -46,6 +102,15 @@
   --border: 217.2 32.6% 17.5%;
   --input: 217.2 32.6% 17.5%;
   --ring: 212.7 26.8% 83.9%;
+  
+  --sidebar-background: 240 5.9% 10%;
+  --sidebar-foreground: 240 4.8% 95.9%;
+  --sidebar-primary: 224.3 76.3% 48%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 240 3.7% 15.9%;
+  --sidebar-accent-foreground: 240 4.8% 95.9%;
+  --sidebar-border: 240 3.7% 15.9%;
+  --sidebar-ring: 217.2 91.2% 59.8%;
 }
 
 /* Base Styles */

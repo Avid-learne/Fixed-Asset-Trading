@@ -2,11 +2,11 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
-import { Badge } from '@/components/ui/Badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Shield, FileText, Plus, Search } from 'lucide-react'
-import { Input } from '@/components/ui/Input'
+import { Input } from '@/components/ui/input'
 import { formatDate } from '@/lib/utils'
 
 export default function PoliciesPage() {

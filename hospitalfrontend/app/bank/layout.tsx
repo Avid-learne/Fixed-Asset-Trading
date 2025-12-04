@@ -4,8 +4,11 @@ import { useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { Header } from '@/components/layout/Header'
 import { useAuthStore } from '@/store/authStore'
+import { UserRole } from '@/types'
+import { roleToPath } from '@/lib/roleToPath'
 
 export default function BankLayout({
   children,
@@ -17,11 +20,13 @@ export default function BankLayout({
   const { setUser, user } = useAuthStore()
 
   useEffect(() => {
-    // Only redirect if user is not logged in
     if (status === 'unauthenticated') {
       router.push('/auth/signin')
     } else if (session?.user) {
       setUser(session.user as any)
+      if (session.user.role !== UserRole.BANK_OFFICER) {
+        router.push(roleToPath(session.user.role))
+      }
     }
   }, [session, status, router, setUser])
 
@@ -34,14 +39,14 @@ export default function BankLayout({
   }
 
   return (
-    <div className="flex h-screen bg-background">
-      <Sidebar userRole={session?.user?.role} />
-      <div className="flex-1 flex flex-col overflow-hidden">
+    <SidebarProvider>
+      <Sidebar userRole={UserRole.BANK_OFFICER} withProvider={false} />
+      <SidebarInset className="flex-1 flex flex-col overflow-hidden bg-background">
         <Header />
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-6 w-full">
           {children}
         </main>
-      </div>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }
