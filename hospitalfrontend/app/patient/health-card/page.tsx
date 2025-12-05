@@ -1,13 +1,17 @@
 'use client'
 
 import React from 'react'
-import { QRCodeCard } from '@/components/patient/QRCodeCard'
+import DigitalCard from '@/components/patient/digitalcard'
+import VirtualCard from '@/components/patient/virtualcard'
 
 export default function HealthCardPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Health Card</h1>
-      <QRCodeCard />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <VirtualCard />
+        <DigitalCard />
+      </div>
     </div>
   )
 }

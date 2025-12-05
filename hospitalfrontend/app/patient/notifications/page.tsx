@@ -51,7 +51,7 @@ export default function NotificationsPage() {
           <p className="text-gray-500 mt-1">Stay updated with your account activity</p>
         </div>
         <div className="flex items-center space-x-2">
-          <Badge variant={unreadCount > 0 ? 'error' : 'outline'}>
+          <Badge variant={unreadCount > 0 ? 'destructive' : 'outline'}>
             {unreadCount} unread
           </Badge>
         </div>
