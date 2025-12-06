@@ -113,7 +113,7 @@ export function useSanitizedPatientData<T extends Record<string, any>>(data: T[]
     const sensitiveFields = ['email', 'phone', 'address', 'medicalHistory', 'personalNotes', 'ssn', 'dateOfBirth']
     
     return data.map((item) => {
-      const sanitized = { ...item }
+      const sanitized = { ...item } as any
       sensitiveFields.forEach((field) => {
         if (field in sanitized) {
           delete sanitized[field]
@@ -123,7 +123,7 @@ export function useSanitizedPatientData<T extends Record<string, any>>(data: T[]
       if ('name' in sanitized) {
         sanitized.name = `Patient-${sanitized.id?.toString().slice(0, 8)}`
       }
-      return sanitized
+      return sanitized as T
     })
   }, [data, user])
 

@@ -27,9 +27,25 @@ interface Bank {
   createdAt: string
 }
 
+const mockBanks: Bank[] = [
+  {
+    id: 'B-001',
+    name: 'First National Bank',
+    swiftCode: 'FNBUS33',
+    address: '100 Wall Street, New York, NY 10005',
+    contactEmail: 'support@firstnational.com',
+    contactPhone: '+1-555-1000',
+    status: 'Active',
+    totalAssets: 85000000,
+    totalPolicies: 125,
+    complianceScore: 98,
+    createdAt: '2024-01-10T08:00:00Z',
+  },
+]
+
 export default function BanksManagementPage() {
-  const [banks, setBanks] = useState<Bank[]>([])
-  const [loading, setLoading] = useState(true)
+  const [banks, setBanks] = useState<Bank[]>(mockBanks)
+  const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -49,13 +65,12 @@ export default function BanksManagementPage() {
 
   const fetchBanks = async () => {
     try {
-      setLoading(false)
       // Service call will be implemented when API is connected
       // const response = await adminService.getBanks()
       // setBanks(response.data)
+      // For now, data is already set via useState with mockBanks
     } catch (error) {
       console.error('Error fetching banks:', error)
-      setLoading(false)
     }
   }
 

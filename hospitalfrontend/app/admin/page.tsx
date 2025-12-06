@@ -8,17 +8,31 @@ import { Button } from '@/components/ui/button'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts'
 import { Building2, Users, Banknote, Coins, TrendingUp, AlertCircle } from 'lucide-react'
 
-const systemData: any[] = []
+const systemData = [
+  { month: 'Jul', hospitals: 1, patients: 850 },
+  { month: 'Aug', hospitals: 1, patients: 950 },
+  { month: 'Sep', hospitals: 1, patients: 1050 },
+  { month: 'Oct', hospitals: 1, patients: 1150 },
+  { month: 'Nov', hospitals: 1, patients: 1200 },
+  { month: 'Dec', hospitals: 1, patients: 1250 },
+]
 
-const tradingVolumeData: any[] = []
+const tradingVolumeData = [
+  { month: 'Jul', volume: 85000 },
+  { month: 'Aug', volume: 92000 },
+  { month: 'Sep', volume: 105000 },
+  { month: 'Oct', volume: 118000 },
+  { month: 'Nov', volume: 125000 },
+  { month: 'Dec', volume: 135000 },
+]
 
 export default function AdminHome() {
   const stats = [
-    { label: 'Hospitals', value: '0', icon: Building2, change: '0 this month' },
-    { label: 'Total Patients', value: '0', icon: Users, change: '0 this month' },
-    { label: 'Tokens Minted', value: '0', icon: Coins, change: '0 this month' },
-    { label: 'Trading Volume', value: '$0', icon: TrendingUp, change: '0 this month' },
-    { label: 'Banks', value: '0', icon: Banknote, change: 'All active' },
+    { label: 'Hospitals', value: '1', icon: Building2, change: 'Active' },
+    { label: 'Total Patients', value: '1,250', icon: Users, change: '+50 this month' },
+    { label: 'Tokens Minted', value: '12,500', icon: Coins, change: '+500 this month' },
+    { label: 'Trading Volume', value: '$135K', icon: TrendingUp, change: '+8% this month' },
+    { label: 'Banks', value: '1', icon: Banknote, change: 'Active' },
     { label: 'System Health', value: '100%', icon: AlertCircle, change: 'Operational' },
   ]
 

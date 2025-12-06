@@ -19,7 +19,88 @@ interface AuditLog {
   status: 'success' | 'failed'
 }
 
-const mockAuditLogs: AuditLog[] = []
+const mockAuditLogs: AuditLog[] = [
+  {
+    id: 'AUD-001',
+    timestamp: '2024-12-06T10:30:00Z',
+    user: 'john.admin@assetbridge.com',
+    action: 'CREATE_USER',
+    resource: 'User Management',
+    details: 'Created new hospital admin account for Dr. Sarah Johnson',
+    ipAddress: '192.168.1.100',
+    status: 'success',
+  },
+  {
+    id: 'AUD-002',
+    timestamp: '2024-12-06T10:15:00Z',
+    user: 'sarah.johnson@cityhospital.com',
+    action: 'MINT_TOKENS',
+    resource: 'Token Operations',
+    details: 'Minted 500 AT tokens for patient P-12345',
+    ipAddress: '192.168.1.105',
+    status: 'success',
+  },
+  {
+    id: 'AUD-003',
+    timestamp: '2024-12-06T09:45:00Z',
+    user: 'michael.anderson@firstbank.com',
+    action: 'APPROVE_ASSET',
+    resource: 'Asset Verification',
+    details: 'Approved gold asset valuation for deposit D-98765',
+    ipAddress: '192.168.1.110',
+    status: 'success',
+  },
+  {
+    id: 'AUD-004',
+    timestamp: '2024-12-06T09:30:00Z',
+    user: 'emily.davis@cityhospital.com',
+    action: 'UPDATE_PATIENT',
+    resource: 'Patient Records',
+    details: 'Updated patient profile for Alice Smith',
+    ipAddress: '192.168.1.108',
+    status: 'success',
+  },
+  {
+    id: 'AUD-005',
+    timestamp: '2024-12-06T09:15:00Z',
+    user: 'john.admin@assetbridge.com',
+    action: 'DELETE_USER',
+    resource: 'User Management',
+    details: 'Attempted to delete active admin account',
+    ipAddress: '192.168.1.100',
+    status: 'failed',
+  },
+  {
+    id: 'AUD-006',
+    timestamp: '2024-12-06T08:50:00Z',
+    user: 'robert.chen@countyhospital.com',
+    action: 'ALLOCATE_TOKENS',
+    resource: 'Token Operations',
+    details: 'Allocated 300 HT tokens to patient P-54321',
+    ipAddress: '192.168.1.112',
+    status: 'success',
+  },
+  {
+    id: 'AUD-007',
+    timestamp: '2024-12-06T08:30:00Z',
+    user: 'john.admin@assetbridge.com',
+    action: 'VERIFY_HOSPITAL',
+    resource: 'Hospital Management',
+    details: 'Verified Metro Health Center registration',
+    ipAddress: '192.168.1.100',
+    status: 'success',
+  },
+  {
+    id: 'AUD-008',
+    timestamp: '2024-12-06T08:00:00Z',
+    user: 'james.wilson@communitybank.com',
+    action: 'APPROVE_TRANSACTION',
+    resource: 'Transaction Verification',
+    details: 'Approved transaction TX-11223',
+    ipAddress: '192.168.1.115',
+    status: 'success',
+  },
+]
 
 export default function AdminAuditLogsPage() {
   const [logs, setLogs] = useState<AuditLog[]>(mockAuditLogs)

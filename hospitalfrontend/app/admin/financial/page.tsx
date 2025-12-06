@@ -21,11 +21,26 @@ interface TokenDistribution {
   value: number
 }
 
-const financialData: FinancialData[] = []
+const financialData: FinancialData[] = [
+  { month: 'Jan', revenue: 185000, expenses: 120000, profit: 65000 },
+  { month: 'Feb', revenue: 195000, expenses: 125000, profit: 70000 },
+  { month: 'Mar', revenue: 215000, expenses: 135000, profit: 80000 },
+  { month: 'Apr', revenue: 225000, expenses: 140000, profit: 85000 },
+  { month: 'May', revenue: 240000, expenses: 145000, profit: 95000 },
+  { month: 'Jun', revenue: 260000, expenses: 150000, profit: 110000 },
+]
 
-const tokenDistributionData: TokenDistribution[] = []
+const tokenDistributionData: TokenDistribution[] = [
+  { hospital: 'City General Hospital', tokens: 12500, value: 625000 },
+]
 
-const pieChartData: any[] = []
+const pieChartData: any[] = [
+  { name: 'Hospital Fees', value: 850000, color: '#3B82F6' },
+  { name: 'Token Trading', value: 420000, color: '#10B981' },
+  { name: 'Subscription Revenue', value: 280000, color: '#F59E0B' },
+  { name: 'Bank Fees', value: 180000, color: '#8B5CF6' },
+  { name: 'Other', value: 90000, color: '#6B7280' },
+]
 
 export default function FinancialReportsPage() {
   const [dateRange, setDateRange] = useState('6m')

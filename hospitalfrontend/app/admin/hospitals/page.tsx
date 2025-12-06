@@ -1,13 +1,19 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Building2, Plus, Users, Coins, TrendingUp, Eye } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/Modal'
+import { FormField } from '@/components/ui/form-field'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Building2, Plus, Users, Coins, TrendingUp, Eye, CheckCircle, Search } from 'lucide-react'
 import { DataTable, StatusBadge } from '../components'
+import { formatNumber, formatDate } from '@/lib/utils'
 
 interface Hospital {
   id: string
@@ -23,9 +29,25 @@ interface Hospital {
   subscriptionPlan: string
 }
 
+const mockHospitals: Hospital[] = [
+  {
+    id: 'H-001',
+    name: 'City General Hospital',
+    address: '123 Medical Center Dr, New York, NY 10001',
+    contactEmail: 'admin@cityhospital.com',
+    contactPhone: '+1-555-0100',
+    registrationNumber: 'CGH-2024-001',
+    status: 'active',
+    totalPatients: 1250,
+    tokensMinted: 12500,
+    createdAt: '2024-01-15T08:00:00Z',
+    subscriptionPlan: 'Enterprise',
+  },
+]
+
 export default function HospitalsManagementPage() {
-  const [hospitals, setHospitals] = useState<Hospital[]>([])
-  const [loading, setLoading] = useState(true)
+  const [hospitals, setHospitals] = useState<Hospital[]>(mockHospitals)
+  const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -45,13 +67,12 @@ export default function HospitalsManagementPage() {
 
   const fetchHospitals = async () => {
     try {
-      setLoading(false)
       // Service call will be implemented when API is connected
       // const response = await adminService.getHospitals()
       // setHospitals(response.data)
+      // For now, data is already set via useState with mockHospitals
     } catch (error) {
       console.error('Error fetching hospitals:', error)
-      setLoading(false)
     }
   }
 
@@ -122,7 +143,7 @@ export default function HospitalsManagementPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-gray-600">Total Hospitals</CardTitle>
-            <Building className="w-4 h-4 text-primary" />
+            <Building2 className="w-4 h-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-gray-900">
@@ -202,7 +223,7 @@ export default function HospitalsManagementPage() {
         <CardContent>
           {filteredHospitals.length === 0 ? (
             <div className="text-center py-12">
-              <Building className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <Building2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500">No hospitals found</p>
             </div>
           ) : (

@@ -33,7 +33,16 @@ import {
   FileText,
   Shield,
   Building,
-  DollarSign
+  DollarSign,
+  CreditCard,
+  Database,
+  AlertTriangle,
+  Package,
+  Receipt,
+  PieChart,
+  Mail,
+  Activity,
+  Building2,
 } from 'lucide-react'
 import { UserRole } from '@/types'
 
@@ -89,8 +98,20 @@ const bankNavItems: NavItem[] = [
 const superAdminNavItems: NavItem[] = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard, roles: [UserRole.SUPER_ADMIN] },
   { name: 'User Management', href: '/admin/users', icon: Users, roles: [UserRole.SUPER_ADMIN] },
-  { name: 'System Settings', href: '/admin/settings', icon: Settings, roles: [UserRole.SUPER_ADMIN] },
-  { name: 'Audit Logs', href: '/admin/audit', icon: FileText, roles: [UserRole.SUPER_ADMIN] },
+  { name: 'Hospitals', href: '/admin/hospitals', icon: Building2, roles: [UserRole.SUPER_ADMIN] },
+  { name: 'Register Hospital', href: '/admin/hospitals/create', icon: Building2, roles: [UserRole.SUPER_ADMIN] },
+  { name: 'Banks', href: '/admin/banks', icon: CreditCard, roles: [UserRole.SUPER_ADMIN] },
+  { name: 'Register Bank', href: '/admin/banks/create', icon: CreditCard, roles: [UserRole.SUPER_ADMIN] },
+  { name: 'Audit Logs', href: '/admin/logs/audits', icon: FileText, roles: [UserRole.SUPER_ADMIN] },
+  { name: 'Error Logs', href: '/admin/logs/errors', icon: AlertTriangle, roles: [UserRole.SUPER_ADMIN] },
+  { name: 'Transaction Logs', href: '/admin/logs/transactions', icon: Database, roles: [UserRole.SUPER_ADMIN] },
+  { name: 'Subscription Plans', href: '/admin/billing/plans', icon: Package, roles: [UserRole.SUPER_ADMIN] },
+  { name: 'Invoices', href: '/admin/billing/invoices', icon: Receipt, roles: [UserRole.SUPER_ADMIN] },
+  { name: 'Analytics', href: '/admin/analytics', icon: PieChart, roles: [UserRole.SUPER_ADMIN] },
+  { name: 'Financial Reports', href: '/admin/financial', icon: TrendingUp, roles: [UserRole.SUPER_ADMIN] },
+  { name: 'System Monitoring', href: '/admin/monitoring', icon: Activity, roles: [UserRole.SUPER_ADMIN] },
+  { name: 'Notifications', href: '/admin/notifications', icon: Mail, roles: [UserRole.SUPER_ADMIN] },
+  { name: 'Settings', href: '/admin/settings', icon: Settings, roles: [UserRole.SUPER_ADMIN] },
 ]
 
 interface SidebarProps {
