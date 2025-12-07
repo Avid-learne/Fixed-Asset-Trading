@@ -112,7 +112,7 @@ export const Header: React.FC = () => {
                             <h4 className="text-sm font-medium text-gray-800">
                               {notification.title}
                             </h4>
-                            <Badge variant={notification.type === 'error' ? 'error' : 'default'}>
+                            <Badge variant={notification.type === 'error' ? 'destructive' : 'default'}>
                               {notification.type}
                             </Badge>
                           </div>
