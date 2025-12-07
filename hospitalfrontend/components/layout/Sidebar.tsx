@@ -43,6 +43,7 @@ import {
   Mail,
   Activity,
   Building2,
+  ShoppingCart,
 } from 'lucide-react'
 import { UserRole } from '@/types'
 
@@ -56,9 +57,9 @@ interface NavItem {
 
 const patientNavItems: NavItem[] = [
   { name: 'Dashboard', href: '/patient/dashboard', icon: LayoutDashboard, roles: [UserRole.PATIENT] },
+  { name: 'Marketplace', href: '/patient/marketplace', icon: ShoppingCart, roles: [UserRole.PATIENT] },
   { name: 'Deposit Asset', href: '/patient/deposit/start', icon: Upload, roles: [UserRole.PATIENT], activeMatch: '/patient/deposit' },
-  { name: 'AT Wallet', href: '/patient/wallet/at', icon: Coins, roles: [UserRole.PATIENT] },
-  { name: 'HT Wallet', href: '/patient/wallet/ht', icon: Gift, roles: [UserRole.PATIENT] },
+  { name: 'My Wallet', href: '/patient/wallet', icon: Coins, roles: [UserRole.PATIENT], activeMatch: '/patient/wallet' },
   { name: 'Activity', href: '/patient/activity', icon: History, roles: [UserRole.PATIENT] },
   { name: 'Health Card', href: '/patient/health-card', icon: Users, roles: [UserRole.PATIENT] },
   { name: 'Redeem HT', href: '/patient/redeem', icon: TrendingUp, roles: [UserRole.PATIENT] },
@@ -68,6 +69,7 @@ const patientNavItems: NavItem[] = [
 
 const hospitalNavItems: NavItem[] = [
   { name: 'Dashboard', href: '/hospital', icon: LayoutDashboard, roles: [UserRole.HOSPITAL_STAFF] },
+  { name: 'Marketplace', href: '/hospital/marketplace', icon: ShoppingCart, roles: [UserRole.HOSPITAL_STAFF] },
   { name: 'Approve Deposits', href: '/hospital/deposits', icon: CheckSquare, roles: [UserRole.HOSPITAL_STAFF] },
   { name: 'Patient Profiles', href: '/hospital/patients', icon: Users, roles: [UserRole.HOSPITAL_STAFF] },
   { name: 'Settings', href: '/hospital/settings', icon: Settings, roles: [UserRole.HOSPITAL_STAFF] },
@@ -75,6 +77,7 @@ const hospitalNavItems: NavItem[] = [
 
 const hospitalAdminNavItems: NavItem[] = [
   { name: 'Dashboard', href: '/hospitaladmin', icon: LayoutDashboard, roles: [UserRole.HOSPITAL_ADMIN] },
+  { name: 'Marketplace', href: '/hospitaladmin/marketplace', icon: ShoppingCart, roles: [UserRole.HOSPITAL_ADMIN] },
   { name: 'Approve Deposits', href: '/hospitaladmin/deposits', icon: CheckSquare, roles: [UserRole.HOSPITAL_ADMIN] },
   { name: 'Token Minting', href: '/hospitaladmin/minting', icon: Coins, roles: [UserRole.HOSPITAL_ADMIN] },
   { name: 'Trading Simulator', href: '/hospitaladmin/trading', icon: TrendingUp, roles: [UserRole.HOSPITAL_ADMIN] },
@@ -90,6 +93,7 @@ const hospitalAdminNavItems: NavItem[] = [
 
 const bankNavItems: NavItem[] = [
   { name: 'Dashboard', href: '/bank', icon: LayoutDashboard, roles: [UserRole.BANK_OFFICER] },
+  { name: 'Marketplace', href: '/bank/marketplace', icon: ShoppingCart, roles: [UserRole.BANK_OFFICER] },
   { name: 'Policies', href: '/bank/policies', icon: Shield, roles: [UserRole.BANK_OFFICER] },
   { name: 'Tokenized Assets', href: '/bank/assets', icon: Building, roles: [UserRole.BANK_OFFICER] },
   { name: 'Reports', href: '/bank/reports', icon: DollarSign, roles: [UserRole.BANK_OFFICER] },
@@ -97,19 +101,12 @@ const bankNavItems: NavItem[] = [
 
 const superAdminNavItems: NavItem[] = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard, roles: [UserRole.SUPER_ADMIN] },
+  { name: 'Marketplace', href: '/admin/marketplace', icon: ShoppingCart, roles: [UserRole.SUPER_ADMIN] },
   { name: 'User Management', href: '/admin/users', icon: Users, roles: [UserRole.SUPER_ADMIN] },
-  { name: 'Hospitals', href: '/admin/hospitals', icon: Building2, roles: [UserRole.SUPER_ADMIN] },
-  { name: 'Register Hospital', href: '/admin/hospitals/create', icon: Building2, roles: [UserRole.SUPER_ADMIN] },
-  { name: 'Banks', href: '/admin/banks', icon: CreditCard, roles: [UserRole.SUPER_ADMIN] },
-  { name: 'Register Bank', href: '/admin/banks/create', icon: CreditCard, roles: [UserRole.SUPER_ADMIN] },
-  { name: 'Audit Logs', href: '/admin/logs/audits', icon: FileText, roles: [UserRole.SUPER_ADMIN] },
-  { name: 'Error Logs', href: '/admin/logs/errors', icon: AlertTriangle, roles: [UserRole.SUPER_ADMIN] },
-  { name: 'Transaction Logs', href: '/admin/logs/transactions', icon: Database, roles: [UserRole.SUPER_ADMIN] },
-  { name: 'Subscription Plans', href: '/admin/billing/plans', icon: Package, roles: [UserRole.SUPER_ADMIN] },
-  { name: 'Invoices', href: '/admin/billing/invoices', icon: Receipt, roles: [UserRole.SUPER_ADMIN] },
-  { name: 'Analytics', href: '/admin/analytics', icon: PieChart, roles: [UserRole.SUPER_ADMIN] },
-  { name: 'Financial Reports', href: '/admin/financial', icon: TrendingUp, roles: [UserRole.SUPER_ADMIN] },
-  { name: 'System Monitoring', href: '/admin/monitoring', icon: Activity, roles: [UserRole.SUPER_ADMIN] },
+  { name: 'Hospital Management', href: '/admin/hospitals', icon: Building2, roles: [UserRole.SUPER_ADMIN] },
+  { name: 'Bank Management', href: '/admin/banks', icon: CreditCard, roles: [UserRole.SUPER_ADMIN] },
+  { name: 'Logs', href: '/admin/logs', icon: FileText, roles: [UserRole.SUPER_ADMIN], activeMatch: '/admin/logs' },
+  { name: 'Reports', href: '/admin/reports', icon: PieChart, roles: [UserRole.SUPER_ADMIN], activeMatch: '/admin/reports' },
   { name: 'Notifications', href: '/admin/notifications', icon: Mail, roles: [UserRole.SUPER_ADMIN] },
   { name: 'Settings', href: '/admin/settings', icon: Settings, roles: [UserRole.SUPER_ADMIN] },
 ]

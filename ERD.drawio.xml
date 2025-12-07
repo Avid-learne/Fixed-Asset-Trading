@@ -1,0 +1,333 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0" version="29.2.4">
+  <diagram name="Fixed Asset Trading Platform ERD" id="erd">
+    <mxGraphModel dx="6447" dy="3907" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="3000" pageHeight="2000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="users" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="&lt;b&gt;Users&lt;/b&gt;&lt;hr&gt;PK id: UUID&lt;br&gt;email: VARCHAR(255) UNIQUE&lt;br&gt;password_hash: VARCHAR(255)&lt;br&gt;name: VARCHAR(255)&lt;br&gt;role: ENUM&lt;br&gt;status: ENUM&lt;br&gt;FK organization_id: UUID&lt;br&gt;organization_type: ENUM&lt;br&gt;phone: VARCHAR(20)&lt;br&gt;verified: BOOLEAN&lt;br&gt;last_login: TIMESTAMP&lt;br&gt;created_at: TIMESTAMP&lt;br&gt;updated_at: TIMESTAMP" vertex="1">
+          <mxGeometry height="240" width="280" x="-340" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="hospitals" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;fillColor=#d5e8d4;strokeColor=#82b366;" value="&lt;b&gt;Hospitals&lt;/b&gt;&lt;hr&gt;PK id: UUID&lt;br&gt;name: VARCHAR(255)&lt;br&gt;registration_number: VARCHAR(100) UNIQUE&lt;br&gt;address: TEXT&lt;br&gt;city: VARCHAR(100)&lt;br&gt;state: VARCHAR(100)&lt;br&gt;zip_code: VARCHAR(20)&lt;br&gt;country: VARCHAR(100)&lt;br&gt;contact_email: VARCHAR(255)&lt;br&gt;contact_phone: VARCHAR(20)&lt;br&gt;website: VARCHAR(255)&lt;br&gt;hospital_type: VARCHAR(100)&lt;br&gt;status: ENUM&lt;br&gt;contract_wallet_address: VARCHAR(255)&lt;br&gt;total_patients: INTEGER&lt;br&gt;tokens_minted: BIGINT&lt;br&gt;created_at: TIMESTAMP&lt;br&gt;updated_at: TIMESTAMP" vertex="1">
+          <mxGeometry height="320" width="300" x="400" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="banks" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;fillColor=#fff2cc;strokeColor=#d6b656;" value="&lt;b&gt;Banks&lt;/b&gt;&lt;hr&gt;PK id: UUID&lt;br&gt;name: VARCHAR(255)&lt;br&gt;swift_code: VARCHAR(20) UNIQUE&lt;br&gt;address: TEXT&lt;br&gt;city: VARCHAR(100)&lt;br&gt;state: VARCHAR(100)&lt;br&gt;zip_code: VARCHAR(20)&lt;br&gt;country: VARCHAR(100)&lt;br&gt;contact_email: VARCHAR(255)&lt;br&gt;contact_phone: VARCHAR(20)&lt;br&gt;website: VARCHAR(255)&lt;br&gt;regulatory_license: VARCHAR(100)&lt;br&gt;compliance_officer_name: VARCHAR(255)&lt;br&gt;compliance_officer_email: VARCHAR(255)&lt;br&gt;status: ENUM&lt;br&gt;total_assets: DECIMAL(20,2)&lt;br&gt;total_policies: INTEGER&lt;br&gt;compliance_score: DECIMAL(5,2)&lt;br&gt;created_at: TIMESTAMP&lt;br&gt;updated_at: TIMESTAMP" vertex="1">
+          <mxGeometry height="360" width="300" x="1260" y="-230" as="geometry" />
+        </mxCell>
+        <mxCell id="patients" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;fillColor=#e1d5e7;strokeColor=#9673a6;" value="&lt;b&gt;Patients&lt;/b&gt;&lt;hr&gt;PK id: UUID&lt;br&gt;FK user_id: UUID UNIQUE&lt;br&gt;FK hospital_id: UUID&lt;br&gt;patient_number: VARCHAR(50) UNIQUE&lt;br&gt;date_of_birth: DATE&lt;br&gt;gender: ENUM&lt;br&gt;blood_type: VARCHAR(5)&lt;br&gt;address: TEXT&lt;br&gt;emergency_contact_name: VARCHAR(255)&lt;br&gt;emergency_contact_phone: VARCHAR(20)&lt;br&gt;kyc_status: ENUM&lt;br&gt;kyc_documents: JSONB&lt;br&gt;wallet_address: VARCHAR(255)&lt;br&gt;created_at: TIMESTAMP&lt;br&gt;updated_at: TIMESTAMP" vertex="1">
+          <mxGeometry height="280" width="280" x="100" y="-50" as="geometry" />
+        </mxCell>
+        <mxCell id="assets" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;fillColor=#f8cecc;strokeColor=#b85450;" value="&lt;b&gt;Assets&lt;/b&gt;&lt;hr&gt;PK id: UUID&lt;br&gt;FK patient_id: UUID&lt;br&gt;FK hospital_id: UUID&lt;br&gt;FK bank_id: UUID&lt;br&gt;asset_type: VARCHAR(100)&lt;br&gt;asset_name: VARCHAR(255)&lt;br&gt;description: TEXT&lt;br&gt;estimated_value: DECIMAL(15,2)&lt;br&gt;verified_value: DECIMAL(15,2)&lt;br&gt;status: ENUM&lt;br&gt;submission_date: TIMESTAMP&lt;br&gt;review_date: TIMESTAMP&lt;br&gt;approval_date: TIMESTAMP&lt;br&gt;tokenization_date: TIMESTAMP&lt;br&gt;rejection_reason: TEXT&lt;br&gt;FK hospital_staff_id: UUID&lt;br&gt;FK bank_officer_id: UUID&lt;br&gt;document_urls: JSONB&lt;br&gt;metadata: JSONB&lt;br&gt;created_at: TIMESTAMP&lt;br&gt;updated_at: TIMESTAMP" vertex="1">
+          <mxGeometry height="380" width="300" x="820" y="-210" as="geometry" />
+        </mxCell>
+        <mxCell id="asset_tokens" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;fillColor=#ffe6cc;strokeColor=#d79b00;" value="&lt;b&gt;Asset Tokens (AT)&lt;/b&gt;&lt;hr&gt;PK id: UUID&lt;br&gt;FK asset_id: UUID&lt;br&gt;FK patient_id: UUID&lt;br&gt;FK hospital_id: UUID&lt;br&gt;token_symbol: VARCHAR(10)&lt;br&gt;total_supply: BIGINT&lt;br&gt;circulating_supply: BIGINT&lt;br&gt;contract_address: VARCHAR(255) UNIQUE&lt;br&gt;blockchain_network: VARCHAR(50)&lt;br&gt;mint_transaction_hash: VARCHAR(255)&lt;br&gt;minted_at: TIMESTAMP&lt;br&gt;status: ENUM&lt;br&gt;created_at: TIMESTAMP&lt;br&gt;updated_at: TIMESTAMP" vertex="1">
+          <mxGeometry height="260" width="300" x="740" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="health_tokens" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;fillColor=#ffe6cc;strokeColor=#d79b00;" value="&lt;b&gt;Health Tokens (HT)&lt;/b&gt;&lt;hr&gt;PK id: UUID&lt;br&gt;FK patient_id: UUID&lt;br&gt;FK hospital_id: UUID&lt;br&gt;token_symbol: VARCHAR(10)&lt;br&gt;total_balance: BIGINT&lt;br&gt;locked_balance: BIGINT&lt;br&gt;available_balance: BIGINT&lt;br&gt;wallet_address: VARCHAR(255)&lt;br&gt;created_at: TIMESTAMP&lt;br&gt;updated_at: TIMESTAMP" vertex="1">
+          <mxGeometry height="200" width="300" x="440" y="-230" as="geometry" />
+        </mxCell>
+        <mxCell id="transactions" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;fillColor=#d5e8d4;strokeColor=#82b366;" value="&lt;b&gt;Transactions&lt;/b&gt;&lt;hr&gt;PK id: UUID&lt;br&gt;transaction_hash: VARCHAR(255) UNIQUE&lt;br&gt;from_address: VARCHAR(255)&lt;br&gt;to_address: VARCHAR(255)&lt;br&gt;token_type: ENUM&lt;br&gt;token_id: UUID&lt;br&gt;transaction_type: ENUM&lt;br&gt;amount: BIGINT&lt;br&gt;status: ENUM&lt;br&gt;block_number: BIGINT&lt;br&gt;gas_used: BIGINT&lt;br&gt;gas_fee: DECIMAL(20,8)&lt;br&gt;FK patient_id: UUID&lt;br&gt;FK hospital_id: UUID&lt;br&gt;FK initiated_by: UUID&lt;br&gt;description: TEXT&lt;br&gt;metadata: JSONB&lt;br&gt;created_at: TIMESTAMP" vertex="1">
+          <mxGeometry height="340" width="300" x="40" y="670" as="geometry" />
+        </mxCell>
+        <mxCell id="insurance_policies" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;fillColor=#fff2cc;strokeColor=#d6b656;" value="&lt;b&gt;Insurance Policies&lt;/b&gt;&lt;hr&gt;PK id: UUID&lt;br&gt;FK bank_id: UUID&lt;br&gt;FK hospital_id: UUID&lt;br&gt;FK asset_id: UUID&lt;br&gt;policy_number: VARCHAR(100) UNIQUE&lt;br&gt;policy_type: VARCHAR(100)&lt;br&gt;coverage_amount: DECIMAL(15,2)&lt;br&gt;premium_amount: DECIMAL(10,2)&lt;br&gt;start_date: DATE&lt;br&gt;end_date: DATE&lt;br&gt;status: ENUM&lt;br&gt;terms_conditions: TEXT&lt;br&gt;document_url: VARCHAR(500)&lt;br&gt;created_at: TIMESTAMP&lt;br&gt;updated_at: TIMESTAMP" vertex="1">
+          <mxGeometry height="280" width="300" x="1180" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="subscriptions" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;fillColor=#d5e8d4;strokeColor=#82b366;" value="&lt;b&gt;Subscriptions&lt;/b&gt;&lt;hr&gt;PK id: UUID&lt;br&gt;FK hospital_id: UUID UNIQUE&lt;br&gt;plan: ENUM&lt;br&gt;status: ENUM&lt;br&gt;billing_cycle: ENUM&lt;br&gt;price: DECIMAL(10,2)&lt;br&gt;start_date: DATE&lt;br&gt;end_date: DATE&lt;br&gt;next_billing_date: DATE&lt;br&gt;auto_renew: BOOLEAN&lt;br&gt;trial_end_date: DATE&lt;br&gt;created_at: TIMESTAMP&lt;br&gt;updated_at: TIMESTAMP" vertex="1">
+          <mxGeometry height="240" width="280" x="780" y="650" as="geometry" />
+        </mxCell>
+        <mxCell id="invoices" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;fillColor=#d5e8d4;strokeColor=#82b366;" value="&lt;b&gt;Invoices&lt;/b&gt;&lt;hr&gt;PK id: UUID&lt;br&gt;invoice_number: VARCHAR(50) UNIQUE&lt;br&gt;FK hospital_id: UUID&lt;br&gt;FK subscription_id: UUID&lt;br&gt;amount: DECIMAL(10,2)&lt;br&gt;tax: DECIMAL(10,2)&lt;br&gt;total: DECIMAL(10,2)&lt;br&gt;status: ENUM&lt;br&gt;issue_date: DATE&lt;br&gt;due_date: DATE&lt;br&gt;paid_date: DATE&lt;br&gt;payment_method: VARCHAR(100)&lt;br&gt;billing_period: VARCHAR(50)&lt;br&gt;line_items: JSONB&lt;br&gt;created_at: TIMESTAMP&lt;br&gt;updated_at: TIMESTAMP" vertex="1">
+          <mxGeometry height="300" width="280" x="1140" y="600" as="geometry" />
+        </mxCell>
+        <mxCell id="audit_logs" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="&lt;b&gt;Audit Logs&lt;/b&gt;&lt;hr&gt;PK id: UUID&lt;br&gt;FK user_id: UUID&lt;br&gt;user_role: VARCHAR(50)&lt;br&gt;action: VARCHAR(100)&lt;br&gt;category: VARCHAR(100)&lt;br&gt;resource_type: VARCHAR(100)&lt;br&gt;resource_id: UUID&lt;br&gt;status: ENUM&lt;br&gt;ip_address: VARCHAR(45)&lt;br&gt;user_agent: TEXT&lt;br&gt;details: TEXT&lt;br&gt;metadata: JSONB&lt;br&gt;created_at: TIMESTAMP" vertex="1">
+          <mxGeometry height="240" width="280" x="-330" y="-360" as="geometry" />
+        </mxCell>
+        <mxCell id="error_logs" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="&lt;b&gt;Error Logs&lt;/b&gt;&lt;hr&gt;PK id: UUID&lt;br&gt;severity: ENUM&lt;br&gt;category: VARCHAR(100)&lt;br&gt;message: TEXT&lt;br&gt;source: VARCHAR(255)&lt;br&gt;stack_trace: TEXT&lt;br&gt;FK user_id: UUID&lt;br&gt;affected_users_count: INTEGER&lt;br&gt;resolved: BOOLEAN&lt;br&gt;resolved_at: TIMESTAMP&lt;br&gt;FK resolved_by: UUID&lt;br&gt;metadata: JSONB&lt;br&gt;created_at: TIMESTAMP" vertex="1">
+          <mxGeometry height="240" width="280" x="-690" y="-360" as="geometry" />
+        </mxCell>
+        <mxCell id="notifications" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="&lt;b&gt;Notifications&lt;/b&gt;&lt;hr&gt;PK id: UUID&lt;br&gt;type: ENUM&lt;br&gt;title: VARCHAR(255)&lt;br&gt;message: TEXT&lt;br&gt;priority: ENUM&lt;br&gt;recipient_type: ENUM&lt;br&gt;recipient_role: VARCHAR(50)&lt;br&gt;FK recipient_hospital_id: UUID&lt;br&gt;FK recipient_bank_id: UUID&lt;br&gt;FK recipient_user_id: UUID&lt;br&gt;status: ENUM&lt;br&gt;scheduled_date: TIMESTAMP&lt;br&gt;sent_date: TIMESTAMP&lt;br&gt;read_count: INTEGER&lt;br&gt;total_recipients: INTEGER&lt;br&gt;FK created_by: UUID&lt;br&gt;created_at: TIMESTAMP" vertex="1">
+          <mxGeometry height="320" width="280" x="-740" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="user_notifications" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="&lt;b&gt;User Notifications&lt;/b&gt;&lt;hr&gt;PK id: UUID&lt;br&gt;FK notification_id: UUID&lt;br&gt;FK user_id: UUID&lt;br&gt;read: BOOLEAN&lt;br&gt;read_at: TIMESTAMP&lt;br&gt;created_at: TIMESTAMP" vertex="1">
+          <mxGeometry height="140" width="280" x="-300" y="410" as="geometry" />
+        </mxCell>
+        <mxCell id="bank_verifications" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;fillColor=#fff2cc;strokeColor=#d6b656;" value="&lt;b&gt;Bank Verifications&lt;/b&gt;&lt;hr&gt;PK id: UUID&lt;br&gt;FK bank_id: UUID&lt;br&gt;FK hospital_id: UUID&lt;br&gt;FK asset_id: UUID&lt;br&gt;verification_type: VARCHAR(100)&lt;br&gt;scope: VARCHAR(255)&lt;br&gt;status: ENUM&lt;br&gt;FK verified_by: UUID&lt;br&gt;verified_at: TIMESTAMP&lt;br&gt;documents: JSONB&lt;br&gt;notes: TEXT&lt;br&gt;created_at: TIMESTAMP&lt;br&gt;updated_at: TIMESTAMP" vertex="1">
+          <mxGeometry height="240" width="300" x="720" y="-550" as="geometry" />
+        </mxCell>
+        <mxCell id="compliance_requirements" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;fillColor=#fff2cc;strokeColor=#d6b656;" value="&lt;b&gt;Compliance Requirements&lt;/b&gt;&lt;hr&gt;PK id: UUID&lt;br&gt;FK bank_id: UUID&lt;br&gt;requirement_name: VARCHAR(255)&lt;br&gt;description: TEXT&lt;br&gt;status: ENUM&lt;br&gt;due_date: DATE&lt;br&gt;completed_date: DATE&lt;br&gt;document_url: VARCHAR(500)&lt;br&gt;created_at: TIMESTAMP&lt;br&gt;updated_at: TIMESTAMP" vertex="1">
+          <mxGeometry height="200" width="280" x="1100" y="-500" as="geometry" />
+        </mxCell>
+        <mxCell id="financial_reports" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;fillColor=#d5e8d4;strokeColor=#82b366;" value="&lt;b&gt;Financial Reports&lt;/b&gt;&lt;hr&gt;PK id: UUID&lt;br&gt;FK hospital_id: UUID&lt;br&gt;FK bank_id: UUID&lt;br&gt;report_type: ENUM&lt;br&gt;period_start: DATE&lt;br&gt;period_end: DATE&lt;br&gt;revenue: DECIMAL(15,2)&lt;br&gt;expenses: DECIMAL(15,2)&lt;br&gt;profit: DECIMAL(15,2)&lt;br&gt;data: JSONB&lt;br&gt;FK generated_by: UUID&lt;br&gt;created_at: TIMESTAMP" vertex="1">
+          <mxGeometry height="240" width="280" x="410" y="730" as="geometry" />
+        </mxCell>
+        <mxCell id="system_settings" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="&lt;b&gt;System Settings&lt;/b&gt;&lt;hr&gt;PK id: UUID&lt;br&gt;key: VARCHAR(100) UNIQUE&lt;br&gt;value: TEXT&lt;br&gt;category: VARCHAR(100)&lt;br&gt;description: TEXT&lt;br&gt;data_type: ENUM&lt;br&gt;FK updated_by: UUID&lt;br&gt;created_at: TIMESTAMP&lt;br&gt;updated_at: TIMESTAMP" vertex="1">
+          <mxGeometry height="180" width="280" x="-720" y="-40" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_users_patients" edge="1" parent="1" source="users" target="patients">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_users_patients_label" connectable="0" parent="rel_users_patients" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1:1" vertex="1">
+          <mxGeometry relative="1" x="-0.1" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_hospitals_patients" edge="1" parent="1" source="hospitals" target="patients">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_hospitals_patients_label" connectable="0" parent="rel_hospitals_patients" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1:N" vertex="1">
+          <mxGeometry relative="1" x="-0.1" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_patients_assets" edge="1" parent="1" source="patients" target="assets">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_patients_assets_label" connectable="0" parent="rel_patients_assets" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1:N" vertex="1">
+          <mxGeometry relative="1" x="-0.1" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_hospitals_assets" edge="1" parent="1" source="hospitals" target="assets">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_hospitals_assets_label" connectable="0" parent="rel_hospitals_assets" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1:N" vertex="1">
+          <mxGeometry relative="1" x="-0.1" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_banks_assets" edge="1" parent="1" source="banks" target="assets">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_banks_assets_label" connectable="0" parent="rel_banks_assets" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1:N" vertex="1">
+          <mxGeometry relative="1" x="-0.1" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_assets_at" edge="1" parent="1" source="assets" target="asset_tokens">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_assets_at_label" connectable="0" parent="rel_assets_at" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1:1" vertex="1">
+          <mxGeometry relative="1" x="-0.1" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_patients_ht" edge="1" parent="1" source="patients" target="health_tokens">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_patients_ht_label" connectable="0" parent="rel_patients_ht" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1:1" vertex="1">
+          <mxGeometry relative="1" x="-0.1" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_patients_transactions" edge="1" parent="1" source="activity_log" target="transactions">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_assets_policies" edge="1" parent="1" source="assets" target="insurance_policies">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_assets_policies_label" connectable="0" parent="rel_assets_policies" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1:N" vertex="1">
+          <mxGeometry relative="1" x="-0.1" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_banks_policies" edge="1" parent="1" source="banks" target="insurance_policies">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_banks_policies_label" connectable="0" parent="rel_banks_policies" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1:N" vertex="1">
+          <mxGeometry relative="1" x="-0.1" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_hospitals_subscriptions" edge="1" parent="1" source="hospitals" target="subscriptions">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_hospitals_subscriptions_label" connectable="0" parent="rel_hospitals_subscriptions" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1:1" vertex="1">
+          <mxGeometry relative="1" x="-0.1" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_subscriptions_invoices" edge="1" parent="1" source="subscriptions" target="invoices">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_subscriptions_invoices_label" connectable="0" parent="rel_subscriptions_invoices" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1:N" vertex="1">
+          <mxGeometry relative="1" x="-0.1" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_users_audit" edge="1" parent="1" source="users" target="audit_logs">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_users_audit_label" connectable="0" parent="rel_users_audit" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1:N" vertex="1">
+          <mxGeometry relative="1" x="-0.1" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_users_notifications" edge="1" parent="1" source="users" target="notifications">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_users_notifications_label" connectable="0" parent="rel_users_notifications" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1:N (created_by)" vertex="1">
+          <mxGeometry relative="1" x="-0.1" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_notifications_user_notifications" edge="1" parent="1" source="notifications" target="user_notifications">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_notifications_user_notifications_label" connectable="0" parent="rel_notifications_user_notifications" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1:N" vertex="1">
+          <mxGeometry relative="1" x="-0.1" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_users_user_notifications" edge="1" parent="1" source="users" target="user_notifications">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="180" y="470" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_users_user_notifications_label" connectable="0" parent="rel_users_user_notifications" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1:N" vertex="1">
+          <mxGeometry relative="1" x="-0.1" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_banks_verifications" edge="1" parent="1" source="banks" target="bank_verifications">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_banks_verifications_label" connectable="0" parent="rel_banks_verifications" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1:N" vertex="1">
+          <mxGeometry relative="1" x="-0.1" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_assets_verifications" edge="1" parent="1" source="assets" target="bank_verifications">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_assets_verifications_label" connectable="0" parent="rel_assets_verifications" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1:N" vertex="1">
+          <mxGeometry relative="1" x="-0.1" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_banks_compliance" edge="1" parent="1" source="banks" target="compliance_requirements">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_banks_compliance_label" connectable="0" parent="rel_banks_compliance" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1:N" vertex="1">
+          <mxGeometry relative="1" x="-0.1" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_hospitals_reports" edge="1" parent="1" source="hospitals" target="financial_reports">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_hospitals_reports_label" connectable="0" parent="rel_hospitals_reports" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1:N" vertex="1">
+          <mxGeometry relative="1" x="-0.1" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_patients_activity" edge="1" parent="1" source="patients" target="activity_log">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_patients_activity_label" connectable="0" parent="rel_patients_activity" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1:N" vertex="1">
+          <mxGeometry relative="1" x="-0.1" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_transactions_activity" edge="1" parent="1" source="transactions" style="entryX=0.716;entryY=1.005;entryDx=0;entryDy=0;entryPerimeter=0;exitX=0.77;exitY=-0.006;exitDx=0;exitDy=0;exitPerimeter=0;" target="activity_log">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="270" y="650" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_transactions_activity_label" connectable="0" parent="rel_transactions_activity" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1:N" vertex="1">
+          <mxGeometry relative="1" x="-0.1" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_users_error_logs" edge="1" parent="1" source="users" target="error_logs">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_users_error_logs_label" connectable="0" parent="rel_users_error_logs" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1:N (user_id)" vertex="1">
+          <mxGeometry relative="1" x="-0.1" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_users_error_logs_resolved" edge="1" parent="1" source="users" target="error_logs">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-400" y="-160" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_users_error_logs_resolved_label" connectable="0" parent="rel_users_error_logs_resolved" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1:N (resolved_by)" vertex="1">
+          <mxGeometry relative="1" x="-0.1" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_users_system_settings" edge="1" parent="1" source="users" target="system_settings">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_users_system_settings_label" connectable="0" parent="rel_users_system_settings" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1:N (updated_by)" vertex="1">
+          <mxGeometry relative="1" x="-0.1" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend_title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;" value="&lt;b&gt;LEGEND&lt;/b&gt;" vertex="1">
+          <mxGeometry height="30" width="280" x="-370" y="695" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_users" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="Users &amp; Auth" vertex="1">
+          <mxGeometry height="30" width="130" x="-370" y="735" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_hospitals" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="Hospitals" vertex="1">
+          <mxGeometry height="30" width="130" x="-220" y="735" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_banks" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Banks" vertex="1">
+          <mxGeometry height="30" width="130" x="-370" y="775" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_patients" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" value="Patients" vertex="1">
+          <mxGeometry height="30" width="130" x="-220" y="775" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_assets" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Assets" vertex="1">
+          <mxGeometry height="30" width="130" x="-370" y="815" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_tokens" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="Tokens (AT/HT)" vertex="1">
+          <mxGeometry height="30" width="130" x="-220" y="815" as="geometry" />
+        </mxCell>
+        <mxCell id="note" parent="1" style="text;html=1;strokeColor=#666666;fillColor=#f5f5f5;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontColor=#333333;" value="&lt;b&gt;Fixed Asset Trading Platform - ERD&lt;/b&gt;&lt;br&gt;&lt;br&gt;This ERD represents the complete database schema for the Fixed Asset Trading Platform.&lt;br&gt;&lt;br&gt;Key Features:&lt;br&gt;• 20 interconnected tables&lt;br&gt;• Role-based access control (5 roles)&lt;br&gt;• Blockchain integration (AT &amp; HT tokens)&lt;br&gt;• Asset tokenization workflow&lt;br&gt;• Financial &amp; compliance tracking&lt;br&gt;• Comprehensive audit logging&lt;br&gt;&lt;br&gt;Current System:&lt;br&gt;• 1 Hospital: City General Hospital&lt;br&gt;• 1 Bank: First National Bank" vertex="1">
+          <mxGeometry height="280" width="280" x="90" y="-410" as="geometry" />
+        </mxCell>
+        <mxCell id="w8XKZpJ6q7OTpRahl05O-1" edge="1" parent="1" source="patients" target="activity_log" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+            <mxPoint x="215" y="300" as="sourcePoint" />
+            <mxPoint x="1120" y="630" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="w8XKZpJ6q7OTpRahl05O-2" connectable="0" parent="w8XKZpJ6q7OTpRahl05O-1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1:N" vertex="1">
+          <mxGeometry relative="1" x="-0.1" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="activity_log" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;fillColor=#e1d5e7;strokeColor=#9673a6;" value="&lt;b&gt;Activity Log&lt;/b&gt;&lt;hr&gt;PK id: UUID&lt;br&gt;FK patient_id: UUID&lt;br&gt;FK transaction_id: UUID&lt;br&gt;activity_type: ENUM&lt;br&gt;description: TEXT&lt;br&gt;amount: BIGINT&lt;br&gt;balance_after: BIGINT&lt;br&gt;metadata: JSONB&lt;br&gt;created_at: TIMESTAMP" vertex="1">
+          <mxGeometry height="180" width="280" x="70" y="400" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

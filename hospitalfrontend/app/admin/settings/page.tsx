@@ -6,13 +6,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { FormField } from '@/components/ui/form-field'
-import { Settings, Shield, Database, Bell, Globe, Lock } from 'lucide-react'
+import { Settings, Shield, Database, Bell, Globe, Lock, User } from 'lucide-react'
+import { useAuthStore } from '@/store/authStore'
 
 export default function SystemSettingsPage() {
-  const [activeTab, setActiveTab] = useState('general')
+  const [activeTab, setActiveTab] = useState('account')
   const [loading, setLoading] = useState(false)
+  const { user } = useAuthStore()
 
   const tabs = [
+    { id: 'account', label: 'Account', icon: User },
     { id: 'general', label: 'General', icon: Settings },
     { id: 'security', label: 'Security', icon: Shield },
     { id: 'database', label: 'Database', icon: Database },
@@ -61,6 +64,68 @@ export default function SystemSettingsPage() {
         </Card>
 
         <div className="lg:col-span-3">
+          {activeTab === 'account' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Account Settings</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-foreground">Profile Information</h3>
+                  
+                  <FormField
+                    label="Full Name"
+                    defaultValue={user?.name || ''}
+                    placeholder="Enter your full name"
+                  />
+                  
+                  <FormField
+                    label="Email Address"
+                    type="email"
+                    defaultValue={user?.email || ''}
+                    placeholder="Enter your email"
+                  />
+
+                  <FormField
+                    label="Role"
+                    defaultValue={user?.role || 'SUPER_ADMIN'}
+                    placeholder="Role"
+                    disabled
+                  />
+                </div>
+
+                <div className="border-t pt-6 space-y-4">
+                  <h3 className="text-sm font-semibold text-foreground">Change Password</h3>
+                  
+                  <FormField
+                    label="Current Password"
+                    type="password"
+                    placeholder="Enter current password"
+                  />
+                  
+                  <FormField
+                    label="New Password"
+                    type="password"
+                    placeholder="Enter new password"
+                  />
+                  
+                  <FormField
+                    label="Confirm New Password"
+                    type="password"
+                    placeholder="Confirm new password"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button variant="outline">Cancel</Button>
+                  <Button onClick={handleSave} disabled={loading}>
+                    {loading ? 'Saving...' : 'Save Changes'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {activeTab === 'general' && (
             <Card>
               <CardHeader>
@@ -132,29 +197,7 @@ export default function SystemSettingsPage() {
                     </div>
                     <input type="checkbox" defaultChecked className="w-5 h-5 accent-[hsl(var(--primary))]" />
                   </div>
-
-                  <div className="flex items-center justify-between py-3 border-b">
-                    <div>
-                      <p className="font-medium text-foreground">IP Whitelisting</p>
-                      <p className="text-sm text-muted-foreground">Restrict access by IP address</p>
-                    </div>
-                    <input type="checkbox" className="w-5 h-5 accent-[hsl(var(--primary))]" />
-                  </div>
                 </div>
-
-                <FormField
-                  label="Session Timeout (minutes)"
-                  type="number"
-                  defaultValue="30"
-                  placeholder="30"
-                />
-
-                <FormField
-                  label="Password Expiry (days)"
-                  type="number"
-                  defaultValue="90"
-                  placeholder="90"
-                />
 
                 <div className="flex justify-end pt-4">
                   <Button onClick={handleSave} disabled={loading}>

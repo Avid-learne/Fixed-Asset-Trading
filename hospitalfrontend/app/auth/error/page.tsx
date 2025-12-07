@@ -41,7 +41,7 @@ export default function AuthErrorPage() {
           </div>
 
           <div className="space-y-2">
-            <Link href="/auth/signin" className="block">
+            <Link href="/auth" className="block">
               <Button className="w-full">Try Again</Button>
             </Link>
             <Link href="/">

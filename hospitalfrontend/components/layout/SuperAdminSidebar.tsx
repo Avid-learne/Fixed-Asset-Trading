@@ -35,10 +35,8 @@ interface NavItem {
 const adminNavItems: NavItem[] = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
   { name: 'User Management', href: '/admin/users', icon: Users, section: 'Core Management' },
-  { name: 'Hospitals', href: '/admin/hospitals', icon: Building2 },
-  { name: 'Register Hospital', href: '/admin/hospitals/create', icon: Building2 },
-  { name: 'Banks', href: '/admin/banks', icon: CreditCard, section: 'Banking' },
-  { name: 'Register Bank', href: '/admin/banks/create', icon: CreditCard },
+  { name: 'Hospital Management', href: '/admin/hospitals', icon: Building2 },
+  { name: 'Bank Management', href: '/admin/banks', icon: CreditCard },
   { name: 'Audit Logs', href: '/admin/logs/audits', icon: FileText, section: 'System Logs' },
   { name: 'Error Logs', href: '/admin/logs/errors', icon: AlertTriangle },
   { name: 'Transaction Logs', href: '/admin/logs/transactions', icon: Database },

@@ -30,7 +30,7 @@ class ApiClient {
       (response) => response,
       async (error) => {
         if (error.response?.status === 401) {
-          window.location.href = '/auth/signin'
+          window.location.href = '/auth'
         }
         return Promise.reject(error)
       }

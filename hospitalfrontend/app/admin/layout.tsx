@@ -22,15 +22,17 @@ export default function AdminLayout({
 
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.push('/auth/signin')
-    } else if (session?.user) {
+      router.push('/auth')
+    } else if (status === 'authenticated' && session?.user) {
       setUser(session.user as any)
       
-      if (!hasRole([UserRole.SUPER_ADMIN])) {
-        router.push(roleToPath(session.user.role))
+      // Only redirect if user doesn't have SUPER_ADMIN role
+      const userRole = session.user.role
+      if (userRole !== UserRole.SUPER_ADMIN && userRole !== 'SUPER_ADMIN') {
+        router.push(roleToPath(userRole))
       }
     }
-  }, [session, status, router, setUser, hasRole])
+  }, [status, session?.user?.role, router, setUser])
 
   if (status === 'loading' || !user) {
     return (

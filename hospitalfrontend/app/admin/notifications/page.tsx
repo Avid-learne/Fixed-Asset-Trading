@@ -99,6 +99,52 @@ export default function NotificationsPage() {
     })
   }
 
+  const useTemplate = (templateName: string) => {
+    const templates = {
+      maintenance: {
+        type: 'announcement',
+        title: 'Scheduled Platform Maintenance',
+        message: 'The platform will undergo scheduled maintenance on [DATE] from [TIME] to [TIME] [TIMEZONE]. During this period, services may be temporarily unavailable. We apologize for any inconvenience.',
+        priority: 'high',
+        recipients: 'all'
+      },
+      security: {
+        type: 'alert',
+        title: 'Security Alert',
+        message: 'We have detected [SECURITY_ISSUE]. Please review your account security settings and [RECOMMENDED_ACTION]. If you did not authorize this activity, please contact support immediately.',
+        priority: 'high',
+        recipients: 'all'
+      },
+      feature: {
+        type: 'announcement',
+        title: 'New Feature Release',
+        message: 'We are excited to announce the launch of [FEATURE_NAME]. This new feature provides [DESCRIPTION] and is available to [PLAN_TYPES]. Learn more in our documentation.',
+        priority: 'medium',
+        recipients: 'all'
+      },
+      payment: {
+        type: 'announcement',
+        title: 'Payment Reminder',
+        message: 'This is a friendly reminder that your payment of [AMOUNT] is due on [DUE_DATE]. Please ensure timely payment to avoid service interruption. Thank you for your continued partnership.',
+        priority: 'medium',
+        recipients: 'all'
+      }
+    }
+
+    const template = templates[templateName as keyof typeof templates]
+    if (template) {
+      setComposeForm({
+        ...composeForm,
+        type: template.type as any,
+        title: template.title,
+        message: template.message,
+        priority: template.priority as any,
+        recipients: template.recipients
+      })
+      setActiveTab('compose')
+    }
+  }
+
   const stats = {
     total: notifications.length,
     sent: notifications.filter(n => n.status === 'sent').length,
@@ -372,7 +418,7 @@ export default function NotificationsPage() {
               <CardContent className="pt-6">
                 <h3 className="font-semibold text-gray-900 mb-2">Maintenance Notice</h3>
                 <p className="text-sm text-gray-600 mb-4">Template for scheduled maintenance announcements</p>
-                <Button variant="outline" size="sm">Use Template</Button>
+                <Button variant="outline" size="sm" onClick={() => useTemplate('maintenance')}>Use Template</Button>
               </CardContent>
             </Card>
 
@@ -380,7 +426,7 @@ export default function NotificationsPage() {
               <CardContent className="pt-6">
                 <h3 className="font-semibold text-gray-900 mb-2">Security Alert</h3>
                 <p className="text-sm text-gray-600 mb-4">Template for security-related notifications</p>
-                <Button variant="outline" size="sm">Use Template</Button>
+                <Button variant="outline" size="sm" onClick={() => useTemplate('security')}>Use Template</Button>
               </CardContent>
             </Card>
 
@@ -388,7 +434,7 @@ export default function NotificationsPage() {
               <CardContent className="pt-6">
                 <h3 className="font-semibold text-gray-900 mb-2">Feature Release</h3>
                 <p className="text-sm text-gray-600 mb-4">Template for new feature announcements</p>
-                <Button variant="outline" size="sm">Use Template</Button>
+                <Button variant="outline" size="sm" onClick={() => useTemplate('feature')}>Use Template</Button>
               </CardContent>
             </Card>
 
@@ -396,7 +442,7 @@ export default function NotificationsPage() {
               <CardContent className="pt-6">
                 <h3 className="font-semibold text-gray-900 mb-2">Payment Reminder</h3>
                 <p className="text-sm text-gray-600 mb-4">Template for billing and payment reminders</p>
-                <Button variant="outline" size="sm">Use Template</Button>
+                <Button variant="outline" size="sm" onClick={() => useTemplate('payment')}>Use Template</Button>
               </CardContent>
             </Card>
           </div>

@@ -252,24 +252,13 @@ export default function DashboardOverview({ data = MOCK_DASHBOARD_DATA }: Props)
       </div>
 
       {/* Quick Links */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Link href="/patient/wallet/at">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Link href="/patient/wallet">
           <Card className="hover:shadow-md transition-shadow cursor-pointer">
             <CardContent className="pt-6">
               <div className="text-center space-y-2">
-                <div className="font-semibold">AT Wallet</div>
-                <div className="text-xs text-muted-foreground">Manage Asset Tokens</div>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/patient/wallet/ht">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer">
-            <CardContent className="pt-6">
-              <div className="text-center space-y-2">
-                <div className="font-semibold">HT Wallet</div>
-                <div className="text-xs text-muted-foreground">Manage Health Tokens</div>
+                <div className="font-semibold">My Wallets</div>
+                <div className="text-xs text-muted-foreground">Manage AT & HT tokens</div>
               </div>
             </CardContent>
           </Card>

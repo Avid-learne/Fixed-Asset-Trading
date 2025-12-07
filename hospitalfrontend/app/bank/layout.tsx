@@ -21,7 +21,7 @@ export default function BankLayout({
 
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.push('/auth/signin')
+      router.push('/auth')
     } else if (session?.user) {
       setUser(session.user as any)
       if (session.user.role !== UserRole.BANK_OFFICER) {

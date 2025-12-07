@@ -34,8 +34,8 @@ export const Header: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const handleLogout = async () => {
-    await signOut({ callbackUrl: '/auth/signin' })
+  const handleSignOut = async () => {
+    await signOut({ callbackUrl: '/auth' })
   }
 
   return (
@@ -161,7 +161,8 @@ export const Header: React.FC = () => {
                 onClick={() => {
                   setShowProfile(false)
                   const role = user?.role?.toLowerCase() || 'patient'
-                  window.location.href = `/${role}/settings`
+                  const settingsPath = role === 'super_admin' ? '/admin/settings' : `/${role}/settings`
+                  window.location.href = settingsPath
                 }}
                 className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
               >
@@ -170,7 +171,7 @@ export const Header: React.FC = () => {
               </button>
               
               <button
-                onClick={handleLogout}
+                onClick={handleSignOut}
                 className="w-full px-4 py-2 text-left text-sm text-error hover:bg-gray-50 flex items-center space-x-2"
               >
                 <LogOut className="w-4 h-4" />

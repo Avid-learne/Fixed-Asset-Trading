@@ -11,7 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/Modal'
 import { FormField } from '@/components/ui/form-field'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Building2, Plus, Users, Coins, TrendingUp, Eye, CheckCircle, Search } from 'lucide-react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Building2, Plus, Users, Coins, TrendingUp, Eye, CheckCircle, Search, List, UserPlus } from 'lucide-react'
 import { DataTable, StatusBadge } from '../components'
 import { formatNumber, formatDate } from '@/lib/utils'
 
@@ -91,9 +92,9 @@ export default function HospitalsManagementPage() {
 
   const handleToggleStatus = async (hospital: Hospital) => {
     try {
-      const newStatus = hospital.status === 'Active' ? 'Suspended' : 'Active'
+      const newStatus = hospital.status === 'active' ? 'suspended' : 'active'
       // await adminService.updateHospitalStatus(hospital.id, newStatus)
-      alert(`Hospital ${newStatus === 'Active' ? 'activated' : 'suspended'} successfully!`)
+      alert(`Hospital ${newStatus === 'active' ? 'activated' : 'suspended'} successfully!`)
       fetchHospitals()
     } catch (error) {
       console.error('Error updating hospital status:', error)
@@ -128,16 +129,24 @@ export default function HospitalsManagementPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Hospital Management</h1>
-          <p className="text-gray-500 mt-1">Manage registered hospitals and their operations</p>
-        </div>
-        <Button onClick={() => setShowCreateModal(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Register Hospital
-        </Button>
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">Hospital Management</h1>
+        <p className="text-gray-500 mt-1">Manage registered hospitals and register new ones</p>
       </div>
+
+      <Tabs defaultValue="list" className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="list" className="flex items-center gap-2">
+            <List className="w-4 h-4" />
+            Hospital List
+          </TabsTrigger>
+          <TabsTrigger value="register" className="flex items-center gap-2">
+            <UserPlus className="w-4 h-4" />
+            Register Hospital
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="list" className="space-y-6 mt-6">
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
@@ -160,7 +169,7 @@ export default function HospitalsManagementPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-success">
-              {formatNumber(hospitals.filter(h => h.status === 'Active').length)}
+              {formatNumber(hospitals.filter(h => h.status === 'active').length)}
             </div>
             <p className="text-xs text-gray-500 mt-1">Operational hospitals</p>
           </CardContent>
@@ -282,7 +291,7 @@ export default function HospitalsManagementPage() {
                           size="sm"
                           onClick={() => handleToggleStatus(hospital)}
                         >
-                          {hospital.status === 'Active' ? 'Suspend' : 'Activate'}
+                          {hospital.status === 'active' ? 'Suspend' : 'Activate'}
                         </Button>
                       </div>
                     </TableCell>
@@ -293,58 +302,73 @@ export default function HospitalsManagementPage() {
           )}
         </CardContent>
       </Card>
+        </TabsContent>
 
-      <Modal open={showCreateModal} onOpenChange={setShowCreateModal}>
-        <ModalContent>
-          <ModalHeader>
-            <ModalTitle>Register New Hospital</ModalTitle>
-          </ModalHeader>
-          <div className="space-y-4">
-            <FormField
-              label="Hospital Name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="Enter hospital name"
-            />
-            <FormField
-              label="Registration Number"
-              value={formData.registrationNumber}
-              onChange={(e) => setFormData({ ...formData, registrationNumber: e.target.value })}
-              placeholder="Enter registration number"
-            />
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-              <textarea
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                rows={3}
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-                placeholder="Enter full address"
-              />
-            </div>
-            <FormField
-              label="Contact Email"
-              type="email"
-              value={formData.contactEmail}
-              onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
-              placeholder="Enter contact email"
-            />
-            <FormField
-              label="Contact Phone"
-              type="tel"
-              value={formData.contactPhone}
-              onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
-              placeholder="Enter contact phone"
-            />
-          </div>
-          <ModalFooter>
-            <Button variant="outline" onClick={() => setShowCreateModal(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateHospital}>Register Hospital</Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+        <TabsContent value="register" className="space-y-6 mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Register New Hospital</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4 max-w-2xl">
+                <FormField
+                  label="Hospital Name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Enter hospital name"
+                  required
+                />
+                <FormField
+                  label="Registration Number"
+                  value={formData.registrationNumber}
+                  onChange={(e) => setFormData({ ...formData, registrationNumber: e.target.value })}
+                  placeholder="Enter registration number"
+                  required
+                />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Address *</label>
+                  <textarea
+                    value={formData.address}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    rows={3}
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                    placeholder="Enter full address"
+                    required
+                  />
+                </div>
+                <FormField
+                  label="Contact Email"
+                  type="email"
+                  value={formData.contactEmail}
+                  onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
+                  placeholder="Enter contact email"
+                  required
+                />
+                <FormField
+                  label="Contact Phone"
+                  type="tel"
+                  value={formData.contactPhone}
+                  onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
+                  placeholder="Enter contact phone"
+                  required
+                />
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setFormData({ name: '', address: '', contactEmail: '', contactPhone: '', registrationNumber: '' })}
+                  >
+                    Clear Form
+                  </Button>
+                  <Button onClick={handleCreateHospital}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Register Hospital
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <Modal open={!!selectedHospital} onOpenChange={() => setSelectedHospital(null)}>
         <ModalContent>
@@ -377,10 +401,6 @@ export default function HospitalsManagementPage() {
                 <div>
                   <p className="text-sm text-gray-500">Total Patients</p>
                   <p className="font-medium text-gray-900">{formatNumber(selectedHospital.totalPatients)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Assets Processed</p>
-                  <p className="font-medium text-gray-900">{formatNumber(selectedHospital.totalAssets)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Tokens Minted</p>

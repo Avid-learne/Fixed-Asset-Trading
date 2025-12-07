@@ -18,7 +18,7 @@ export default function HospitalAdminLayout({ children }: { children: React.Reac
 
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.push('/auth/signin')
+      router.push('/auth')
     } else if (session?.user) {
       setUser(session.user as any)
       if (!hasRole([UserRole.HOSPITAL_ADMIN])) {
