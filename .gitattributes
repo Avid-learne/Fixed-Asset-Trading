@@ -1,0 +1,15 @@
+# Set default behavior to automatically normalize line endings
+* text=auto
+
+# Force specific files to use LF (Unix) line endings
+*.sol text eol=lf
+*.ts text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+
+# Keep markdown and XML files with their current line endings
+*.md text eol=crlf
+*.xml text eol=lf
+
+# Ignore line ending warnings for node_modules
+node_modules/** -text
