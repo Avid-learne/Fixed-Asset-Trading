@@ -2,280 +2,301 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { FormField } from '@/components/ui/form-field'
-import { Stepper, Step } from '@/components/ui/Stepper'
-import { Upload, FileText, DollarSign } from 'lucide-react'
-import { assetService } from '@/services/assetService'
+import { Coins, Building2, ArrowRight, CheckCircle, Calculator } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
-const steps: Step[] = [
-  { id: 'details', label: 'Asset Details' },
-  { id: 'upload', label: 'Upload Documents' },
-  { id: 'review', label: 'Review & Submit' },
-  { id: 'complete', label: 'Complete' },
+type AssetType = 'gold' | 'silver' | ''
+
+const GOLD_RATE_PER_GRAM = 15000 // PKR per gram
+const SILVER_RATE_PER_GRAM = 250 // PKR per gram
+const TOKEN_RATIO = 100 // 1 AT token = 100 PKR worth of asset
+
+const HOSPITALS = [
+  { id: 'h1', name: 'Shifa International Hospital', location: 'Islamabad' },
+  { id: 'h2', name: 'Aga Khan University Hospital', location: 'Karachi' },
+  { id: 'h3', name: 'Lahore General Hospital', location: 'Lahore' },
+  { id: 'h4', name: 'Liaquat National Hospital', location: 'Karachi' },
+  { id: 'h5', name: 'Combined Military Hospital', location: 'Rawalpindi' },
 ]
 
 export default function DepositAssetPage() {
   const router = useRouter()
-  const [currentStep, setCurrentStep] = useState(0)
+  const [assetType, setAssetType] = useState<AssetType>('')
+  const [weight, setWeight] = useState('')
+  const [selectedHospital, setSelectedHospital] = useState('')
+  const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [formData, setFormData] = useState({
-    assetType: '',
-    assetName: '',
-    description: '',
-    estimatedValue: '',
-    file: null as File | null,
-  })
-  const [errors, setErrors] = useState<Record<string, string>>({})
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }))
-    }
+  const calculateWorth = () => {
+    const weightNum = parseFloat(weight)
+    if (!weightNum || !assetType) return 0
+    return weightNum * (assetType === 'gold' ? GOLD_RATE_PER_GRAM : SILVER_RATE_PER_GRAM)
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFormData(prev => ({ ...prev, file: e.target.files![0] }))
-      if (errors.file) {
-        setErrors(prev => ({ ...prev, file: '' }))
-      }
-    }
+  const calculateTokens = () => {
+    return Math.floor(calculateWorth() / TOKEN_RATIO)
   }
 
-  const validateStep = (step: number): boolean => {
-    const newErrors: Record<string, string> = {}
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
 
-    if (step === 0) {
-      if (!formData.assetType) newErrors.assetType = 'Asset type is required'
-      if (!formData.assetName) newErrors.assetName = 'Asset name is required'
-      if (!formData.description) newErrors.description = 'Description is required'
-      if (!formData.estimatedValue) newErrors.estimatedValue = 'Estimated value is required'
-      else if (parseFloat(formData.estimatedValue) <= 0) newErrors.estimatedValue = 'Value must be greater than 0'
-    }
-
-    if (step === 1) {
-      if (!formData.file) newErrors.file = 'Document upload is required'
-    }
-
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
-
-  const handleNext = () => {
-    if (validateStep(currentStep)) {
-      setCurrentStep(prev => prev + 1)
-    }
-  }
-
-  const handleBack = () => {
-    setCurrentStep(prev => prev - 1)
-  }
-
-  const handleSubmit = async () => {
-    if (!validateStep(1)) return
-
-    try {
-      setLoading(true)
-      const data = new FormData()
-      data.append('assetType', formData.assetType)
-      data.append('assetName', formData.assetName)
-      data.append('description', formData.description)
-      data.append('estimatedValue', formData.estimatedValue)
-      if (formData.file) {
-        data.append('document', formData.file)
-      }
-
-      await assetService.createAsset(data)
-      setCurrentStep(3)
-      setTimeout(() => {
-        router.push('/patient/history')
-      }, 2000)
-    } catch (error) {
-      console.error('Error submitting asset:', error)
-      alert('Failed to submit asset. Please try again.')
-    } finally {
+    // Simulate API call
+    setTimeout(() => {
       setLoading(false)
-    }
+      setSubmitted(true)
+    }, 1500)
+  }
+
+  const resetForm = () => {
+    setAssetType('')
+    setWeight('')
+    setSelectedHospital('')
+    setSubmitted(false)
+  }
+
+  if (submitted) {
+    return (
+      <div className="max-w-2xl mx-auto space-y-6">
+        <Card className="text-center">
+          <CardContent className="pt-12 pb-12">
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CheckCircle className="w-12 h-12 text-green-600" />
+            </div>
+            <h2 className="text-3xl font-bold mb-4">Request Submitted Successfully!</h2>
+            <p className="text-muted-foreground mb-2">
+              Your investment request has been sent to the hospital for verification.
+            </p>
+            <p className="text-sm text-muted-foreground mb-8">
+              You will receive a notification once the hospital approves your request and mints the AT tokens.
+            </p>
+
+            <div className="bg-muted/50 rounded-lg p-6 mb-8 text-left">
+              <h3 className="font-semibold mb-4">Request Summary</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Asset Type:</span>
+                  <span className="font-medium capitalize">{assetType}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Weight:</span>
+                  <span className="font-medium">{weight} grams</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Asset Worth:</span>
+                  <span className="font-medium">PKR {calculateWorth().toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Expected AT Tokens:</span>
+                  <span className="font-semibold text-lg text-primary">{calculateTokens()} AT</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Hospital:</span>
+                  <span className="font-medium">
+                    {HOSPITALS.find(h => h.id === selectedHospital)?.name}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 justify-center">
+              <Button variant="outline" onClick={() => router.push('/patient/dashboard')}>
+                Go to Dashboard
+              </Button>
+              <Button onClick={resetForm}>
+                Submit Another Request
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Deposit Asset</h1>
-        <p className="text-gray-500 mt-1">Submit your physical assets to receive health tokens</p>
+        <h1 className="text-3xl font-bold">Deposit Asset</h1>
+        <p className="text-muted-foreground mt-1">
+          Invest in gold or silver to receive Asset Tokens (AT) backed by physical assets
+        </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <Stepper steps={steps} currentStep={currentStep} />
-        </CardHeader>
-        <CardContent>
-          {currentStep === 0 && (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Asset Type
-                </label>
-                <select
-                  name="assetType"
-                  value={formData.assetType}
-                  onChange={handleInputChange}
-                  className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="">Select asset type</option>
-                  <option value="real_estate">Real Estate</option>
-                  <option value="vehicle">Vehicle</option>
-                  <option value="jewelry">Jewelry</option>
-                  <option value="electronics">Electronics</option>
-                  <option value="collectibles">Collectibles</option>
-                  <option value="other">Other</option>
-                </select>
-                {errors.assetType && <p className="mt-1 text-sm text-error">{errors.assetType}</p>}
-              </div>
+      <form onSubmit={handleSubmit}>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Form */}
+          <div className="lg:col-span-2 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Coins className="w-5 h-5" />
+                  Select Asset Type
+                </CardTitle>
+                <CardDescription>Choose the precious metal you want to invest.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setAssetType('gold')}
+                    className={`p-6 border-2 rounded-lg text-center transition-all hover:shadow-md ${
+                      assetType === 'gold'
+                        ? 'border-yellow-500 bg-yellow-50'
+                        : 'border-border hover:border-yellow-300'
+                    }`}
+                  >
+                    <div className="text-4xl mb-2" aria-hidden="true">🥇</div>
+                    <div className="font-semibold text-lg">Gold</div>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      PKR {GOLD_RATE_PER_GRAM.toLocaleString()}/gram
+                    </div>
+                  </button>
 
-              <FormField
-                label="Asset Name"
-                name="assetName"
-                value={formData.assetName}
-                onChange={handleInputChange as any}
-                placeholder="Enter asset name"
-              />
-              {errors.assetName && <p className="mt-1 text-sm text-error">{errors.assetName}</p>}
+                  <button
+                    type="button"
+                    onClick={() => setAssetType('silver')}
+                    className={`p-6 border-2 rounded-lg text-center transition-all hover:shadow-md ${
+                      assetType === 'silver'
+                        ? 'border-slate-500 bg-slate-50'
+                        : 'border-border hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="text-4xl mb-2" aria-hidden="true">🥈</div>
+                    <div className="font-semibold text-lg">Silver</div>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      PKR {SILVER_RATE_PER_GRAM.toLocaleString()}/gram
+                    </div>
+                  </button>
+                </div>
+              </CardContent>
+            </Card>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
-                </label>
-                <textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  rows={4}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="Provide detailed description of the asset"
-                />
-                {errors.description && <p className="mt-1 text-sm text-error">{errors.description}</p>}
-              </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Asset Details</CardTitle>
+                <CardDescription>Provide how much metal you want to deposit.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">Weight in grams</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={weight}
+                    onChange={event => setWeight(event.target.value)}
+                    placeholder="e.g. 25"
+                    required
+                  />
+                </div>
 
-              <FormField
-                label="Estimated Value (USD)"
-                name="estimatedValue"
-                type="number"
-                value={formData.estimatedValue}
-                onChange={handleInputChange as any}
-                placeholder="0.00"
-              />
-              {errors.estimatedValue && <p className="mt-1 text-sm text-error">{errors.estimatedValue}</p>}
+                <div className="rounded-lg border p-4 bg-muted/40 text-sm text-muted-foreground">
+                  Asset worth updates automatically using the latest configured rates for gold and silver.
+                </div>
+              </CardContent>
+            </Card>
 
-              <div className="flex justify-end">
-                <Button onClick={handleNext}>Next</Button>
-              </div>
-            </div>
-          )}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="w-5 h-5" />
+                  Select Hospital
+                </CardTitle>
+                <CardDescription>Choose the hospital that will receive your request.</CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-3">
+                {HOSPITALS.map(hospital => (
+                  <button
+                    key={hospital.id}
+                    type="button"
+                    onClick={() => setSelectedHospital(hospital.id)}
+                    className={`w-full p-4 rounded-lg border text-left transition hover:shadow-sm ${
+                      selectedHospital === hospital.id
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-primary/40'
+                    }`}
+                  >
+                    <div className="font-semibold">{hospital.name}</div>
+                    <div className="text-sm text-muted-foreground">{hospital.location}</div>
+                  </button>
+                ))}
+              </CardContent>
+            </Card>
 
-          {currentStep === 1 && (
-            <div className="space-y-4">
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-sm text-gray-600 mb-2">Upload supporting documents</p>
-                <p className="text-xs text-gray-500 mb-4">PDF, JPG, PNG up to 10MB</p>
-                <input
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={handleFileChange}
-                  className="hidden"
-                  id="file-upload"
-                />
-                <label htmlFor="file-upload">
-                  <Button type="button" variant="outline" onClick={() => document.getElementById('file-upload')?.click()}>
-                    Choose File
-                  </Button>
-                </label>
-                {formData.file && (
-                  <p className="text-sm text-gray-700 mt-4">
-                    <FileText className="w-4 h-4 inline mr-2" />
-                    {formData.file.name}
-                  </p>
-                )}
-                {errors.file && <p className="mt-2 text-sm text-error">{errors.file}</p>}
-              </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>How It Works</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm text-muted-foreground">
+                <p>Your selected hospital verifies the asset details you submit.</p>
+                <p>Once approved, Asset Tokens (AT) are minted and deposited into your wallet.</p>
+                <p>You can redeem or trade tokens once the verification completes.</p>
+              </CardContent>
+            </Card>
+          </div>
 
-              <div className="flex justify-between">
-                <Button variant="outline" onClick={handleBack}>Back</Button>
-                <Button onClick={handleNext}>Next</Button>
-              </div>
-            </div>
-          )}
-
-          {currentStep === 2 && (
-            <div className="space-y-6">
-              <div className="bg-gray-50 rounded-lg p-6 space-y-4">
-                <h3 className="font-semibold text-gray-900">Review Your Submission</h3>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Asset Type</p>
-                    <p className="font-medium text-gray-900">{formData.assetType}</p>
+          {/* Summary */}
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calculator className="w-5 h-5" />
+                  Investment Summary
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Asset Type</span>
+                    <span className="font-medium capitalize">{assetType || '—'}</span>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Asset Name</p>
-                    <p className="font-medium text-gray-900">{formData.assetName}</p>
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Weight</span>
+                    <span className="font-medium">{weight ? `${weight} g` : '—'}</span>
                   </div>
-                  <div className="col-span-2">
-                    <p className="text-sm text-gray-500">Description</p>
-                    <p className="font-medium text-gray-900">{formData.description}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Estimated Value</p>
-                    <p className="font-medium text-gray-900 flex items-center">
-                      <DollarSign className="w-4 h-4" />
-                      {parseFloat(formData.estimatedValue).toLocaleString()}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Document</p>
-                    <p className="font-medium text-gray-900">{formData.file?.name}</p>
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Hospital</span>
+                    <span className="font-medium">
+                      {selectedHospital ? HOSPITALS.find(h => h.id === selectedHospital)?.name : '—'}
+                    </span>
                   </div>
                 </div>
-              </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-800">
-                  Your asset will be reviewed by hospital staff. You will receive a notification once it is approved and tokens are minted to your account.
-                </p>
-              </div>
+                <div className="rounded-lg bg-muted/50 p-4 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Asset Worth</span>
+                    <span className="font-semibold">
+                      PKR {calculateWorth().toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Estimated AT Tokens</span>
+                    <span className="font-semibold text-primary">{calculateTokens()} AT</span>
+                  </div>
+                </div>
 
-              <div className="flex justify-between">
-                <Button variant="outline" onClick={handleBack}>Back</Button>
-                <Button onClick={handleSubmit} disabled={loading}>
-                  {loading ? 'Submitting…' : 'Submit Asset'}
+                <Button
+                  type="submit"
+                  className="w-full flex items-center justify-center gap-2"
+                  disabled={loading || !assetType || !weight || !selectedHospital}
+                >
+                  {loading ? 'Submitting…' : 'Submit Investment Request'}
+                  {!loading && <ArrowRight className="w-4 h-4" />}
                 </Button>
-              </div>
-            </div>
-          )}
+              </CardContent>
+            </Card>
 
-          {currentStep === 3 && (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 bg-success rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Asset Submitted Successfully</h3>
-              <p className="text-gray-600 mb-6">
-                Your asset has been submitted for review. You will be notified once it is processed.
-              </p>
-              <Button onClick={() => router.push('/patient')}>Back to Dashboard</Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            <Card>
+              <CardContent className="text-sm text-muted-foreground">
+                Need help? Contact your hospital representative for guidance on acceptable asset documentation.
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </form>
     </div>
   )
 }

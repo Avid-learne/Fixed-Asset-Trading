@@ -58,13 +58,12 @@ interface NavItem {
 const patientNavItems: NavItem[] = [
   { name: 'Dashboard', href: '/patient/dashboard', icon: LayoutDashboard, roles: [UserRole.PATIENT] },
   { name: 'Marketplace', href: '/patient/marketplace', icon: ShoppingCart, roles: [UserRole.PATIENT] },
-  { name: 'Deposit Asset', href: '/patient/deposit/start', icon: Upload, roles: [UserRole.PATIENT], activeMatch: '/patient/deposit' },
+  { name: 'Deposit Asset', href: '/patient/deposit', icon: Upload, roles: [UserRole.PATIENT], activeMatch: '/patient/deposit' },
   { name: 'My Wallet', href: '/patient/wallet', icon: Coins, roles: [UserRole.PATIENT], activeMatch: '/patient/wallet' },
   { name: 'Activity', href: '/patient/activity', icon: History, roles: [UserRole.PATIENT] },
   { name: 'Health Card', href: '/patient/health-card', icon: Users, roles: [UserRole.PATIENT] },
-  { name: 'Redeem HT', href: '/patient/redeem', icon: TrendingUp, roles: [UserRole.PATIENT] },
   { name: 'Subscription', href: '/patient/subscription', icon: DollarSign, roles: [UserRole.PATIENT] },
-  { name: 'Profile', href: '/patient/profile/info', icon: Settings, roles: [UserRole.PATIENT], activeMatch: '/patient/profile' },
+  { name: 'Profile', href: '/patient/profile', icon: Settings, roles: [UserRole.PATIENT], activeMatch: '/patient/profile' },
 ]
 
 const hospitalNavItems: NavItem[] = [

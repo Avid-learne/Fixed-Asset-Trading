@@ -504,6 +504,15 @@ export default function PatientMarketplace() {
                   <div className="border-t pt-4 flex justify-between font-bold text-lg">
                     <span>Total</span>
                     <span>
+                      {(sortedItems.filter(item => cart.includes(item.id)).reduce((sum, item) => sum + item.price, 0) * 1.02).toLocaleString()} HT
+                    </span>
+                  </div>
+                  <Button className="w-full mt-4" size="lg">
+                    Checkout ({cart.length} items)
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
           )}
         </TabsContent>
       </Tabs>
@@ -598,13 +607,6 @@ export default function PatientMarketplace() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
-  )
-}             </Card>
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
     </div>
   )
 }
