@@ -16,20 +16,75 @@ interface MintRecord {
   depositId: string
   patientId: string
   patientName: string
-  assetType: string
-  assetValue: number
-  tokensMinted: number
-  value: number
+  patientEmail: string
+  assetType: 'Gold' | 'Silver'
+  weight: number // in grams
+  assetValue: number // in PKR
+  tokensMinted: number // AT tokens
   status: 'pending' | 'minted' | 'processing' | 'failed'
   mintedDate: string
   txHash?: string
+  hospitalName: string
 }
 
 const mockMintRecords: MintRecord[] = [
-  { id: 'MINT-001', depositId: 'DEP-101', patientId: 'PAT-001', patientName: 'John Smith', assetType: 'Real Estate', assetValue: 250000, tokensMinted: 25000, value: 250000, status: 'pending', mintedDate: '' },
-  { id: 'MINT-002', depositId: 'DEP-102', patientId: 'PAT-002', patientName: 'Sarah Johnson', assetType: 'Medical Equipment', assetValue: 80000, tokensMinted: 8000, value: 80000, status: 'pending', mintedDate: '' },
-  { id: 'MINT-003', depositId: 'DEP-103', patientId: 'PAT-003', patientName: 'Michael Brown', assetType: 'Vehicle', assetValue: 45000, tokensMinted: 4500, value: 45000, status: 'minted', mintedDate: '2024-11-15', txHash: '0x7a8c...9d2f' },
-  { id: 'MINT-004', depositId: 'DEP-104', patientId: 'PAT-004', patientName: 'Emily Davis', assetType: 'Real Estate', assetValue: 180000, tokensMinted: 18000, value: 180000, status: 'processing', mintedDate: '' },
+  { 
+    id: 'MINT-001', 
+    depositId: 'DEP-1001', 
+    patientId: 'PAT-001', 
+    patientName: 'John Patient', 
+    patientEmail: 'john.patient@example.com',
+    assetType: 'Gold', 
+    weight: 50,
+    assetValue: 750000, // 50g * 15000
+    tokensMinted: 7500, // 750000 / 100
+    status: 'pending', 
+    mintedDate: '',
+    hospitalName: 'Liaquat National Hospital'
+  },
+  { 
+    id: 'MINT-002', 
+    depositId: 'DEP-1002', 
+    patientId: 'PAT-002', 
+    patientName: 'Sarah Johnson', 
+    patientEmail: 'sarah@example.com',
+    assetType: 'Silver', 
+    weight: 200,
+    assetValue: 50000, // 200g * 250
+    tokensMinted: 500, // 50000 / 100
+    status: 'pending', 
+    mintedDate: '',
+    hospitalName: 'Liaquat National Hospital'
+  },
+  { 
+    id: 'MINT-003', 
+    depositId: 'DEP-1003', 
+    patientId: 'PAT-003', 
+    patientName: 'Michael Brown', 
+    patientEmail: 'michael@example.com',
+    assetType: 'Gold', 
+    weight: 25,
+    assetValue: 375000, // 25g * 15000
+    tokensMinted: 3750, // 375000 / 100
+    status: 'minted', 
+    mintedDate: '2024-12-05', 
+    txHash: '0x7a8c...9d2f',
+    hospitalName: 'Liaquat National Hospital'
+  },
+  { 
+    id: 'MINT-004', 
+    depositId: 'DEP-1005', 
+    patientId: 'PAT-005', 
+    patientName: 'Emily Davis', 
+    patientEmail: 'emily@example.com',
+    assetType: 'Silver', 
+    weight: 400,
+    assetValue: 100000, // 400g * 250
+    tokensMinted: 1000, // 100000 / 100
+    status: 'processing', 
+    mintedDate: '',
+    hospitalName: 'Liaquat National Hospital'
+  },
 ]
 
 export default function MintingPage() {
@@ -38,6 +93,8 @@ export default function MintingPage() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [selectedRecords, setSelectedRecords] = useState<string[]>([])
   const [showBatchMint, setShowBatchMint] = useState(false)
+  const [showTxDetails, setShowTxDetails] = useState(false)
+  const [selectedTx, setSelectedTx] = useState<MintRecord | null>(null)
   const [minting, setMinting] = useState(false)
 
   const filteredRecords = records.filter((record) => {
@@ -110,9 +167,9 @@ export default function MintingPage() {
 
   const pendingRecords = records.filter(r => r.status === 'pending')
   const totalTokensMinted = records.filter(r => r.status === 'minted').reduce((sum, record) => sum + record.tokensMinted, 0)
-  const totalValue = records.filter(r => r.status === 'minted').reduce((sum, record) => sum + record.value, 0)
+  const totalValue = records.filter(r => r.status === 'minted').reduce((sum, record) => sum + record.assetValue, 0)
   const selectedTotalTokens = records.filter(r => selectedRecords.includes(r.id)).reduce((sum, r) => sum + r.tokensMinted, 0)
-  const selectedTotalValue = records.filter(r => selectedRecords.includes(r.id)).reduce((sum, r) => sum + r.value, 0)
+  const selectedTotalValue = records.filter(r => selectedRecords.includes(r.id)).reduce((sum, r) => sum + r.assetValue, 0)
 
   return (
     <div className="space-y-6">
@@ -150,7 +207,7 @@ export default function MintingPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-foreground">${(totalValue / 1000).toFixed(0)}K</p>
+            <p className="text-3xl font-bold text-foreground">PKR {(totalValue / 1000).toFixed(0)}K</p>
             <p className="text-sm text-muted-foreground mt-1">Successfully minted</p>
           </CardContent>
         </Card>
@@ -223,8 +280,9 @@ export default function MintingPage() {
                 <TableHead>Deposit ID</TableHead>
                 <TableHead>Patient</TableHead>
                 <TableHead>Asset Type</TableHead>
-                <TableHead className="text-right">Asset Value</TableHead>
-                <TableHead className="text-right">Tokens</TableHead>
+                <TableHead>Weight</TableHead>
+                <TableHead className="text-right">Asset Value (PKR)</TableHead>
+                <TableHead className="text-right">AT Tokens</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -232,7 +290,7 @@ export default function MintingPage() {
             <TableBody>
               {filteredRecords.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                     No records found
                   </TableCell>
                 </TableRow>
@@ -250,12 +308,21 @@ export default function MintingPage() {
                     <TableCell>
                       <div>
                         <p className="font-medium">{record.patientName}</p>
-                        <p className="text-xs text-muted-foreground">{record.patientId}</p>
+                        <p className="text-xs text-muted-foreground">{record.patientEmail}</p>
                       </div>
                     </TableCell>
-                    <TableCell>{record.assetType}</TableCell>
-                    <TableCell className="text-right font-medium">${record.assetValue.toLocaleString()}</TableCell>
-                    <TableCell className="text-right font-bold">{record.tokensMinted.toLocaleString()}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={
+                        record.assetType === 'Gold' 
+                          ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                          : 'bg-slate-50 text-slate-700 border-slate-200'
+                      }>
+                        {record.assetType}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm">{record.weight}g</TableCell>
+                    <TableCell className="text-right font-medium">{record.assetValue.toLocaleString()}</TableCell>
+                    <TableCell className="text-right font-bold text-accent">{record.tokensMinted.toLocaleString()} AT</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={`gap-1 ${getStatusColor(record.status)}`}>
                         {getStatusIcon(record.status)}
@@ -265,7 +332,7 @@ export default function MintingPage() {
                     <TableCell className="text-right">
                       <div className="flex gap-2 justify-end">
                         {record.status === 'pending' && (
-                          <Button size="sm" variant="default" onClick={() => {
+                          <Button size="sm" className="bg-success hover:bg-success/90" onClick={() => {
                             setSelectedRecords([record.id])
                             setShowBatchMint(true)
                           }}>
@@ -273,7 +340,14 @@ export default function MintingPage() {
                           </Button>
                         )}
                         {record.status === 'minted' && record.txHash && (
-                          <Button size="sm" variant="outline">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedTx(record)
+                              setShowTxDetails(true)
+                            }}
+                          >
                             View TX
                           </Button>
                         )}
@@ -304,7 +378,7 @@ export default function MintingPage() {
               </div>
               <div className="p-4 bg-muted rounded-lg">
                 <p className="text-sm text-muted-foreground">Total Asset Value</p>
-                <p className="text-2xl font-bold">${selectedTotalValue.toLocaleString()}</p>
+                <p className="text-2xl font-bold">PKR {selectedTotalValue.toLocaleString()}</p>
               </div>
             </div>
 
@@ -368,6 +442,142 @@ export default function MintingPage() {
                   Confirm Minting
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Transaction Details Dialog */}
+      <Dialog open={showTxDetails} onOpenChange={setShowTxDetails}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Transaction Details</DialogTitle>
+            <DialogDescription>
+              Complete information about the minting transaction
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedTx && (
+            <div className="space-y-6 py-4">
+              {/* Transaction Status */}
+              <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="w-8 h-8 text-green-600" />
+                  <div>
+                    <p className="font-semibold text-green-900">Transaction Successful</p>
+                    <p className="text-sm text-green-700">Tokens minted successfully</p>
+                  </div>
+                </div>
+                <Badge className="bg-green-600">
+                  Confirmed
+                </Badge>
+              </div>
+
+              {/* Transaction Hash */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">Transaction Hash</label>
+                <div className="flex items-center gap-2 p-3 bg-muted rounded-lg font-mono text-sm">
+                  <span className="flex-1 break-all">{selectedTx.txHash}</span>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => navigator.clipboard.writeText(selectedTx.txHash || '')}
+                  >
+                    Copy
+                  </Button>
+                </div>
+              </div>
+
+              {/* Patient & Asset Details */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Patient Name</label>
+                  <p className="text-sm font-medium">{selectedTx.patientName}</p>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Patient Email</label>
+                  <p className="text-sm">{selectedTx.patientEmail}</p>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Deposit ID</label>
+                  <p className="text-sm font-mono">{selectedTx.depositId}</p>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Minted Date</label>
+                  <p className="text-sm">{selectedTx.mintedDate}</p>
+                </div>
+              </div>
+
+              {/* Asset Information */}
+              <div className="p-4 border rounded-lg space-y-3">
+                <h4 className="font-semibold flex items-center gap-2">
+                  <Coins className="w-4 h-4" />
+                  Asset Information
+                </h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Asset Type:</span>
+                    <Badge variant="outline" className={
+                      selectedTx.assetType === 'Gold' 
+                        ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                        : 'bg-slate-50 text-slate-700 border-slate-200'
+                    }>
+                      {selectedTx.assetType}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Weight:</span>
+                    <span className="font-medium">{selectedTx.weight} grams</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Asset Value:</span>
+                    <span className="font-medium">PKR {selectedTx.assetValue.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Hospital:</span>
+                    <span className="font-medium">{selectedTx.hospitalName}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tokens Minted */}
+              <div className="p-4 border-2 border-accent bg-accent/5 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Tokens Minted</p>
+                    <p className="text-3xl font-bold text-accent mt-1">{selectedTx.tokensMinted.toLocaleString()} AT</p>
+                  </div>
+                  <Coins className="w-12 h-12 text-accent" />
+                </div>
+                <div className="mt-3 pt-3 border-t text-sm text-muted-foreground">
+                  Token Ratio: 1 AT = 100 PKR
+                </div>
+              </div>
+
+              {/* Blockchain Details */}
+              <div className="p-4 bg-muted/50 rounded-lg space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Block Confirmations:</span>
+                  <span className="font-medium">12</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Gas Used:</span>
+                  <span className="font-medium">0.00234 ETH</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Network:</span>
+                  <span className="font-medium">Ethereum Sepolia</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowTxDetails(false)}>
+              Close
+            </Button>
+            <Button onClick={() => window.open(`https://sepolia.etherscan.io/tx/${selectedTx?.txHash}`, '_blank')}>
+              View on Explorer
             </Button>
           </DialogFooter>
         </DialogContent>

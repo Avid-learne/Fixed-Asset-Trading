@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { CheckCircle, XCircle, Search, Eye, FileText, AlertTriangle, Clock, Filter, Download, Users } from 'lucide-react'
+import { CheckCircle, XCircle, Search, Eye, FileText, AlertTriangle, Clock, Filter, Download, Users, Calculator } from 'lucide-react'
 
 interface Deposit {
   id: string
@@ -19,8 +19,12 @@ interface Deposit {
   patientName: string
   patientEmail: string
   assetType: string
+  weight?: number // For gold/silver in grams
   assetDescription: string
   value: number
+  expectedTokens: number // AT tokens to be minted
+  hospitalName: string
+  source: 'asset' | 'subscription' // NEW: Track source
   status: 'pending_review' | 'pending_bank' | 'approved' | 'rejected'
   submittedDate: string
   documentStatus: 'incomplete' | 'complete'
@@ -36,22 +40,35 @@ interface Deposit {
   }
 }
 
+interface SubscriptionBatch {
+  id: string
+  totalPatients: number
+  totalAmount: number // PKR collected from subscriptions
+  expectedTokens: number // AT tokens to mint
+  status: 'collecting' | 'ready_to_mint' | 'minted'
+  collectionPeriod: string
+  submittedDate: string
+}
+
 const mockDeposits: Deposit[] = [
   {
     id: 'DEP-1001',
     patientId: 'PAT-001',
-    patientName: 'John Smith',
-    patientEmail: 'john@example.com',
-    assetType: 'Real Estate',
-    assetDescription: 'Residential Property - 123 Main St',
-    value: 250000,
+    patientName: 'John Patient',
+    patientEmail: 'john.patient@example.com',
+    assetType: 'Gold',
+    weight: 50,
+    assetDescription: '50 grams of Gold',
+    value: 750000,
+    expectedTokens: 7500,
+    hospitalName: 'Liaquat National Hospital',
+    source: 'asset',
     status: 'pending_review',
-    submittedDate: '2024-11-20',
+    submittedDate: '2024-12-08',
     documentStatus: 'complete',
     documents: [
-      { title: 'Property Deed', type: 'pdf', status: 'verified' },
-      { title: 'Valuation Report', type: 'pdf', status: 'verified' },
-      { title: 'Tax Statement', type: 'pdf', status: 'pending' },
+      { title: 'Asset Certificate', type: 'pdf', status: 'pending' },
+      { title: 'Identity Proof', type: 'pdf', status: 'pending' },
     ],
     bankVerification: { status: 'pending' }
   },
@@ -60,39 +77,100 @@ const mockDeposits: Deposit[] = [
     patientId: 'PAT-002',
     patientName: 'Sarah Johnson',
     patientEmail: 'sarah@example.com',
-    assetType: 'Medical Equipment',
-    assetDescription: 'MRI Scanner - Siemens Model X200',
-    value: 80000,
-    status: 'pending_bank',
-    submittedDate: '2024-11-18',
+    assetType: 'Silver',
+    weight: 200,
+    assetDescription: '200 grams of Silver',
+    value: 50000,
+    expectedTokens: 500,
+    hospitalName: 'Liaquat National Hospital',
+    source: 'asset',
+    status: 'pending_review',
+    submittedDate: '2024-12-07',
     documentStatus: 'complete',
     documents: [
-      { title: 'Equipment Invoice', type: 'pdf', status: 'verified' },
-      { title: 'Ownership Certificate', type: 'pdf', status: 'verified' },
+      { title: 'Asset Certificate', type: 'pdf', status: 'verified' },
+      { title: 'Identity Proof', type: 'pdf', status: 'verified' },
     ],
-    bankVerification: { status: 'verified', verifiedBy: 'Global Trust Bank', verifiedDate: '2024-11-21' }
+    bankVerification: { status: 'pending' }
   },
   {
     id: 'DEP-1003',
     patientId: 'PAT-003',
     patientName: 'Michael Brown',
     patientEmail: 'michael@example.com',
-    assetType: 'Vehicle',
-    assetDescription: 'Tesla Model S - 2023',
-    value: 45000,
-    status: 'pending_review',
-    submittedDate: '2024-11-22',
+    assetType: 'Gold',
+    weight: 25,
+    assetDescription: '25 grams of Gold',
+    value: 375000,
+    expectedTokens: 3750,
+    hospitalName: 'Liaquat National Hospital',
+    source: 'asset',
+    status: 'approved',
+    submittedDate: '2024-12-05',
+    documentStatus: 'complete',
+    documents: [
+      { title: 'Asset Certificate', type: 'pdf', status: 'verified' },
+      { title: 'Identity Proof', type: 'pdf', status: 'verified' },
+    ],
+    bankVerification: { status: 'verified', verifiedBy: 'Liaquat National Hospital', verifiedDate: '2024-12-06' }
+  },
+  {
+    id: 'DEP-1004',
+    patientId: 'PAT-004',
+    patientName: 'Emily Davis',
+    patientEmail: 'emily@example.com',
+    assetType: 'Silver',
+    weight: 100,
+    assetDescription: '100 grams of Silver',
+    value: 25000,
+    expectedTokens: 250,
+    hospitalName: 'Liaquat National Hospital',
+    source: 'asset',
+    status: 'rejected',
+    submittedDate: '2024-12-04',
     documentStatus: 'incomplete',
     documents: [
-      { title: 'Vehicle Title', type: 'pdf', status: 'verified' },
-      { title: 'Insurance Document', type: 'pdf', status: 'rejected' },
+      { title: 'Asset Certificate', type: 'pdf', status: 'rejected' },
+      { title: 'Identity Proof', type: 'pdf', status: 'verified' },
     ],
-    bankVerification: { status: 'pending' }
+    bankVerification: { status: 'failed' }
   },
+]
+
+const mockSubscriptionBatches: SubscriptionBatch[] = [
+  {
+    id: 'SUB-BATCH-001',
+    totalPatients: 45,
+    totalAmount: 450000, // 45 patients * 10,000 PKR/month
+    expectedTokens: 4500, // 450000 / 100
+    status: 'ready_to_mint',
+    collectionPeriod: 'November 2024',
+    submittedDate: '2024-12-01'
+  },
+  {
+    id: 'SUB-BATCH-002',
+    totalPatients: 38,
+    totalAmount: 380000,
+    expectedTokens: 3800,
+    status: 'minted',
+    collectionPeriod: 'October 2024',
+    submittedDate: '2024-11-01'
+  },
+  {
+    id: 'SUB-BATCH-003',
+    totalPatients: 52,
+    totalAmount: 520000,
+    expectedTokens: 5200,
+    status: 'collecting',
+    collectionPeriod: 'December 2024',
+    submittedDate: '2024-12-08'
+  }
 ]
 
 export default function DepositsPage() {
   const [deposits, setDeposits] = useState<Deposit[]>(mockDeposits)
+  const [subscriptionBatches] = useState<SubscriptionBatch[]>(mockSubscriptionBatches)
+  const [activeTab, setActiveTab] = useState('assets')
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [selectedDeposits, setSelectedDeposits] = useState<string[]>([])
@@ -174,19 +252,24 @@ export default function DepositsPage() {
     )
   }
 
-  const pendingCount = deposits.filter(d => d.status === 'pending_review').length
-  const bankPendingCount = deposits.filter(d => d.status === 'pending_bank').length
-  const approvedCount = deposits.filter(d => d.status === 'approved').length
-  const totalValue = deposits.filter(d => d.status === 'approved').reduce((sum, d) => sum + d.value, 0)
+  const pendingCount = deposits.filter(d => d.status === 'pending_review' && d.source === 'asset').length
+  const bankPendingCount = deposits.filter(d => d.status === 'pending_bank' && d.source === 'asset').length
+  const approvedCount = deposits.filter(d => d.status === 'approved' && d.source === 'asset').length
+  const totalValue = deposits.filter(d => d.status === 'approved' && d.source === 'asset').reduce((sum, d) => sum + d.value, 0)
+
+  // Subscription stats
+  const totalSubscriptionTokens = subscriptionBatches.reduce((sum, b) => sum + b.expectedTokens, 0)
+  const mintedSubscriptionTokens = subscriptionBatches.filter(b => b.status === 'minted').reduce((sum, b) => sum + b.expectedTokens, 0)
+  const readyToMintBatches = subscriptionBatches.filter(b => b.status === 'ready_to_mint').length
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Deposit Approvals</h1>
-          <p className="text-muted-foreground mt-1">Review and approve patient asset deposits for tokenization.</p>
+          <h1 className="text-3xl font-bold text-foreground">Deposit & Minting Management</h1>
+          <p className="text-muted-foreground mt-1">Manage asset deposits and subscription-based AT token minting.</p>
         </div>
-        {selectedDeposits.length > 0 && (
+        {selectedDeposits.length > 0 && activeTab === 'assets' && (
           <Button className="gap-2" onClick={() => setShowBulkApprove(true)}>
             <CheckCircle className="w-4 h-4" />
             Approve Selected ({selectedDeposits.length})
@@ -194,56 +277,64 @@ export default function DepositsPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
-              Pending Review
-              <Clock className="w-4 h-4 text-yellow-600" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-foreground">{pendingCount}</p>
-            <p className="text-sm text-muted-foreground mt-1">Awaiting approval</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
-              Bank Verification
-              <Users className="w-4 h-4 text-blue-600" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-foreground">{bankPendingCount}</p>
-            <p className="text-sm text-muted-foreground mt-1">With banks</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
-              Approved
-              <CheckCircle className="w-4 h-4 text-green-600" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-foreground">{approvedCount}</p>
-            <p className="text-sm text-muted-foreground mt-1">Ready to mint</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
-              Total Value
-              <Download className="w-4 h-4 text-primary" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-foreground">${(totalValue / 1000).toFixed(0)}K</p>
-            <p className="text-sm text-muted-foreground mt-1">Approved assets</p>
-          </CardContent>
-        </Card>
-      </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
+          <TabsTrigger value="assets">Asset Deposits</TabsTrigger>
+          <TabsTrigger value="subscriptions">Subscription Minting</TabsTrigger>
+        </TabsList>
+
+        {/* Asset Deposits Tab */}
+        <TabsContent value="assets" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
+                  Pending Review
+                  <Clock className="w-4 h-4 text-yellow-600" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-foreground">{pendingCount}</p>
+                <p className="text-sm text-muted-foreground mt-1">Awaiting approval</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
+                  Bank Verification
+                  <Users className="w-4 h-4 text-blue-600" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-foreground">{bankPendingCount}</p>
+                <p className="text-sm text-muted-foreground mt-1">With banks</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
+                  Approved
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-foreground">{approvedCount}</p>
+                <p className="text-sm text-muted-foreground mt-1">Ready to mint</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
+                  Total Value
+                  <Download className="w-4 h-4 text-primary" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-foreground">PKR {(totalValue / 1000).toFixed(0)}K</p>
+                <p className="text-sm text-muted-foreground mt-1">Approved assets</p>
+              </CardContent>
+            </Card>
+          </div>
 
       <Card>
         <CardHeader>
@@ -288,8 +379,9 @@ export default function DepositsPage() {
                 <TableHead>Deposit ID</TableHead>
                 <TableHead>Patient</TableHead>
                 <TableHead>Asset Type</TableHead>
-                <TableHead className="text-right">Value</TableHead>
-                <TableHead>Documents</TableHead>
+                <TableHead>Weight</TableHead>
+                <TableHead className="text-right">Worth (PKR)</TableHead>
+                <TableHead className="text-right">AT Tokens</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -297,7 +389,7 @@ export default function DepositsPage() {
             <TableBody>
               {filteredDeposits.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                     No deposits found
                   </TableCell>
                 </TableRow>
@@ -315,19 +407,26 @@ export default function DepositsPage() {
                     <TableCell>
                       <div>
                         <p className="font-medium">{deposit.patientName}</p>
-                        <p className="text-xs text-muted-foreground">{deposit.patientId}</p>
+                        <p className="text-xs text-muted-foreground">{deposit.patientEmail}</p>
                       </div>
                     </TableCell>
-                    <TableCell>{deposit.assetType}</TableCell>
-                    <TableCell className="text-right font-medium">${deposit.value.toLocaleString()}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={
-                        deposit.documentStatus === 'complete' 
-                          ? 'bg-green-50 text-green-700 border-green-200' 
-                          : 'bg-red-50 text-red-700 border-red-200'
+                        deposit.assetType === 'Gold' 
+                          ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                          : 'bg-slate-50 text-slate-700 border-slate-200'
                       }>
-                        {deposit.documents.length} docs - {deposit.documentStatus}
+                        {deposit.assetType}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {deposit.weight ? `${deposit.weight}g` : '—'}
+                    </TableCell>
+                    <TableCell className="text-right font-medium">
+                      {deposit.value.toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold text-accent">
+                      {deposit.expectedTokens} AT
                     </TableCell>
                     <TableCell>{getStatusBadge(deposit.status)}</TableCell>
                     <TableCell className="text-right">
@@ -343,7 +442,7 @@ export default function DepositsPage() {
                           <>
                             <Button 
                               size="sm" 
-                              variant="default"
+                              className="bg-success hover:bg-success/90"
                               onClick={() => handleApprove(deposit.id)}
                             >
                               Approve
@@ -369,6 +468,143 @@ export default function DepositsPage() {
           </Table>
         </CardContent>
       </Card>
+        </TabsContent>
+
+        {/* Subscription Minting Tab */}
+        <TabsContent value="subscriptions" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
+                  Total AT Tokens
+                  <Clock className="w-4 h-4 text-accent" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-foreground">{totalSubscriptionTokens.toLocaleString()}</p>
+                <p className="text-sm text-muted-foreground mt-1">From subscriptions</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
+                  Minted Tokens
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-foreground">{mintedSubscriptionTokens.toLocaleString()}</p>
+                <p className="text-sm text-muted-foreground mt-1">Already minted</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
+                  Ready to Mint
+                  <AlertTriangle className="w-4 h-4 text-warning" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-foreground">{readyToMintBatches}</p>
+                <p className="text-sm text-muted-foreground mt-1">Batches ready</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
+                  Collecting
+                  <Users className="w-4 h-4 text-blue-600" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-foreground">
+                  {subscriptionBatches.filter(b => b.status === 'collecting').length}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">In collection</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Subscription Batches for AT Token Minting</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Hospital collects subscription payments and mints AT tokens in batches monthly.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Batch ID</TableHead>
+                    <TableHead>Collection Period</TableHead>
+                    <TableHead className="text-right">Patients</TableHead>
+                    <TableHead className="text-right">Total Amount (PKR)</TableHead>
+                    <TableHead className="text-right">AT Tokens</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Submitted</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {subscriptionBatches.map((batch) => (
+                    <TableRow key={batch.id}>
+                      <TableCell className="font-mono text-xs">{batch.id}</TableCell>
+                      <TableCell className="font-medium">{batch.collectionPeriod}</TableCell>
+                      <TableCell className="text-right">{batch.totalPatients}</TableCell>
+                      <TableCell className="text-right font-medium">
+                        {batch.totalAmount.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right font-bold text-accent">
+                        {batch.expectedTokens.toLocaleString()} AT
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={
+                          batch.status === 'minted'
+                            ? 'bg-green-50 text-green-700 border-green-200'
+                            : batch.status === 'ready_to_mint'
+                            ? 'bg-warning/10 text-warning border-warning/20'
+                            : 'bg-blue-50 text-blue-700 border-blue-200'
+                        }>
+                          {batch.status === 'minted' && <CheckCircle className="w-3 h-3 mr-1" />}
+                          {batch.status === 'ready_to_mint' ? 'Ready to Mint' : batch.status === 'minted' ? 'Minted' : 'Collecting'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{batch.submittedDate}</TableCell>
+                      <TableCell className="text-right">
+                        {batch.status === 'ready_to_mint' && (
+                          <Button size="sm" className="bg-success hover:bg-success/90">
+                            Mint Tokens
+                          </Button>
+                        )}
+                        {batch.status === 'minted' && (
+                          <Button size="sm" variant="outline">
+                            View Details
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+
+              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex gap-3">
+                  <AlertTriangle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-blue-900">Subscription Minting Process</p>
+                    <p className="text-xs text-blue-700 mt-1">
+                      Hospital collects monthly subscription payments from patients (PKR 10,000/month). 
+                      At the end of each month, the total collected amount is converted to AT tokens at 100 PKR = 1 AT ratio. 
+                      These tokens are then distributed to a subscription pool for trading.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* View Deposit Details Dialog */}
       <Dialog open={!!selectedDeposit && !showRejectDialog} onOpenChange={(open) => !open && setSelectedDeposit(null)}>
@@ -395,16 +631,34 @@ export default function DepositsPage() {
                     <p className="text-sm">{selectedDeposit.patientName}</p>
                   </div>
                   <div className="space-y-2">
+                    <label className="text-sm font-medium">Patient Email</label>
+                    <p className="text-sm text-muted-foreground">{selectedDeposit.patientEmail}</p>
+                  </div>
+                  <div className="space-y-2">
                     <label className="text-sm font-medium">Patient ID</label>
                     <p className="text-sm font-mono">{selectedDeposit.patientId}</p>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Asset Type</label>
-                    <p className="text-sm">{selectedDeposit.assetType}</p>
+                    <label className="text-sm font-medium">Hospital</label>
+                    <p className="text-sm">{selectedDeposit.hospitalName}</p>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Asset Value</label>
-                    <p className="text-sm font-bold">${selectedDeposit.value.toLocaleString()}</p>
+                    <label className="text-sm font-medium">Asset Type</label>
+                    <p className="text-sm font-semibold">{selectedDeposit.assetType}</p>
+                  </div>
+                  {selectedDeposit.weight && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Weight</label>
+                      <p className="text-sm">{selectedDeposit.weight} grams</p>
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Asset Worth</label>
+                    <p className="text-sm font-bold text-primary">PKR {selectedDeposit.value.toLocaleString()}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Expected AT Tokens</label>
+                    <p className="text-sm font-bold text-accent">{selectedDeposit.expectedTokens} AT</p>
                   </div>
                   <div className="space-y-2 col-span-2">
                     <label className="text-sm font-medium">Asset Description</label>
@@ -417,6 +671,42 @@ export default function DepositsPage() {
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Current Status</label>
                     {getStatusBadge(selectedDeposit.status)}
+                  </div>
+                </div>
+
+                {/* Investment Calculation Breakdown */}
+                <div className="mt-6 p-4 bg-muted/50 rounded-lg border">
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <Calculator className="w-4 h-4" />
+                    Investment Calculation
+                  </h4>
+                  <div className="space-y-2 text-sm">
+                    {selectedDeposit.weight && (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Asset Weight:</span>
+                          <span className="font-medium">{selectedDeposit.weight} grams</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Rate per gram:</span>
+                          <span className="font-medium">
+                            PKR {selectedDeposit.assetType === 'Gold' ? '15,000' : '250'}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                    <div className="flex justify-between pt-2 border-t">
+                      <span className="text-muted-foreground">Total Asset Worth:</span>
+                      <span className="font-bold">PKR {selectedDeposit.value.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Token Ratio:</span>
+                      <span className="font-medium">1 AT = 100 PKR</span>
+                    </div>
+                    <div className="flex justify-between pt-2 border-t">
+                      <span className="font-semibold">AT Tokens to Mint:</span>
+                      <span className="font-bold text-lg text-accent">{selectedDeposit.expectedTokens} AT</span>
+                    </div>
                   </div>
                 </div>
               </TabsContent>
@@ -591,8 +881,8 @@ export default function DepositsPage() {
                   {deposits.filter(d => selectedDeposits.includes(d.id)).map(d => (
                     <TableRow key={d.id}>
                       <TableCell className="font-medium">{d.patientName}</TableCell>
-                      <TableCell>{d.assetType}</TableCell>
-                      <TableCell className="text-right">${d.value.toLocaleString()}</TableCell>
+                      <TableCell>{d.assetType} - {d.weight}g</TableCell>
+                      <TableCell className="text-right">PKR {d.value.toLocaleString()}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
