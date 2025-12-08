@@ -15,11 +15,7 @@ const SILVER_RATE_PER_GRAM = 250 // PKR per gram
 const TOKEN_RATIO = 100 // 1 AT token = 100 PKR worth of asset
 
 const HOSPITALS = [
-  { id: 'h1', name: 'Shifa International Hospital', location: 'Islamabad' },
-  { id: 'h2', name: 'Aga Khan University Hospital', location: 'Karachi' },
-  { id: 'h3', name: 'Lahore General Hospital', location: 'Lahore' },
-  { id: 'h4', name: 'Liaquat National Hospital', location: 'Karachi' },
-  { id: 'h5', name: 'Combined Military Hospital', location: 'Rawalpindi' },
+  { id: 'h1', name: 'Liaquat National Hospital', location: 'Karachi' },
 ]
 
 export default function DepositAssetPage() {

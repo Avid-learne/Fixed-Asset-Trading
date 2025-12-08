@@ -16,12 +16,12 @@ export type PatientProfile = {
 }
 
 export const patientProfile: PatientProfile = {
-  fullName: 'John Patient',
+  fullName: 'Ahmed Patient',
   avatar: '/images/patient-placeholder.png',
   walletAddress: '0x84bF...9A34',
-  email: 'patient@example.com',
-  phone: '+1 (555) 123-4567',
-  location: 'New York, USA',
+  email: 'ahmed.patient@lnh.com',
+  phone: '+92 300 1234567',
+  location: 'Karachi, Pakistan',
   dateOfBirth: 'June 16, 1993',
   bloodGroup: 'B+',
   status: 'Verified Patient',

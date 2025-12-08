@@ -41,8 +41,8 @@ const mockStaff: StaffMember[] = [
   {
     id: 'STAFF-001',
     name: 'Dr. Sarah Smith',
-    email: 'sarah.smith@hospital.com',
-    phone: '+1 (555) 123-4567',
+    email: 'sarah.smith@lnh.com',
+    phone: '+92 300 1234567',
     role: 'Medical Officer',
     status: 'active',
     joinDate: '2024-01-15',
@@ -65,8 +65,8 @@ const mockStaff: StaffMember[] = [
   {
     id: 'STAFF-002',
     name: 'James Wilson',
-    email: 'j.wilson@hospital.com',
-    phone: '+1 (555) 234-5678',
+    email: 'j.wilson@lnh.com',
+    phone: '+92 300 2345678',
     role: 'Finance Manager',
     status: 'active',
     joinDate: '2023-08-20',
@@ -89,8 +89,8 @@ const mockStaff: StaffMember[] = [
   {
     id: 'STAFF-003',
     name: 'Emily Chen',
-    email: 'e.chen@hospital.com',
-    phone: '+1 (555) 345-6789',
+    email: 'e.chen@lnh.com',
+    phone: '+92 300 3456789',
     role: 'Clerk',
     status: 'inactive',
     joinDate: '2024-03-10',
@@ -112,8 +112,8 @@ const mockStaff: StaffMember[] = [
   {
     id: 'STAFF-004',
     name: 'Michael Rodriguez',
-    email: 'm.rodriguez@hospital.com',
-    phone: '+1 (555) 456-7890',
+    email: 'm.rodriguez@lnh.com',
+    phone: '+92 300 4567890',
     role: 'Admin',
     status: 'active',
     joinDate: '2023-01-05',
@@ -489,7 +489,7 @@ export default function StaffManagementPage() {
               <label className="text-sm font-medium mb-2 block">Email Address</label>
               <Input
                 type="email"
-                placeholder="staff@hospital.com"
+                placeholder="staff@lnh.com"
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
               />

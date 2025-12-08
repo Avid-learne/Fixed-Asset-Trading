@@ -21,10 +21,10 @@ type PatientProfileState = {
 }
 
 const initialProfile: PatientProfile = {
-  fullName: 'John Patient',
-  email: 'patient@example.com',
-  phone: '+1 (555) 123-4567',
-  location: 'New York, USA',
+  fullName: 'Ahmed Patient',
+  email: 'ahmed.patient@lnh.com',
+  phone: '+92 300 1234567',
+  location: 'Karachi, Pakistan',
   bio: 'Patient interested in asset-backed health coverage.',
   avatar: '/images/patient-placeholder.png',
   walletAddress: '0x84bF...9A34',

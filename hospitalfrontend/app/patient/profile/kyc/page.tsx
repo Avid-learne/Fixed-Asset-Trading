@@ -66,131 +66,55 @@ export default function ProfileKYCPage() {
       id: '1',
       name: 'National ID Card',
       type: 'identity',
-      status: 'verified',
-      uploadedAt: '2025-12-01',
-      verifiedAt: '2025-12-02',
-      fileUrl: '/uploads/id-card.pdf'
+      status: 'not_submitted'
     },
     {
       id: '2',
       name: 'Selfie with ID',
       type: 'identity',
-      status: 'verified',
-      uploadedAt: '2025-12-01',
-      verifiedAt: '2025-12-02',
-      fileUrl: '/uploads/selfie.jpg'
+      status: 'not_submitted'
     }
   ])
 
   const [addressDocs, setAddressDocs] = useState<Document[]>([
     {
       id: '3',
-      name: 'Utility Bill',
+      name: 'Proof of Address',
       type: 'address',
-      status: 'pending',
-      uploadedAt: '2025-12-05',
-      fileUrl: '/uploads/utility-bill.pdf'
-    }
-  ])
-
-  const [financialDocs, setFinancialDocs] = useState<Document[]>([
+      status: 'not_submitted'
+    },
     {
       id: '4',
-      name: 'Bank Statement',
-      type: 'financial',
+      name: 'Utility Bill',
+      type: 'address',
       status: 'not_submitted'
-    },
-    {
-      id: '5',
-      name: 'Income Source Declaration',
-      type: 'financial',
-      status: 'not_submitted'
-    }
-  ])
-
-  const [assetRequests, setAssetRequests] = useState<AssetRequest[]>([
-    {
-      id: 'AR001',
-      assetType: 'gold',
-      amount: 50000,
-      status: 'verification_needed',
-      submittedAt: '2025-12-07',
-      documents: [
-        {
-          id: 'a1',
-          name: 'Gold Certificate',
-          type: 'asset',
-          status: 'pending',
-          uploadedAt: '2025-12-07',
-          fileUrl: '/uploads/gold-cert.pdf'
-        },
-        {
-          id: 'a2',
-          name: 'Asset Photo',
-          type: 'asset',
-          status: 'not_submitted'
-        }
-      ],
-      remarks: 'Additional verification required for gold certificate authenticity'
-    },
-    {
-      id: 'AR002',
-      assetType: 'silver',
-      amount: 25000,
-      status: 'approved',
-      submittedAt: '2025-11-20',
-      documents: [
-        {
-          id: 'a3',
-          name: 'Silver Certificate',
-          type: 'asset',
-          status: 'verified',
-          uploadedAt: '2025-11-20',
-          verifiedAt: '2025-11-22',
-          fileUrl: '/uploads/silver-cert.pdf'
-        }
-      ]
-    }
-  ])
-
-  const [subscriptions, setSubscriptions] = useState<SubscriptionRequest[]>([
-    {
-      id: 'SUB001',
-      plan: 'Premium',
-      status: 'active',
-      startDate: '2025-01-01',
-      endDate: '2026-01-01',
-      documents: [
-        {
-          id: 's1',
-          name: 'Insurance Document',
-          type: 'subscription',
-          status: 'verified',
-          uploadedAt: '2024-12-28',
-          verifiedAt: '2024-12-30',
-          fileUrl: '/uploads/insurance.pdf'
-        },
-        {
-          id: 's2',
-          name: 'Medical Records',
-          type: 'subscription',
-          status: 'verified',
-          uploadedAt: '2024-12-28',
-          verifiedAt: '2024-12-30',
-          fileUrl: '/uploads/medical.pdf'
-        }
-      ]
     }
   ])
 
   const handleFileUpload = async (docType: string, docId: string, file: File) => {
     setUploadingFiles({ ...uploadingFiles, [docId]: true })
     
-    // Simulate upload
+    // Simulate upload - In production, replace with actual API call
     setTimeout(() => {
+      const currentDate = new Date().toISOString().split('T')[0]
+      
+      // Update the appropriate document list based on type
+      if (docType === 'identity') {
+        setIdentityDocs(identityDocs.map(doc => 
+          doc.id === docId 
+            ? { ...doc, status: 'pending', uploadedAt: currentDate, fileUrl: `/uploads/${file.name}` }
+            : doc
+        ))
+      } else if (docType === 'address') {
+        setAddressDocs(addressDocs.map(doc => 
+          doc.id === docId 
+            ? { ...doc, status: 'pending', uploadedAt: currentDate, fileUrl: `/uploads/${file.name}` }
+            : doc
+        ))
+      }
+      
       setUploadingFiles({ ...uploadingFiles, [docId]: false })
-      alert(`${file.name} uploaded successfully!`)
-      // Update document status here
+      alert(`${file.name} uploaded successfully! Status changed to Unverified (Pending Review)`)
     }, 2000)
   }
 
@@ -199,7 +123,7 @@ export default function ProfileKYCPage() {
       case 'verified':
         return <Badge className="bg-green-100 text-green-800 border-green-200"><CheckCircle className="w-3 h-3 mr-1" />Verified</Badge>
       case 'pending':
-        return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200"><Clock className="w-3 h-3 mr-1" />Pending</Badge>
+        return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200"><Clock className="w-3 h-3 mr-1" />Unverified</Badge>
       case 'rejected':
         return <Badge className="bg-red-100 text-red-800 border-red-200"><XCircle className="w-3 h-3 mr-1" />Rejected</Badge>
       case 'not_submitted':
@@ -229,9 +153,9 @@ export default function ProfileKYCPage() {
   }
 
   const calculateKYCCompletion = () => {
-    const allDocs = [...identityDocs, ...addressDocs, ...financialDocs]
-    const verified = allDocs.filter(d => d.status === 'verified').length
-    return Math.round((verified / allDocs.length) * 100)
+    const allDocs = [...identityDocs, ...addressDocs]
+    const verifiedDocs = allDocs.filter(doc => doc.status === 'verified').length
+    return Math.round((verifiedDocs / allDocs.length) * 100)
   }
 
   return (
@@ -268,28 +192,28 @@ export default function ProfileKYCPage() {
             <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
               <CheckCircle className="w-6 h-6 text-green-600 mx-auto mb-2" />
               <div className="text-2xl font-bold text-green-600">
-                {[...identityDocs, ...addressDocs, ...financialDocs].filter(d => d.status === 'verified').length}
+                {[...identityDocs, ...addressDocs].filter(d => d.status === 'verified').length}
               </div>
               <div className="text-xs text-gray-600">Verified</div>
             </div>
             <div className="text-center p-4 bg-yellow-50 rounded-lg border border-yellow-200">
               <Clock className="w-6 h-6 text-yellow-600 mx-auto mb-2" />
               <div className="text-2xl font-bold text-yellow-600">
-                {[...identityDocs, ...addressDocs, ...financialDocs].filter(d => d.status === 'pending').length}
+                {[...identityDocs, ...addressDocs].filter(d => d.status === 'pending').length}
               </div>
               <div className="text-xs text-gray-600">Pending</div>
             </div>
             <div className="text-center p-4 bg-red-50 rounded-lg border border-red-200">
               <XCircle className="w-6 h-6 text-red-600 mx-auto mb-2" />
               <div className="text-2xl font-bold text-red-600">
-                {[...identityDocs, ...addressDocs, ...financialDocs].filter(d => d.status === 'rejected').length}
+                {[...identityDocs, ...addressDocs].filter(d => d.status === 'rejected').length}
               </div>
               <div className="text-xs text-gray-600">Rejected</div>
             </div>
             <div className="text-center p-4 bg-gray-50 rounded-lg border border-gray-200">
               <AlertCircle className="w-6 h-6 text-gray-600 mx-auto mb-2" />
               <div className="text-2xl font-bold text-gray-600">
-                {[...identityDocs, ...addressDocs, ...financialDocs].filter(d => d.status === 'not_submitted').length}
+                {[...identityDocs, ...addressDocs].filter(d => d.status === 'not_submitted').length}
               </div>
               <div className="text-xs text-gray-600">Not Submitted</div>
             </div>
@@ -299,12 +223,9 @@ export default function ProfileKYCPage() {
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="identity">Identity</TabsTrigger>
-          <TabsTrigger value="address">Address</TabsTrigger>
-          <TabsTrigger value="financial">Financial</TabsTrigger>
-          <TabsTrigger value="assets">Asset Requests</TabsTrigger>
-          <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="identity">Identity Verification</TabsTrigger>
+          <TabsTrigger value="address">Address Verification</TabsTrigger>
         </TabsList>
 
         {/* Identity Documents Tab */}
@@ -336,6 +257,7 @@ export default function ProfileKYCPage() {
                   {doc.status === 'not_submitted' && (
                     <div className="flex items-center gap-2">
                       <Input
+                        id={`identity-upload-${doc.id}`}
                         type="file"
                         accept="image/*,.pdf"
                         onChange={(e) => {
@@ -343,10 +265,16 @@ export default function ProfileKYCPage() {
                           if (file) handleFileUpload('identity', doc.id, file)
                         }}
                         disabled={uploadingFiles[doc.id]}
+                        className="hidden"
                       />
-                      <Button size="sm" disabled={uploadingFiles[doc.id]}>
+                      <Button 
+                        size="sm" 
+                        disabled={uploadingFiles[doc.id]}
+                        onClick={() => document.getElementById(`identity-upload-${doc.id}`)?.click()}
+                        className="w-full"
+                      >
                         <Upload className="w-4 h-4 mr-2" />
-                        {uploadingFiles[doc.id] ? 'Uploading...' : 'Upload'}
+                        {uploadingFiles[doc.id] ? 'Uploading...' : 'Upload Document'}
                       </Button>
                     </div>
                   )}
@@ -411,16 +339,24 @@ export default function ProfileKYCPage() {
                   {doc.status === 'not_submitted' && (
                     <div className="flex items-center gap-2">
                       <Input
+                        id={`address-upload-${doc.id}`}
                         type="file"
                         accept=".pdf,.jpg,.jpeg,.png"
                         onChange={(e) => {
                           const file = e.target.files?.[0]
                           if (file) handleFileUpload('address', doc.id, file)
                         }}
+                        disabled={uploadingFiles[doc.id]}
+                        className="hidden"
                       />
-                      <Button size="sm">
+                      <Button 
+                        size="sm"
+                        disabled={uploadingFiles[doc.id]}
+                        onClick={() => document.getElementById(`address-upload-${doc.id}`)?.click()}
+                        className="w-full"
+                      >
                         <Upload className="w-4 h-4 mr-2" />
-                        Upload
+                        {uploadingFiles[doc.id] ? 'Uploading...' : 'Upload Document'}
                       </Button>
                     </div>
                   )}
@@ -447,257 +383,6 @@ export default function ProfileKYCPage() {
             </CardContent>
           </Card>
         </TabsContent>
-
-        {/* Financial Documents Tab */}
-        <TabsContent value="financial" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Briefcase className="w-5 h-5" />
-                Financial Source Declaration
-              </CardTitle>
-              <CardDescription>Verify your income source and financial capability</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {financialDocs.map((doc) => (
-                <div key={doc.id} className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <FileText className="w-5 h-5 text-gray-400" />
-                      <div>
-                        <h4 className="font-medium">{doc.name}</h4>
-                        {doc.uploadedAt && (
-                          <p className="text-xs text-gray-500">Uploaded on {doc.uploadedAt}</p>
-                        )}
-                      </div>
-                    </div>
-                    {getStatusBadge(doc.status)}
-                  </div>
-                  
-                  {doc.status === 'not_submitted' && (
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="file"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0]
-                          if (file) handleFileUpload('financial', doc.id, file)
-                        }}
-                      />
-                      <Button size="sm">
-                        <Upload className="w-4 h-4 mr-2" />
-                        Upload
-                      </Button>
-                    </div>
-                  )}
-
-                  {doc.fileUrl && doc.status !== 'not_submitted' && (
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline">
-                        <Eye className="w-4 h-4 mr-2" />
-                        View
-                      </Button>
-                      <Button size="sm" variant="outline">
-                        <Download className="w-4 h-4 mr-2" />
-                        Download
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Asset Requests Tab */}
-        <TabsContent value="assets" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileImage className="w-5 h-5" />
-                Asset Deposit Requests
-              </CardTitle>
-              <CardDescription>Track your gold and silver asset verification requests</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {assetRequests.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <FileImage className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                  <p>No asset requests yet</p>
-                  <Button className="mt-4" onClick={() => window.location.href = '/patient/deposit'}>
-                    Make a Deposit Request
-                  </Button>
-                </div>
-              ) : (
-                assetRequests.map((request) => (
-                  <Card key={request.id} className="border-2">
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <CardTitle className="text-lg">
-                            Request #{request.id}
-                          </CardTitle>
-                          <CardDescription>
-                            {request.assetType.toUpperCase()} Asset - ${request.amount.toLocaleString()}
-                          </CardDescription>
-                        </div>
-                        {getRequestStatusBadge(request.status)}
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600">Submitted:</span>
-                        <span className="font-medium">{request.submittedAt}</span>
-                      </div>
-
-                      {request.remarks && (
-                        <div className="p-3 bg-amber-50 border border-amber-200 rounded text-sm">
-                          <strong className="text-amber-800">Remarks:</strong>
-                          <p className="text-amber-700 mt-1">{request.remarks}</p>
-                        </div>
-                      )}
-
-                      <div className="space-y-3">
-                        <h4 className="font-semibold text-sm">Required Documents:</h4>
-                        {request.documents.map((doc) => (
-                          <div key={doc.id} className="border rounded-lg p-3 bg-gray-50">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <FileText className="w-4 h-4 text-gray-400" />
-                                <span className="text-sm font-medium">{doc.name}</span>
-                              </div>
-                              {getStatusBadge(doc.status)}
-                            </div>
-                            
-                            {doc.status === 'not_submitted' && (
-                              <div className="flex items-center gap-2 mt-2">
-                                <Input
-                                  type="file"
-                                  accept="image/*,.pdf"
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0]
-                                    if (file) handleFileUpload('asset', doc.id, file)
-                                  }}
-                                  className="text-sm"
-                                />
-                                <Button size="sm">
-                                  <Upload className="w-3 h-3 mr-1" />
-                                  Upload
-                                </Button>
-                              </div>
-                            )}
-
-                            {doc.fileUrl && doc.status !== 'not_submitted' && (
-                              <div className="flex gap-2 mt-2">
-                                <Button size="sm" variant="outline">
-                                  <Eye className="w-3 h-3 mr-1" />
-                                  View
-                                </Button>
-                                <Button size="sm" variant="outline">
-                                  <Download className="w-3 h-3 mr-1" />
-                                  Download
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Subscriptions Tab */}
-        <TabsContent value="subscriptions" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="w-5 h-5" />
-                Subscription Plans
-              </CardTitle>
-              <CardDescription>Manage your subscription documents and status</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {subscriptions.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <CreditCard className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                  <p>No active subscriptions</p>
-                  <Button className="mt-4">
-                    Subscribe to a Plan
-                  </Button>
-                </div>
-              ) : (
-                subscriptions.map((sub) => (
-                  <Card key={sub.id} className="border-2">
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <CardTitle className="text-lg">
-                            {sub.plan} Plan
-                          </CardTitle>
-                          <CardDescription>
-                            Subscription ID: {sub.id}
-                          </CardDescription>
-                        </div>
-                        {getRequestStatusBadge(sub.status)}
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="text-gray-600">Start Date:</span>
-                          <p className="font-medium">{sub.startDate}</p>
-                        </div>
-                        {sub.endDate && (
-                          <div>
-                            <span className="text-gray-600">End Date:</span>
-                            <p className="font-medium">{sub.endDate}</p>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="space-y-3">
-                        <h4 className="font-semibold text-sm">Subscription Documents:</h4>
-                        {sub.documents.map((doc) => (
-                          <div key={doc.id} className="border rounded-lg p-3 bg-gray-50">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <FileText className="w-4 h-4 text-gray-400" />
-                                <span className="text-sm font-medium">{doc.name}</span>
-                              </div>
-                              {getStatusBadge(doc.status)}
-                            </div>
-                            
-                            {doc.fileUrl && doc.status !== 'not_submitted' && (
-                              <div className="flex gap-2 mt-2">
-                                <Button size="sm" variant="outline">
-                                  <Eye className="w-3 h-3 mr-1" />
-                                  View
-                                </Button>
-                                <Button size="sm" variant="outline">
-                                  <Download className="w-3 h-3 mr-1" />
-                                  Download
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                    <CardFooter>
-                      <Button variant="outline" className="w-full">
-                        Renew Subscription
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
 
       {/* Help Section */}
@@ -708,7 +393,7 @@ export default function ProfileKYCPage() {
             <div className="space-y-2">
               <h4 className="font-semibold text-blue-900">Need Help?</h4>
               <p className="text-sm text-blue-800">
-                All documents must be clear, legible, and not expired. For asset deposits, ensure you provide high-quality photos and authentic certificates. Processing typically takes 2-5 business days.
+                All documents must be clear, legible, and not expired. Ensure you provide high-quality photos of your ID and proof of address. Processing typically takes 2-5 business days.
               </p>
               <Button size="sm" variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-100">
                 Contact Support

@@ -52,7 +52,7 @@ const reportTemplates: ReportTemplate[] = [
     format: 'PDF',
     lastGenerated: '2024-12-01',
     frequency: 'Monthly',
-    recipients: ['admin@hospital.com', 'finance@hospital.com']
+    recipients: ['admin@lnh.com', 'finance@lnh.com']
   },
   {
     id: 'TEMP-002',
@@ -62,7 +62,7 @@ const reportTemplates: ReportTemplate[] = [
     format: 'Excel',
     lastGenerated: '2024-12-04',
     frequency: 'Weekly',
-    recipients: ['operations@hospital.com']
+    recipients: ['operations@lnh.com']
   },
   {
     id: 'TEMP-003',
@@ -72,7 +72,7 @@ const reportTemplates: ReportTemplate[] = [
     format: 'PDF',
     lastGenerated: '2024-11-30',
     frequency: 'Monthly',
-    recipients: ['compliance@hospital.com', 'legal@hospital.com']
+    recipients: ['compliance@lnh.com', 'legal@lnh.com']
   },
   {
     id: 'TEMP-004',
@@ -82,7 +82,7 @@ const reportTemplates: ReportTemplate[] = [
     format: 'Excel',
     lastGenerated: null,
     frequency: 'On-Demand',
-    recipients: ['admin@hospital.com']
+    recipients: ['admin@lnh.com']
   },
   {
     id: 'TEMP-005',
@@ -92,7 +92,7 @@ const reportTemplates: ReportTemplate[] = [
     format: 'CSV',
     lastGenerated: '2024-12-03',
     frequency: 'Daily',
-    recipients: ['operations@hospital.com', 'admin@hospital.com']
+    recipients: ['operations@lnh.com', 'admin@lnh.com']
   },
   {
     id: 'TEMP-006',
@@ -102,7 +102,7 @@ const reportTemplates: ReportTemplate[] = [
     format: 'PDF',
     lastGenerated: '2024-12-02',
     frequency: 'Quarterly',
-    recipients: ['finance@hospital.com']
+    recipients: ['finance@lnh.com']
   },
 ]
 
@@ -114,7 +114,7 @@ const scheduledReports: ScheduledReport[] = [
     nextRun: '2024-12-08 09:00',
     frequency: 'Weekly',
     status: 'active',
-    recipients: ['operations@hospital.com']
+    recipients: ['operations@lnh.com']
   },
   {
     id: 'SCHED-002',

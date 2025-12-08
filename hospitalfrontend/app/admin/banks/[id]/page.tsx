@@ -16,27 +16,25 @@ import { StatusBadge, SwitchToggle, ActionConfirmModal, KeyValueCard } from '../
 // Mock data
 const bankInfo = {
   id: 'BANK-001',
-  name: 'Capital Trust Bank',
-  swiftCode: 'CTBKUS33',
+  name: 'National Bank of Pakistan',
+  swiftCode: 'NBPAPKKAXXX',
   status: 'active' as const,
-  address: '456 Financial Avenue, New York, NY 10002',
-  phone: '+1 (555) 987-6543',
-  email: 'info@capitaltrustbank.com',
-  website: 'https://capitaltrustbank.com',
-  regulatoryLicense: 'LIC-12345',
-  complianceOfficerName: 'Jane Smith',
-  complianceOfficerEmail: 'compliance@capitaltrustbank.com',
+  address: 'I.I. Chundrigar Road, Karachi, Pakistan',
+  phone: '+92-21-111-627-627',
+  email: 'info@nbp.com',
+  website: 'https://nbp.com.pk',
+  regulatoryLicense: 'LIC-NBP-001',
+  complianceOfficerName: 'Muhammad Asif',
+  complianceOfficerEmail: 'compliance@nbp.com',
   createdAt: '2024-05-20',
-  verificationLoad: 234,
-  linkedHospitals: 8,
+  verificationLoad: 156,
+  linkedHospitals: 1,
   documentsProcessed: 1450,
   complianceScore: 98
 }
 
 const linkedHospitals = [
-  { id: 'HOS-001', name: 'Metro General Hospital', status: 'active', documents: 450 },
-  { id: 'HOS-002', name: 'City Medical Center', status: 'active', documents: 320 },
-  { id: 'HOS-003', name: 'Regional Health Network', status: 'suspended', documents: 180 }
+  { id: 'HOS-001', name: 'Liaquat National Hospital', status: 'active', documents: 450 },
 ]
 
 const staffMembers = [

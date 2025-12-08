@@ -31,11 +31,11 @@ interface Bank {
 const mockBanks: Bank[] = [
   {
     id: 'B-001',
-    name: 'First National Bank',
-    swiftCode: 'FNBUS33',
-    address: '100 Wall Street, New York, NY 10005',
-    contactEmail: 'support@firstnational.com',
-    contactPhone: '+1-555-1000',
+    name: 'National Bank of Pakistan',
+    swiftCode: 'NBPAPKKAXXX',
+    address: 'I.I. Chundrigar Road, Karachi, Pakistan',
+    contactEmail: 'support@nbp.com',
+    contactPhone: '+92-21-111-627-627',
     status: 'Active',
     totalAssets: 85000000,
     totalPolicies: 125,

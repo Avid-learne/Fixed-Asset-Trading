@@ -5,28 +5,28 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 const demoUsers = [
   {
     id: '1',
-    email: 'patient@example.com',
+    email: 'ahmed.patient@lnh.com',
     password: 'password',
-    name: 'John Patient',
+    name: 'Ahmed Patient',
     role: 'PATIENT'
   },
   {
     id: '2',
-    email: 'staff@example.com',
+    email: 'staff@lnh.com',
     password: 'password',
     name: 'Jane Staff',
     role: 'HOSPITAL_STAFF'
   },
   {
     id: '3',
-    email: 'admin@example.com',
+    email: 'admin@lnh.com',
     password: 'password',
     name: 'Admin User',
     role: 'HOSPITAL_ADMIN'
   },
   {
     id: '4',
-    email: 'bank@example.com',
+    email: 'officer@nbp.com',
     password: 'password',
     name: 'Bank Officer',
     role: 'BANK_OFFICER'
@@ -34,7 +34,7 @@ const demoUsers = [
   ,
   {
     id: '5',
-    email: 'superadmin@example.com',
+    email: 'superadmin@lnh.com',
     password: 'password',
     name: 'Super Admin',
     role: 'SUPER_ADMIN'

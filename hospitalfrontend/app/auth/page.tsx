@@ -30,11 +30,11 @@ interface DemoAccount {
 }
 
 const demoAccounts: DemoAccount[] = [
-  { role: UserRole.PATIENT, label: "Patient", icon: User, email: "patient@example.com", description: "View deposits, tokens, and health benefits" },
-  { role: UserRole.HOSPITAL_STAFF, label: "Hospital Staff", icon: Building2, email: "staff@example.com", description: "Manage deposits and patient records" },
-  { role: UserRole.HOSPITAL_ADMIN, label: "Hospital Admin", icon: Building2, email: "admin@example.com", description: "Full hospital system control" },
-  { role: UserRole.BANK_OFFICER, label: "Bank Officer", icon: CreditCard, email: "bank@example.com", description: "Approve assets and manage policies" },
-  { role: UserRole.SUPER_ADMIN, label: "Super Admin", icon: Shield, email: "superadmin@example.com", description: "System-wide administration" },
+  { role: UserRole.PATIENT, label: "Patient", icon: User, email: "ahmed.patient@lnh.com", description: "View deposits, tokens, and health benefits" },
+  { role: UserRole.HOSPITAL_STAFF, label: "Hospital Staff", icon: Building2, email: "staff@lnh.com", description: "Manage deposits and patient records" },
+  { role: UserRole.HOSPITAL_ADMIN, label: "Hospital Admin", icon: Building2, email: "admin@lnh.com", description: "Full hospital system control" },
+  { role: UserRole.BANK_OFFICER, label: "Bank Officer", icon: CreditCard, email: "officer@nbp.com", description: "Approve assets and manage policies" },
+  { role: UserRole.SUPER_ADMIN, label: "Super Admin", icon: Shield, email: "superadmin@lnh.com", description: "System-wide administration" },
 ];
 
 export default function Auth() {

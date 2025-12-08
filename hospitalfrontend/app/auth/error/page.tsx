@@ -33,7 +33,7 @@ export default function AuthErrorPage() {
           <div className="bg-gray-50 rounded-lg p-4 text-left">
             <p className="text-sm font-medium text-gray-700 mb-2">Demo Accounts:</p>
             <ul className="text-xs text-gray-600 space-y-1">
-              <li>Patient: patient@example.com / password</li>
+              <li>Patient: ahmed.patient@lnh.com / password</li>
               <li>Hospital Staff: staff@example.com / password</li>
               <li>Hospital Admin: admin@example.com / password</li>
               <li>Bank Officer: bank@example.com / password</li>

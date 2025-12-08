@@ -35,7 +35,7 @@ const mockMarketData: MarketItem[] = [
     priceChange24h: 5.2,
     volume24h: 125000,
     description: 'Comprehensive health screening package',
-    provider: 'City General Hospital',
+    provider: 'Liaquat National Hospital',
     rating: 4.8,
     reviews: 234,
     trending: true,
@@ -386,7 +386,17 @@ export default function PatientMarketplace() {
                         <p className="font-bold text-foreground">{item.price.toLocaleString()} HT</p>
                         <p className="text-sm text-green-600">+{item.priceChange24h.toFixed(2)}%</p>
                       </div>
-                      <Button size="sm">Trade</Button>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline"
+                          size="sm"
+                          onClick={() => toggleCart(item.id)}
+                          className={cart.includes(item.id) ? 'bg-green-50 border-green-500' : ''}
+                        >
+                          {cart.includes(item.id) ? 'In Cart' : 'Add to Cart'}
+                        </Button>
+                        <Button size="sm" onClick={() => setSelectedItem(item)}>View</Button>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -413,7 +423,17 @@ export default function PatientMarketplace() {
                         <p className="font-bold text-foreground">{item.price.toLocaleString()} HT</p>
                         <Badge className="mt-1 bg-blue-100 text-blue-800">New Listing</Badge>
                       </div>
-                      <Button size="sm">Explore</Button>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline"
+                          size="sm"
+                          onClick={() => toggleCart(item.id)}
+                          className={cart.includes(item.id) ? 'bg-green-50 border-green-500' : ''}
+                        >
+                          {cart.includes(item.id) ? 'In Cart' : 'Add to Cart'}
+                        </Button>
+                        <Button size="sm" onClick={() => setSelectedItem(item)}>View</Button>
+                      </div>
                     </div>
                   </div>
                 </CardContent>

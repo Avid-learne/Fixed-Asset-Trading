@@ -74,7 +74,7 @@ export default function HealthCardPage() {
   // Mock data for subscription-based card
   const subscriptionCard = {
     cardNumber: 'SUB-2025-001234',
-    holderName: 'John Doe',
+    holderName: 'Ahmed Patient',
     plan: 'Premium Health Plan',
     htBalance: 250,
     validUntil: '2026-12-31',
@@ -87,7 +87,7 @@ export default function HealthCardPage() {
   // Mock data for asset-based card
   const assetCard = {
     cardNumber: 'AST-2025-005678',
-    holderName: 'John Doe',
+    holderName: 'Ahmed Patient',
     assetValue: 1000,
     htBalance: 850,
     validUntil: 'As long as assets held',

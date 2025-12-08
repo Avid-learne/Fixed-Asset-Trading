@@ -118,7 +118,7 @@ const recentTransactions: Transaction[] = [
   {
     id: 'TX-001',
     type: 'mint',
-    from: 'City General Hospital',
+    from: 'Liaquat National Hospital',
     to: 'Asset Pool',
     amount: 125000,
     tokenType: 'AT',
@@ -128,7 +128,7 @@ const recentTransactions: Transaction[] = [
   {
     id: 'TX-002',
     type: 'trade',
-    from: 'First National Bank',
+    from: 'National Bank of Pakistan',
     to: 'Investment Pool',
     amount: 450000,
     tokenType: 'AT',
@@ -138,7 +138,7 @@ const recentTransactions: Transaction[] = [
   {
     id: 'TX-003',
     type: 'redeem',
-    from: 'John Doe (Patient)',
+    from: 'Ahmed Patient',
     to: 'Benefits Provider',
     amount: 2500,
     tokenType: 'HT',

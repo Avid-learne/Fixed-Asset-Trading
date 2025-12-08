@@ -57,10 +57,10 @@ interface AuditLog {
 }
 
 const initialSettings: HospitalSettings = {
-  hospitalName: 'City General Hospital',
-  hospitalCode: 'CGH-001',
-  contactEmail: 'admin@cityhospital.com',
-  contactPhone: '+1 (555) 123-4567',
+  hospitalName: 'Liaquat National Hospital',
+  hospitalCode: 'LNH-001',
+  contactEmail: 'admin@lnh.com',
+  contactPhone: '+92 21 111 456 456',
   maxDepositValue: 500000,
   minDepositValue: 1000,
   tokenizationFeePercent: 2.5,
@@ -96,7 +96,7 @@ const mockAuditLogs: AuditLog[] = [
   {
     id: 'AUD-001',
     timestamp: '2024-12-04 10:30',
-    user: 'admin@hospital.com',
+    user: 'admin@lnh.com',
     action: 'Updated Blockchain Settings',
     details: 'Changed network from Ethereum to Polygon',
     status: 'success'
@@ -104,7 +104,7 @@ const mockAuditLogs: AuditLog[] = [
   {
     id: 'AUD-002',
     timestamp: '2024-12-04 09:15',
-    user: 'admin@hospital.com',
+    user: 'admin@lnh.com',
     action: 'Backup Created',
     details: 'Full system backup completed successfully',
     status: 'success'
@@ -112,7 +112,7 @@ const mockAuditLogs: AuditLog[] = [
   {
     id: 'AUD-003',
     timestamp: '2024-12-03 16:45',
-    user: 'admin@hospital.com',
+    user: 'admin@lnh.com',
     action: 'KYC Settings Modified',
     details: 'Updated verification level to Enhanced',
     status: 'warning'
@@ -120,7 +120,7 @@ const mockAuditLogs: AuditLog[] = [
   {
     id: 'AUD-004',
     timestamp: '2024-12-03 14:20',
-    user: 'finance@hospital.com',
+    user: 'finance@lnh.com',
     action: 'Failed Backup Attempt',
     details: 'Insufficient storage space',
     status: 'error'
