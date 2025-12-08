@@ -11,9 +11,9 @@ import { TrendingUp, AlertTriangle, CheckCircle, ArrowRight, BarChart3, PieChart
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts'
 
 const poolPerformanceData = [
-  { pool: 'Pool A', apy: 8.2, risk: 'Medium', volume: '$1.2M', allocation: 45 },
-  { pool: 'Pool B', apy: 12.5, risk: 'High', volume: '$850K', allocation: 30 },
-  { pool: 'Pool C', apy: 4.5, risk: 'Low', volume: '$2.1M', allocation: 25 },
+  { pool: 'Pool A', apy: 8.2, risk: 'Medium', volume: 'PKR 120M', allocation: 45 },
+  { pool: 'Pool B', apy: 12.5, risk: 'High', volume: 'PKR 85M', allocation: 30 },
+  { pool: 'Pool C', apy: 4.5, risk: 'Low', volume: 'PKR 210M', allocation: 25 },
 ]
 
 const historicalData = [
@@ -301,11 +301,11 @@ export default function TradingSimulatorPage() {
                   </div>
                 </div>
 
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg flex gap-3">
-                  <Target className="w-5 h-5 text-blue-600 mt-0.5" />
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex gap-3">
+                  <Target className="w-5 h-5 text-emerald-600 mt-0.5" />
                   <div>
-                    <p className="font-medium text-sm text-blue-900">Diversification Score: 8.5/10</p>
-                    <p className="text-xs text-blue-700 mt-1">Your current allocation shows good diversification across asset types.</p>
+                    <p className="font-medium text-sm text-emerald-900">Diversification Score: 8.5/10</p>
+                    <p className="text-xs text-emerald-700 mt-1">Your current allocation shows good diversification across asset types.</p>
                   </div>
                 </div>
 

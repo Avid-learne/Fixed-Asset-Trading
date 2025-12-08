@@ -389,13 +389,13 @@ export default function ProfileKYCPage() {
       <Card className="bg-blue-50 border-blue-200">
         <CardContent className="pt-6">
           <div className="flex items-start gap-4">
-            <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-emerald-600 mt-0.5" />
             <div className="space-y-2">
               <h4 className="font-semibold text-blue-900">Need Help?</h4>
               <p className="text-sm text-blue-800">
                 All documents must be clear, legible, and not expired. Ensure you provide high-quality photos of your ID and proof of address. Processing typically takes 2-5 business days.
               </p>
-              <Button size="sm" variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-100">
+              <Button size="sm" variant="outline" className="border-emerald-300 text-emerald-700 hover:bg-emerald-100">
                 Contact Support
               </Button>
             </div>

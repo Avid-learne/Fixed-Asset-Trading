@@ -36,7 +36,7 @@ const assetTypeDistribution = [
 const recentActivity = [
   { action: 'Token Minting', description: 'Minted 5,000 AT for Real Estate Pool', time: '5 mins ago', status: 'success' },
   { action: 'Deposit Approved', description: 'Approved DEP-1024 - Medical Equipment', time: '12 mins ago', status: 'success' },
-  { action: 'Profit Distribution', description: 'Allocated $50K in HT to patients', time: '1 hour ago', status: 'success' },
+  { action: 'Profit Distribution', description: 'Allocated PKR 5M in HT to patients', time: '1 hour ago', status: 'success' },
   { action: 'Bank Verification', description: 'DEP-1025 pending bank approval', time: '2 hours ago', status: 'pending' },
 ]
 
@@ -47,9 +47,9 @@ export default function HospitalAdminHome() {
     { label: 'Total AT Minted', value: '12.5M', icon: Coins, change: '+12%', trend: 'up', subtext: 'this month' },
     { label: 'Total HT Allocated', value: '8.2M', icon: Users, change: '+5%', trend: 'up', subtext: 'this month' },
     { label: 'Pending Deposits', value: '14', icon: Clock, change: '3 urgent', trend: 'neutral', subtext: 'requires action' },
-    { label: 'Hospital Revenue', value: '$450K', icon: DollarSign, change: '+8%', trend: 'up', subtext: 'this month' },
+    { label: 'Hospital Revenue', value: 'PKR 45M', icon: DollarSign, change: '+8%', trend: 'up', subtext: 'this month' },
     { label: 'Active Patients', value: '1,247', icon: Activity, change: '+23', trend: 'up', subtext: 'this week' },
-    { label: 'Trading Volume', value: '$2.3M', icon: TrendingUp, change: '+15%', trend: 'up', subtext: 'last 30 days' },
+    { label: 'Trading Volume', value: 'PKR 230M', icon: TrendingUp, change: '+15%', trend: 'up', subtext: 'last 30 days' },
   ]
 
   return (

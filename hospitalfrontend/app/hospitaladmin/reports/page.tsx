@@ -245,7 +245,7 @@ export default function ReportsPage() {
     switch(format) {
       case 'PDF': return <FileText className="h-4 w-4 text-red-600" />
       case 'Excel': return <FileSpreadsheet className="h-4 w-4 text-green-600" />
-      case 'CSV': return <FileBarChart className="h-4 w-4 text-blue-600" />
+      case 'CSV': return <FileBarChart className="h-4 w-4 text-emerald-600" />
       default: return <FileText className="h-4 w-4" />
     }
   }
@@ -275,7 +275,7 @@ export default function ReportsPage() {
                 <p className="text-sm text-gray-600">Report Templates</p>
                 <p className="text-2xl font-bold">{reportTemplates.length}</p>
               </div>
-              <FileText className="h-8 w-8 text-blue-600" />
+              <FileText className="h-8 w-8 text-emerald-600" />
             </div>
           </CardContent>
         </Card>
@@ -633,7 +633,7 @@ export default function ReportsPage() {
 
             <div className="p-4 bg-blue-50 rounded-lg">
               <p className="text-sm text-blue-900 font-medium mb-1">Report Preview</p>
-              <p className="text-sm text-blue-700">
+              <p className="text-sm text-emerald-700">
                 {selectedTemplate?.description}
               </p>
             </div>

@@ -22,8 +22,8 @@ interface AuditLog {
 const mockAuditLogs: AuditLog[] = [
   {
     id: 'AUD-001',
-    timestamp: '2024-12-06T10:30:00Z',
-    user: 'john.admin@assetbridge.com',
+    timestamp: '2024-12-04 10:30',
+    user: 'admin@sehatvault.com',
     action: 'CREATE_USER',
     resource: 'User Management',
     details: 'Created new hospital admin account for Dr. Sarah Johnson',
@@ -63,7 +63,7 @@ const mockAuditLogs: AuditLog[] = [
   {
     id: 'AUD-005',
     timestamp: '2024-12-06T09:15:00Z',
-    user: 'john.admin@assetbridge.com',
+    user: 'admin@sehatvault.com',
     action: 'DELETE_USER',
     resource: 'User Management',
     details: 'Attempted to delete active admin account',
@@ -83,7 +83,7 @@ const mockAuditLogs: AuditLog[] = [
   {
     id: 'AUD-007',
     timestamp: '2024-12-06T08:30:00Z',
-    user: 'john.admin@assetbridge.com',
+    user: 'admin@sehatvault.com',
     action: 'VERIFY_HOSPITAL',
     resource: 'Hospital Management',
     details: 'Verified Metro Health Center registration',

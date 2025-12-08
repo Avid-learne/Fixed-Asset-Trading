@@ -420,7 +420,7 @@ export default function SettingsPage() {
                 <p className="text-sm text-blue-900 font-medium mb-1">Network Status</p>
                 <div className="flex items-center gap-2">
                   <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                  <p className="text-sm text-blue-700">Connected to {blockchainSettings.network}</p>
+                  <p className="text-sm text-emerald-700">Connected to {blockchainSettings.network}</p>
                 </div>
               </div>
             </CardContent>
@@ -517,7 +517,7 @@ export default function SettingsPage() {
                 <Card>
                   <CardContent className="pt-6">
                     <div className="text-center">
-                      <Database className="h-12 w-12 text-blue-600 mx-auto mb-3" />
+                      <Database className="h-12 w-12 text-emerald-600 mx-auto mb-3" />
                       <h4 className="font-medium mb-2">Create Backup</h4>
                       <p className="text-sm text-gray-600 mb-4">Export current system state</p>
                       <Button onClick={handleBackup} className="w-full">

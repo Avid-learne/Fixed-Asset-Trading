@@ -34,7 +34,7 @@ export default function BankHelpPage() {
 
       <div className="rounded-lg border p-4">
         <div className="font-medium">Contact Support</div>
-        <p className="text-sm text-muted-foreground">Email: support@assetbridge.example.com • Phone: +1 (555) 123-4567</p>
+        <p className="text-sm text-muted-foreground">Email: support@sehatvault.com • Phone: +92 21 111 SEHAT</p>
         <Button className="mt-3">Open Support Ticket</Button>
       </div>
     </div>

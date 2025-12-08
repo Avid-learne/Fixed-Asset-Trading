@@ -216,7 +216,7 @@ export default function BankDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Assets in Custody</CardTitle>
-            <Wallet className="w-5 h-5 text-blue-600" />
+            <Wallet className="w-5 h-5 text-emerald-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
@@ -392,7 +392,7 @@ export default function BankDashboard() {
                     className={`h-2 rounded-full ${
                       item.status === 'Approved' ? 'bg-green-600' :
                       item.status === 'Pending' ? 'bg-yellow-600' :
-                      item.status === 'Processing' ? 'bg-blue-600' :
+                      item.status === 'Processing' ? 'bg-emerald-600' :
                       'bg-red-600'
                     }`}
                     style={{ width: `${item.percentage}%` }}
@@ -526,9 +526,9 @@ export default function BankDashboard() {
                 <Badge className="bg-blue-100 text-blue-800">AAA</Badge>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-blue-600 h-2 rounded-full" style={{ width: '98%' }} />
+                <div className="bg-emerald-600 h-2 rounded-full" style={{ width: '98%' }} />
               </div>
-              <p className="text-xs text-blue-600">Maximum security</p>
+              <p className="text-xs text-emerald-600">Maximum security</p>
             </div>
 
             <div className="space-y-2">

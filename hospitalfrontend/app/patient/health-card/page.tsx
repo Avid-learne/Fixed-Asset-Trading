@@ -157,7 +157,7 @@ export default function HealthCardPage() {
               <CardContent className="p-4">
                 <div style={cardStyle} className="relative w-full h-64">
                   {/* Front of Card */}
-                  <div style={frontStyle(subFlipped) as any} className="absolute inset-0 rounded-lg p-6 bg-gradient-to-br from-blue-600 via-blue-700 to-blue-900 text-white shadow-lg">
+                  <div style={frontStyle(subFlipped) as any} className="absolute inset-0 rounded-lg p-6 bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-900 text-white shadow-lg">
                     <div className="flex flex-col h-full justify-between">
                       <div className="flex justify-between items-start">
                         <div>

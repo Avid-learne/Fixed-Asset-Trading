@@ -10,29 +10,29 @@
   --card-foreground: 222.2 84% 4.9%;
   --popover: 0 0% 100%;
   --popover-foreground: 222.2 84% 4.9%;
-  --primary: 210 100% 21%;
+  --primary: 160 84% 39%; /* Emerald-600 */
   --primary-foreground: 0 0% 100%;
-  --secondary: 207 36% 33%;
+  --secondary: 174 72% 43%; /* Teal-600 */
   --secondary-foreground: 0 0% 100%;
-  --muted: 210 40% 96.1%;
+  --muted: 160 40% 96.1%;
   --muted-foreground: 215.4 16.3% 46.9%;
-  --accent: 175 48% 45%;
+  --accent: 160 84% 39%; /* Emerald-600 */
   --accent-foreground: 0 0% 100%;
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 0 0% 100%;
   --border: 214.3 31.8% 91.4%;
   --input: 214.3 31.8% 91.4%;
-  --ring: 210 100% 21%;
+  --ring: 160 84% 39%; /* Emerald-600 */
   --radius: 0.5rem;
   
   --sidebar-background: 0 0% 100%;
   --sidebar-foreground: 240 5.3% 26.1%;
-  --sidebar-primary: 240 5.9% 10%;
+  --sidebar-primary: 160 84% 39%; /* Emerald-600 */
   --sidebar-primary-foreground: 0 0% 98%;
-  --sidebar-accent: 210 40% 96.1%;
-  --sidebar-accent-foreground: 210 100% 21%;
+  --sidebar-accent: 160 40% 96.1%;
+  --sidebar-accent-foreground: 160 84% 39%;
   --sidebar-border: 220 13% 91%;
-  --sidebar-ring: 217.2 91.2% 59.8%;
+  --sidebar-ring: 160 84% 39%;
 }
 
 /* Animated hero background (Ken Burns + subtle pan) */

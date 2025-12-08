@@ -137,7 +137,7 @@ export default function AssetCustodyPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Asset Value</CardTitle>
-            <Archive className="w-5 h-5 text-blue-600" />
+            <Archive className="w-5 h-5 text-emerald-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">

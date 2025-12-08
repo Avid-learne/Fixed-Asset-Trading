@@ -149,7 +149,7 @@ export default function PatientsPage() {
 
   const getTransactionIcon = (type: string) => {
     switch (type) {
-      case 'deposit': return <ArrowDownRight className="w-4 h-4 text-blue-600" />
+      case 'deposit': return <ArrowDownRight className="w-4 h-4 text-emerald-600" />
       case 'mint': return <Coins className="w-4 h-4 text-green-600" />
       case 'allocation': return <TrendingUp className="w-4 h-4 text-purple-600" />
       case 'redemption': return <ArrowUpRight className="w-4 h-4 text-orange-600" />
@@ -231,7 +231,7 @@ export default function PatientsPage() {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
               Total AT Balance
-              <Coins className="w-4 h-4 text-blue-600" />
+              <Coins className="w-4 h-4 text-emerald-600" />
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -456,7 +456,7 @@ export default function PatientsPage() {
                       <div className="mt-4 pt-4 border-t border-green-200">
                         <p className="text-xs text-muted-foreground">Equivalent Value</p>
                         <p className="text-lg font-semibold">${(selectedPatient.htBalance * 10).toLocaleString()}</p>
-                        <p className="text-xs text-muted-foreground mt-1">@ $10 per HT</p>
+                        <p className="text-xs text-muted-foreground mt-1">@ PKR 1,000 per HT</p>
                       </div>
                     </CardContent>
                   </Card>

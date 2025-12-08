@@ -32,7 +32,7 @@ export default function ProfitAllocationPage() {
 
   const patientAmount = (profit * patientShare) / 100
   const hospitalAmount = (profit * hospitalShare) / 100
-  const htConversionRate = 10 // $10 = 1 HT
+  const htConversionRate = 10 // PKR 1,000 = 1 HT
   const totalHT = patientAmount / htConversionRate
 
   const totalATHolding = patientAllocations.reduce((sum, p) => sum + p.atHolding, 0)
@@ -101,11 +101,11 @@ export default function ProfitAllocationPage() {
                 </div>
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex gap-3">
-              <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex gap-3">
+              <AlertCircle className="w-5 h-5 text-emerald-600 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-blue-900">Distribution Formula</p>
-                <p className="text-xs text-blue-700 mt-1">
+                <p className="text-sm font-medium text-emerald-900">Distribution Formula</p>
+                <p className="text-xs text-emerald-700 mt-1">
                   HT is distributed proportionally based on each patient's AT holdings. 
                   Conversion rate: ${htConversionRate} = 1 HT
                 </p>
@@ -136,7 +136,7 @@ export default function ProfitAllocationPage() {
                             </div>
                         </div>
                         <div className="text-right">
-                            <p className="text-sm font-bold text-green-600">+$42,500</p>
+                            <p className="text-sm font-bold text-green-600">+PKR 4.25M</p>
                             <p className="text-xs text-muted-foreground">2,975 HT</p>
                         </div>
                     </div>

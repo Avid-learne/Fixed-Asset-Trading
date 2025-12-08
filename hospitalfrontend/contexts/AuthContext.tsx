@@ -22,7 +22,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Simulated user - replace with actual auth
         const mockUser: AuthUser = {
           id: '1',
-          email: 'admin@assetbridge.com',
+          email: 'admin@sehatvault.com',
           name: 'System Administrator',
           role: UserRole.SUPER_ADMIN,
           permissions: ROLE_PERMISSIONS[UserRole.SUPER_ADMIN],

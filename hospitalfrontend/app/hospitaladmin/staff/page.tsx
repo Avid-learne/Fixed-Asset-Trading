@@ -81,7 +81,7 @@ const mockStaff: StaffMember[] = [
       manageSettings: false
     },
     activityLog: [
-      { action: 'Allocated Profits', timestamp: '2024-12-03 16:20', details: 'Distributed $50K in HT' },
+      { action: 'Allocated Profits', timestamp: '2024-12-03 16:20', details: 'Distributed PKR 5M in HT' },
       { action: 'Minted Tokens', timestamp: '2024-12-03 14:30', details: 'Minted 5000 AT for DEP-1002' },
       { action: 'Login', timestamp: '2024-12-04 10:00', details: 'Successful login' },
     ]

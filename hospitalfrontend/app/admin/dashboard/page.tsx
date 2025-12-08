@@ -123,7 +123,7 @@ export default function SuperadminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Monthly Volume</p>
-                <p className="text-3xl font-bold text-gray-900">$2.45M</p>
+                <p className="text-3xl font-bold text-gray-900">PKR 245M</p>
                 <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
                   <ArrowUpRight className="h-3 w-3" />
                   +14% vs last month
@@ -227,7 +227,7 @@ export default function SuperadminDashboard() {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">Avg. Token Value</span>
-              <span className="text-sm font-semibold text-green-600">$1.98</span>
+              <span className="text-sm font-semibold text-green-600">PKR 198</span>
             </div>
           </CardContent>
         </Card>

@@ -351,7 +351,7 @@ export default function CreateHospitalPage() {
                   <CardContent className="pt-6">
                     <div className="text-center">
                       <h3 className="font-bold text-lg">Starter</h3>
-                      <p className="text-3xl font-bold text-cyan-600 my-2">$499</p>
+                      <p className="text-3xl font-bold text-cyan-600 my-2">PKR 49,900</p>
                       <p className="text-sm text-gray-600">per month</p>
                       <ul className="mt-4 space-y-2 text-sm text-gray-600">
                         <li>• Up to 100 patients</li>
@@ -367,7 +367,7 @@ export default function CreateHospitalPage() {
                   <CardContent className="pt-6">
                     <div className="text-center">
                       <h3 className="font-bold text-lg">Professional</h3>
-                      <p className="text-3xl font-bold text-cyan-600 my-2">$999</p>
+                      <p className="text-3xl font-bold text-cyan-600 my-2">PKR 99,900</p>
                       <p className="text-sm text-gray-600">per month</p>
                       <ul className="mt-4 space-y-2 text-sm text-gray-600">
                         <li>• Up to 500 patients</li>
@@ -402,8 +402,8 @@ export default function CreateHospitalPage() {
                       <SelectValue placeholder="Select plan" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="starter">Starter - $499/month</SelectItem>
-                      <SelectItem value="professional">Professional - $999/month</SelectItem>
+                      <SelectItem value="starter">Starter - PKR 49,900/month</SelectItem>
+                      <SelectItem value="professional">Professional - PKR 99,900/month</SelectItem>
                       <SelectItem value="enterprise">Enterprise - Custom</SelectItem>
                     </SelectContent>
                   </Select>

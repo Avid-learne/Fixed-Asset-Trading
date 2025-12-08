@@ -232,7 +232,7 @@ export default function TokenMintingPage() {
                 </li>
                 <li className="flex items-start">
                   <span className="w-1.5 h-1.5 bg-accent rounded-full mt-1.5 mr-2 flex-shrink-0" />
-                  Bank officer approval required for amounts over $100k
+                  Bank officer approval required for amounts over PKR 10M
                 </li>
                 <li className="flex items-start">
                   <span className="w-1.5 h-1.5 bg-accent rounded-full mt-1.5 mr-2 flex-shrink-0" />

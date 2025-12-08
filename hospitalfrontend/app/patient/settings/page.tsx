@@ -273,7 +273,7 @@ export default function SettingsPage() {
                             <p className="text-xs text-gray-400">Cities detected in recent logins</p>
                           </div>
                           <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center">
-                            <Globe className="w-5 h-5 text-blue-600" />
+                            <Globe className="w-5 h-5 text-emerald-600" />
                           </div>
                         </div>
                         <div className="mt-3">

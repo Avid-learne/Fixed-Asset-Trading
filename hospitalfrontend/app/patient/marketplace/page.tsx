@@ -212,13 +212,13 @@ export default function PatientMarketplace() {
                 <p className="text-sm text-muted-foreground">New Listings</p>
                 <div className="flex items-center gap-2 mt-1">
                   {newItems.map(item => (
-                    <Badge key={item.id} variant="outline" className="text-xs bg-blue-50">
+                    <Badge key={item.id} variant="outline" className="text-xs bg-emerald-50">
                       {item.name.split(' ')[0]}
                     </Badge>
                   ))}
                 </div>
               </div>
-              <Star className="w-5 h-5 text-blue-500" />
+              <Star className="w-5 h-5 text-emerald-500" />
             </div>
           </CardContent>
         </Card>
@@ -412,7 +412,7 @@ export default function PatientMarketplace() {
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4 flex-1">
-                      <Star className="w-5 h-5 text-blue-500" />
+                      <Star className="w-5 h-5 text-emerald-500" />
                       <div className="flex-1">
                         <h3 className="font-semibold text-foreground">{item.name}</h3>
                         <p className="text-sm text-muted-foreground mt-1">{item.description}</p>

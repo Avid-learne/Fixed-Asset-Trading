@@ -25,7 +25,7 @@ const mockUsers: User[] = [
   {
     id: 'USR-001',
     name: 'System Admin',
-    email: 'admin@assetbridge.com',
+    email: 'admin@sehatvault.com',
     role: 'SUPER_ADMIN',
     status: 'active',
     lastLogin: '2024-12-06T10:30:00Z',
