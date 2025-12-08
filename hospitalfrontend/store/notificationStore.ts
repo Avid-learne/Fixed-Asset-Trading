@@ -27,38 +27,29 @@ const generateId = () => Math.random().toString(36).substr(2, 9)
 const initialNotifications: Notification[] = [
   {
     id: '1',
-    title: 'Asset Approved',
-    message: 'Your car deposit has been approved. 500 tokens added to your account.',
-    type: 'success',
+    title: 'High Gas Fees Detected',
+    message: 'Current gas fees are elevated. Consider scheduling transactions for later.',
+    type: 'warning',
     read: false,
     createdAt: new Date('2024-01-15T10:30:00'),
-    link: '/patient/history'
+    link: '/patient/settings'
   },
   {
     id: '2',
-    title: 'New Benefit Available',
-    message: 'Premium dental checkup is now available for redemption.',
+    title: 'System Maintenance',
+    message: 'Scheduled maintenance on January 20th from 2:00 AM to 4:00 AM UTC.',
     type: 'info',
     read: false,
     createdAt: new Date('2024-01-14T14:20:00'),
-    link: '/patient/benefits'
+    link: '/patient/notifications'
   },
   {
     id: '3',
-    title: 'Document Required',
-    message: 'Please upload additional documents for your property deposit.',
-    type: 'warning',
-    read: true,
-    createdAt: new Date('2024-01-13T09:15:00'),
-    link: '/patient/deposit'
-  },
-  {
-    id: '4',
-    title: 'Transaction Completed',
-    message: 'Your token transfer to Medical Services has been completed.',
+    title: 'Minting Successful',
+    message: '1000 Health Tokens successfully minted and added to your account.',
     type: 'success',
     read: true,
-    createdAt: new Date('2024-01-12T16:45:00'),
+    createdAt: new Date('2024-01-13T09:15:00'),
     link: '/patient/history'
   }
 ]

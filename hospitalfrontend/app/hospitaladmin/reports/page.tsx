@@ -106,7 +106,7 @@ const reportTemplates: ReportTemplate[] = [
   },
 ]
 
-const scheduledReports: ScheduledReport[] = [
+const scheduledReportsInitial: ScheduledReport[] = [
   {
     id: 'SCHED-001',
     templateId: 'TEMP-002',
@@ -209,9 +209,16 @@ export default function ReportsPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<ReportTemplate | null>(null)
   const [showGenerateDialog, setShowGenerateDialog] = useState(false)
   const [showScheduleDialog, setShowScheduleDialog] = useState(false)
+  const [showViewDialog, setShowViewDialog] = useState(false)
+  const [showScheduleSettingsDialog, setShowScheduleSettingsDialog] = useState(false)
   const [generateDateRange, setGenerateDateRange] = useState({ from: '', to: '' })
   const [generateFormat, setGenerateFormat] = useState('')
   const [generateRecipients, setGenerateRecipients] = useState('')
+  const [selectedScheduledReport, setSelectedScheduledReport] = useState<ScheduledReport | null>(null)
+  const [scheduleSettings, setScheduleSettings] = useState({ frequency: '', time: '', recipients: '' })
+  const [scheduledReports, setScheduledReports] = useState<ScheduledReport[]>(scheduledReportsInitial)
+  const [selectedGeneratedReport, setSelectedGeneratedReport] = useState<GeneratedReport | null>(null)
+  const [showGeneratedReportDialog, setShowGeneratedReportDialog] = useState(false)
 
   const filteredTemplates = reportTemplates.filter(template => {
     const matchesSearch = template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -255,6 +262,57 @@ export default function ReportsPage() {
     setShowGenerateDialog(false)
     setGenerateDateRange({ from: '', to: '' })
     setGenerateFormat('')
+  }
+
+  const handleOpenScheduleSettings = (report: ScheduledReport) => {
+    setSelectedScheduledReport(report)
+    setScheduleSettings({
+      frequency: report.frequency,
+      time: report.nextRun.split(' ')[1] || '08:00',
+      recipients: report.recipients.join(', ')
+    })
+    setShowScheduleSettingsDialog(true)
+  }
+
+  const handleSaveScheduleSettings = () => {
+    if (!selectedScheduledReport) return
+    
+    console.log('Saving schedule settings:', selectedScheduledReport?.id, scheduleSettings)
+    
+    // Update the scheduled report in state
+    setScheduledReports(scheduledReports.map(r => 
+      r.id === selectedScheduledReport.id ? {
+        ...r,
+        frequency: scheduleSettings.frequency,
+        recipients: scheduleSettings.recipients.split(',').map(e => e.trim())
+      } : r
+    ))
+    
+    setShowScheduleSettingsDialog(false)
+    setSelectedScheduledReport(null)
+  }
+
+  const handleTogglePauseResume = (report: ScheduledReport) => {
+    const newStatus = report.status === 'active' ? 'paused' : 'active'
+    console.log(`${report.status === 'active' ? 'Pausing' : 'Resuming'} report:`, report.id)
+    
+    // Update the scheduled report status in state
+    setScheduledReports(scheduledReports.map(r => 
+      r.id === report.id ? { ...r, status: newStatus as 'active' | 'paused' } : r
+    ))
+  }
+
+  const handleViewGeneratedReport = (report: GeneratedReport) => {
+    console.log('Viewing generated report:', report.id)
+    setSelectedGeneratedReport(report)
+    setShowGeneratedReportDialog(true)
+  }
+
+  const handleDownloadReport = (report: GeneratedReport) => {
+    console.log('Downloading report:', report.id, report.name)
+    // In a real app, this would trigger a file download
+    // For now, we'll show a success message
+    alert(`Downloading: ${report.name}\nFormat: ${report.format}\nSize: ${report.size}`)
   }
 
   return (
@@ -388,7 +446,7 @@ export default function ReportsPage() {
                             size="sm"
                             onClick={() => {
                               setSelectedTemplate(template)
-                              setGenerateFormat(template.format)
+                              setShowViewDialog(true)
                             }}
                           >
                             <Eye className="h-4 w-4 mr-1" />
@@ -451,10 +509,18 @@ export default function ReportsPage() {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleOpenScheduleSettings(report)}
+                      >
                         <Settings className="h-4 w-4" />
                       </Button>
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleTogglePauseResume(report)}
+                      >
                         {report.status === 'active' ? 'Pause' : 'Resume'}
                       </Button>
                     </div>
@@ -489,11 +555,18 @@ export default function ReportsPage() {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleViewGeneratedReport(report)}
+                      >
                         <Eye className="h-4 w-4 mr-1" />
                         View
                       </Button>
-                      <Button size="sm">
+                      <Button 
+                        size="sm"
+                        onClick={() => handleDownloadReport(report)}
+                      >
                         <Download className="h-4 w-4 mr-1" />
                         Download
                       </Button>
@@ -510,18 +583,32 @@ export default function ReportsPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Report Generation Trend</CardTitle>
+                <p className="text-sm text-gray-600 mt-1">Monthly report generation volume by type</p>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={kpiData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Line type="monotone" dataKey="deposits" stroke="#3B82F6" strokeWidth={2} name="Deposit Reports" />
-                    <Line type="monotone" dataKey="minting" stroke="#10B981" strokeWidth={2} name="Minting Reports" />
-                    <Line type="monotone" dataKey="allocation" stroke="#F59E0B" strokeWidth={2} name="Allocation Reports" />
+                <ResponsiveContainer width="100%" height={350}>
+                  <LineChart data={kpiData} margin={{ top: 5, right: 30, left: 0, bottom: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis 
+                      dataKey="month" 
+                      label={{ value: 'Month', position: 'insideBottomRight', offset: -15 }}
+                      style={{ fontSize: '12px' }}
+                    />
+                    <YAxis 
+                      label={{ value: 'Number of Reports', angle: -90, position: 'insideLeft', style: { fontSize: '12px' } }}
+                    />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '8px' }}
+                      formatter={(value) => [value, '']}
+                      labelStyle={{ color: '#1f2937' }}
+                    />
+                    <Legend 
+                      wrapperStyle={{ paddingTop: '20px' }}
+                      iconType="line"
+                    />
+                    <Line type="monotone" dataKey="deposits" stroke="#3B82F6" strokeWidth={2.5} name="Deposit Reports" dot={{ fill: '#3B82F6', r: 4 }} activeDot={{ r: 6 }} />
+                    <Line type="monotone" dataKey="minting" stroke="#10B981" strokeWidth={2.5} name="Minting Reports" dot={{ fill: '#10B981', r: 4 }} activeDot={{ r: 6 }} />
+                    <Line type="monotone" dataKey="allocation" stroke="#F59E0B" strokeWidth={2.5} name="Allocation Reports" dot={{ fill: '#F59E0B', r: 4 }} activeDot={{ r: 6 }} />
                   </LineChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -529,18 +616,19 @@ export default function ReportsPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Reports by Category</CardTitle>
+                <CardTitle>Reports by Category Distribution</CardTitle>
+                <p className="text-sm text-gray-600 mt-1">Percentage breakdown of report categories</p>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
+                <ResponsiveContainer width="100%" height={350}>
                   <PieChart>
                     <Pie
                       data={categoryDistribution}
                       cx="50%"
-                      cy="50%"
+                      cy="45%"
                       labelLine={false}
                       label={({ name, value }) => `${name}: ${value}%`}
-                      outerRadius={100}
+                      outerRadius={110}
                       fill="#8884d8"
                       dataKey="value"
                     >
@@ -548,7 +636,15 @@ export default function ReportsPage() {
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip />
+                    <Tooltip 
+                      formatter={(value, name, props) => [`${value}% (${props.payload.count} reports)`, 'Distribution']}
+                      contentStyle={{ backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '8px' }}
+                    />
+                    <Legend 
+                      verticalAlign="bottom" 
+                      height={36}
+                      wrapperStyle={{ paddingTop: '20px' }}
+                    />
                   </PieChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -558,18 +654,69 @@ export default function ReportsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Most Generated Report Types</CardTitle>
+              <p className="text-sm text-gray-600 mt-1">Frequency of report generation by category</p>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={categoryDistribution}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="count" fill="#3B82F6" name="Report Count" />
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart 
+                  data={categoryDistribution}
+                  margin={{ top: 20, right: 30, left: 0, bottom: 60 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis 
+                    dataKey="name" 
+                    angle={-45}
+                    textAnchor="end"
+                    height={100}
+                    interval={0}
+                    style={{ fontSize: '12px' }}
+                    label={{ value: 'Report Category', position: 'insideBottomCenter', offset: -30 }}
+                  />
+                  <YAxis 
+                    label={{ value: 'Number Generated', angle: -90, position: 'insideLeft', style: { fontSize: '12px' } }}
+                  />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '8px' }}
+                    formatter={(value) => [value, 'Reports Generated']}
+                    labelStyle={{ color: '#1f2937' }}
+                  />
+                  <Legend 
+                    wrapperStyle={{ paddingTop: '20px' }}
+                  />
+                  <Bar 
+                    dataKey="count" 
+                    fill="#3B82F6" 
+                    name="Reports Generated"
+                    radius={[8, 8, 0, 0]}
+                  />
                 </BarChart>
               </ResponsiveContainer>
+              
+              {/* Summary Table */}
+              <div className="mt-6 border-t pt-4">
+                <p className="text-sm font-semibold mb-3">Category Summary</p>
+                <div className="grid grid-cols-2 gap-4">
+                  {categoryDistribution.map((category, idx) => (
+                    <div key={idx} className="p-3 bg-gray-50 rounded-lg border">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div 
+                          className="w-3 h-3 rounded-full" 
+                          style={{ backgroundColor: COLORS[idx % COLORS.length] }}
+                        />
+                        <span className="text-sm font-medium">{category.name}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Reports:</span>
+                        <span className="font-semibold">{category.count}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Distribution:</span>
+                        <span className="font-semibold">{category.value}%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -718,6 +865,496 @@ export default function ReportsPage() {
             <Button onClick={() => setShowScheduleDialog(false)}>
               <Calendar className="mr-2 h-4 w-4" />
               Schedule Report
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Report Dialog */}
+      <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              {selectedTemplate?.name}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedTemplate?.description}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedTemplate && (
+            <div className="space-y-6 py-4">
+              {/* Report Metadata */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 border rounded-lg">
+                  <p className="text-sm text-gray-600 mb-1">Category</p>
+                  <p className="font-medium">{getCategoryBadge(selectedTemplate.category)}</p>
+                </div>
+                <div className="p-4 border rounded-lg">
+                  <p className="text-sm text-gray-600 mb-1">Format</p>
+                  <div className="flex items-center gap-2">
+                    {getFormatIcon(selectedTemplate.format)}
+                    <p className="font-medium">{selectedTemplate.format}</p>
+                  </div>
+                </div>
+                <div className="p-4 border rounded-lg">
+                  <p className="text-sm text-gray-600 mb-1">Frequency</p>
+                  <p className="font-medium">{selectedTemplate.frequency}</p>
+                </div>
+                <div className="p-4 border rounded-lg">
+                  <p className="text-sm text-gray-600 mb-1">Last Generated</p>
+                  <p className="font-medium">{selectedTemplate.lastGenerated || 'Never'}</p>
+                </div>
+              </div>
+
+              {/* Recipients */}
+              <div className="border-t pt-4">
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <Mail className="h-4 w-4" />
+                  Recipients
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {selectedTemplate.recipients.map((email, idx) => (
+                    <Badge key={idx} variant="outline" className="bg-blue-50">{email}</Badge>
+                  ))}
+                </div>
+              </div>
+
+              {/* Report Type Specific Content */}
+              {selectedTemplate.category === 'Financial' && (
+                <div className="border-t pt-4 space-y-4">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4" />
+                    Financial Overview
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <p className="text-sm text-blue-600 mb-1">Total Deposits</p>
+                      <p className="text-2xl font-bold text-blue-900">45,620,000 PKR</p>
+                      <p className="text-xs text-blue-600 mt-2">↑ 12% from last month</p>
+                    </div>
+                    <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                      <p className="text-sm text-green-600 mb-1">Total Minting Value</p>
+                      <p className="text-2xl font-bold text-green-900">8,450,000 PKR</p>
+                      <p className="text-xs text-green-600 mt-2">↑ 8% from last month</p>
+                    </div>
+                    <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                      <p className="text-sm text-purple-600 mb-1">Profit Allocation</p>
+                      <p className="text-2xl font-bold text-purple-900">2,180,000 PKR</p>
+                      <p className="text-xs text-purple-600 mt-2">↑ 5% from last month</p>
+                    </div>
+                    <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
+                      <p className="text-sm text-orange-600 mb-1">ROI Average</p>
+                      <p className="text-2xl font-bold text-orange-900">4.8%</p>
+                      <p className="text-xs text-orange-600 mt-2">↑ 0.3% from last month</p>
+                    </div>
+                  </div>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Financial Trend</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <LineChart data={kpiData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="month" />
+                          <YAxis />
+                          <Tooltip />
+                          <Legend />
+                          <Line type="monotone" dataKey="deposits" stroke="#3B82F6" strokeWidth={2} />
+                          <Line type="monotone" dataKey="allocation" stroke="#F59E0B" strokeWidth={2} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {selectedTemplate.category === 'Operational' && (
+                <div className="border-t pt-4 space-y-4">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <Coins className="h-4 w-4" />
+                    Operational Metrics
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                      <p className="text-sm text-green-600 mb-1">Approved Deposits</p>
+                      <p className="text-2xl font-bold text-green-900">156</p>
+                      <p className="text-xs text-green-600 mt-2">This month</p>
+                    </div>
+                    <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                      <p className="text-sm text-yellow-600 mb-1">Pending Deposits</p>
+                      <p className="text-2xl font-bold text-yellow-900">23</p>
+                      <p className="text-xs text-yellow-600 mt-2">Awaiting verification</p>
+                    </div>
+                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <p className="text-sm text-blue-600 mb-1">Tokens Minted</p>
+                      <p className="text-2xl font-bold text-blue-900">4,280</p>
+                      <p className="text-xs text-blue-600 mt-2">Health Tokens</p>
+                    </div>
+                    <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                      <p className="text-sm text-purple-600 mb-1">Transactions</p>
+                      <p className="text-2xl font-bold text-purple-900">892</p>
+                      <p className="text-xs text-purple-600 mt-2">Completed</p>
+                    </div>
+                  </div>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Operational Breakdown</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={categoryDistribution}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="name" />
+                          <YAxis />
+                          <Tooltip />
+                          <Bar dataKey="count" fill="#10B981" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {selectedTemplate.category === 'Compliance' && (
+                <div className="border-t pt-4 space-y-4">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    Compliance Status
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                      <p className="text-sm text-green-600 mb-1">KYC Verified</p>
+                      <p className="text-2xl font-bold text-green-900">287</p>
+                      <p className="text-xs text-green-600 mt-2">94.4% of total</p>
+                    </div>
+                    <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                      <p className="text-sm text-yellow-600 mb-1">Pending Verification</p>
+                      <p className="text-2xl font-bold text-yellow-900">17</p>
+                      <p className="text-xs text-yellow-600 mt-2">5.6% of total</p>
+                    </div>
+                    <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                      <p className="text-sm text-purple-600 mb-1">AML Checks Passed</p>
+                      <p className="text-2xl font-bold text-purple-900">287</p>
+                      <p className="text-xs text-purple-600 mt-2">100% compliance</p>
+                    </div>
+                    <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                      <p className="text-sm text-red-600 mb-1">Flagged for Review</p>
+                      <p className="text-2xl font-bold text-red-900">2</p>
+                      <p className="text-xs text-red-600 mt-2">Under investigation</p>
+                    </div>
+                  </div>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Compliance Distribution</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>KYC Verified (94.4%)</span>
+                          <div className="w-32 bg-gray-200 rounded-full h-2">
+                            <div className="bg-green-500 h-2 rounded-full" style={{width: '94.4%'}}></div>
+                          </div>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Pending (5.6%)</span>
+                          <div className="w-32 bg-gray-200 rounded-full h-2">
+                            <div className="bg-yellow-500 h-2 rounded-full" style={{width: '5.6%'}}></div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {selectedTemplate.category === 'Patient Analytics' && (
+                <div className="border-t pt-4 space-y-4">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4" />
+                    Patient Analytics
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <p className="text-sm text-blue-600 mb-1">Total Patients</p>
+                      <p className="text-2xl font-bold text-blue-900">304</p>
+                      <p className="text-xs text-blue-600 mt-2">Active on platform</p>
+                    </div>
+                    <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                      <p className="text-sm text-green-600 mb-1">Avg Portfolio Value</p>
+                      <p className="text-2xl font-bold text-green-900">1.2M PKR</p>
+                      <p className="text-xs text-green-600 mt-2">Per patient</p>
+                    </div>
+                    <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                      <p className="text-sm text-purple-600 mb-1">Total Health Tokens</p>
+                      <p className="text-2xl font-bold text-purple-900">21,450</p>
+                      <p className="text-xs text-purple-600 mt-2">In circulation</p>
+                    </div>
+                    <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
+                      <p className="text-sm text-orange-600 mb-1">Asset Diversity</p>
+                      <p className="text-2xl font-bold text-orange-900">8 Types</p>
+                      <p className="text-xs text-orange-600 mt-2">Average per patient</p>
+                    </div>
+                  </div>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Portfolio Distribution</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <PieChart>
+                          <Pie
+                            data={categoryDistribution}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={({ name, value }) => `${name}: ${value}%`}
+                            outerRadius={80}
+                            fill="#8884d8"
+                            dataKey="value"
+                          >
+                            {categoryDistribution.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowViewDialog(false)}>
+              Close
+            </Button>
+            <Button onClick={() => {
+              setShowViewDialog(false)
+              setShowGenerateDialog(true)
+            }}>
+              <Play className="mr-2 h-4 w-4" />
+              Generate This Report
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Schedule Settings Dialog */}
+      <Dialog open={showScheduleSettingsDialog} onOpenChange={setShowScheduleSettingsDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings className="h-5 w-5" />
+              Schedule Settings
+            </DialogTitle>
+            <DialogDescription>
+              Update settings for {selectedScheduledReport?.templateName}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedScheduledReport && (
+            <div className="space-y-4 py-4">
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-sm text-blue-600 font-medium mb-1">Current Schedule</p>
+                <p className="text-sm text-blue-900">{selectedScheduledReport.frequency} • Next run: {selectedScheduledReport.nextRun}</p>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block">Report Frequency</label>
+                <Select value={scheduleSettings.frequency} onValueChange={(value) => setScheduleSettings({...scheduleSettings, frequency: value})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select frequency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Daily">Daily</SelectItem>
+                    <SelectItem value="Weekly">Weekly</SelectItem>
+                    <SelectItem value="Monthly">Monthly</SelectItem>
+                    <SelectItem value="Quarterly">Quarterly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block">Execution Time</label>
+                <Input
+                  type="time"
+                  value={scheduleSettings.time}
+                  onChange={(e) => setScheduleSettings({...scheduleSettings, time: e.target.value})}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block">Recipients (comma-separated)</label>
+                <Input
+                  placeholder="admin@hospital.com, finance@hospital.com"
+                  value={scheduleSettings.recipients}
+                  onChange={(e) => setScheduleSettings({...scheduleSettings, recipients: e.target.value})}
+                />
+              </div>
+
+              <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+                <p className="text-sm text-amber-600 font-medium mb-2">Additional Options</p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Checkbox id="email-on-error" />
+                    <label htmlFor="email-on-error" className="text-sm text-amber-900">Send email notification on error</label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox id="skip-empty" defaultChecked />
+                    <label htmlFor="skip-empty" className="text-sm text-amber-900">Skip if no data available</label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox id="archive" defaultChecked />
+                    <label htmlFor="archive" className="text-sm text-amber-900">Archive report after 90 days</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowScheduleSettingsDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveScheduleSettings}>
+              <Settings className="mr-2 h-4 w-4" />
+              Save Settings
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Generated Report Detail Dialog */}
+      <Dialog open={showGeneratedReportDialog} onOpenChange={setShowGeneratedReportDialog}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {getFormatIcon(selectedGeneratedReport?.format || 'PDF')}
+              {selectedGeneratedReport?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Generated on {selectedGeneratedReport?.generatedAt}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedGeneratedReport && (
+            <div className="space-y-6 py-4">
+              {/* Report Metadata */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 border rounded-lg">
+                  <p className="text-sm text-gray-600 mb-1">Category</p>
+                  <p className="font-medium">{getCategoryBadge(selectedGeneratedReport.category)}</p>
+                </div>
+                <div className="p-4 border rounded-lg">
+                  <p className="text-sm text-gray-600 mb-1">Format</p>
+                  <p className="font-medium flex items-center gap-2">
+                    {getFormatIcon(selectedGeneratedReport.format)}
+                    {selectedGeneratedReport.format}
+                  </p>
+                </div>
+                <div className="p-4 border rounded-lg">
+                  <p className="text-sm text-gray-600 mb-1">File Size</p>
+                  <p className="font-medium">{selectedGeneratedReport.size}</p>
+                </div>
+                <div className="p-4 border rounded-lg">
+                  <p className="text-sm text-gray-600 mb-1">Status</p>
+                  <p className="font-medium">{getStatusBadge(selectedGeneratedReport.status)}</p>
+                </div>
+              </div>
+
+              {/* Report Preview Section */}
+              <div className="border-t pt-4">
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Report Preview
+                </h3>
+                <div className="p-6 bg-gray-50 rounded-lg border">
+                  {selectedGeneratedReport.category === 'Financial' && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-4 bg-blue-50 rounded border border-blue-200">
+                          <p className="text-xs text-blue-600 uppercase font-semibold mb-1">Total Revenue</p>
+                          <p className="text-2xl font-bold text-blue-900">45,620,000 PKR</p>
+                          <p className="text-xs text-blue-600 mt-1">↑ 12% MoM</p>
+                        </div>
+                        <div className="p-4 bg-green-50 rounded border border-green-200">
+                          <p className="text-xs text-green-600 uppercase font-semibold mb-1">Profit</p>
+                          <p className="text-2xl font-bold text-green-900">8,450,000 PKR</p>
+                          <p className="text-xs text-green-600 mt-1">↑ 8% MoM</p>
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-600 leading-relaxed">
+                        The financial report shows strong performance across all departments. Total deposits have increased by 12% month-over-month, with profit margins remaining stable at 18.5%. Asset token trading volume increased by 23% compared to the previous period.
+                      </p>
+                    </div>
+                  )}
+
+                  {selectedGeneratedReport.category === 'Operational' && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-4 bg-green-50 rounded border border-green-200">
+                          <p className="text-xs text-green-600 uppercase font-semibold mb-1">Approvals</p>
+                          <p className="text-2xl font-bold text-green-900">156</p>
+                          <p className="text-xs text-green-600 mt-1">This month</p>
+                        </div>
+                        <div className="p-4 bg-yellow-50 rounded border border-yellow-200">
+                          <p className="text-xs text-yellow-600 uppercase font-semibold mb-1">Pending</p>
+                          <p className="text-2xl font-bold text-yellow-900">23</p>
+                          <p className="text-xs text-yellow-600 mt-1">Awaiting verification</p>
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-600 leading-relaxed">
+                        Operational metrics show consistent throughput. Token minting activities completed 4,280 transactions with a 99.2% success rate. No critical incidents reported. Average processing time reduced by 15% due to system optimizations.
+                      </p>
+                    </div>
+                  )}
+
+                  {selectedGeneratedReport.category === 'Compliance' && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-4 bg-green-50 rounded border border-green-200">
+                          <p className="text-xs text-green-600 uppercase font-semibold mb-1">KYC Verified</p>
+                          <p className="text-2xl font-bold text-green-900">287</p>
+                          <p className="text-xs text-green-600 mt-1">94.4% of total</p>
+                        </div>
+                        <div className="p-4 bg-red-50 rounded border border-red-200">
+                          <p className="text-xs text-red-600 uppercase font-semibold mb-1">Flagged</p>
+                          <p className="text-2xl font-bold text-red-900">2</p>
+                          <p className="text-xs text-red-600 mt-1">Under investigation</p>
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-600 leading-relaxed">
+                        All KYC and AML compliance checks have been completed. 100% of transactions passed AML screening. 2 high-risk accounts are currently flagged for manual review and investigation. Compliance rate remains at industry standard of 99.7%.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Download Info */}
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-sm text-blue-600 font-medium mb-2">📥 Download Information</p>
+                <p className="text-sm text-blue-900">
+                  This report is ready for download. Click the "Download Report" button to save the {selectedGeneratedReport.format} file ({selectedGeneratedReport.size}) to your device.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowGeneratedReportDialog(false)}>
+              Close
+            </Button>
+            <Button onClick={() => {
+              selectedGeneratedReport && handleDownloadReport(selectedGeneratedReport)
+            }}>
+              <Download className="mr-2 h-4 w-4" />
+              Download Report
             </Button>
           </DialogFooter>
         </DialogContent>

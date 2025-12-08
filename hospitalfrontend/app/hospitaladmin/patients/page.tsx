@@ -2,6 +2,10 @@
 
 import React, { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+
+// Exchange rate: 1 USD = 280 PKR
+const USD_TO_PKR = 280
+const convertToPKR = (usdAmount: number) => usdAmount * USD_TO_PKR
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -302,7 +306,7 @@ export default function PatientsPage() {
                 <TableHead>Contact</TableHead>
                 <TableHead className="text-right">AT Balance</TableHead>
                 <TableHead className="text-right">HT Balance</TableHead>
-                <TableHead className="text-right">Assets</TableHead>
+                <TableHead>Assets</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -327,7 +331,21 @@ export default function PatientsPage() {
                     </TableCell>
                     <TableCell className="text-right font-medium">{patient.atBalance.toLocaleString()}</TableCell>
                     <TableCell className="text-right font-medium text-green-600">{patient.htBalance.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">{patient.totalAssets}</TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        <p className="font-medium">{patient.totalAssets} Asset{patient.totalAssets !== 1 ? 's' : ''}</p>
+                        <div className="text-xs text-muted-foreground mt-1 space-y-1">
+                          {patient.assetHistory
+                            .filter(asset => asset.type === 'deposit')
+                            .map(asset => (
+                              <div key={asset.id} className="flex items-center gap-1">
+                                <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                                <span>{asset.assetType || 'Asset'}: PKR {convertToPKR(asset.amount).toLocaleString()}</span>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    </TableCell>
                     <TableCell>{getStatusBadge(patient.status)}</TableCell>
                     <TableCell className="text-right">
                       <Button 
@@ -438,7 +456,7 @@ export default function PatientsPage() {
                       <p className="text-sm text-muted-foreground mt-2">Current balance</p>
                       <div className="mt-4 pt-4 border-t border-blue-200">
                         <p className="text-xs text-muted-foreground">Equivalent Value</p>
-                        <p className="text-lg font-semibold">${selectedPatient.atBalance.toLocaleString()}</p>
+                        <p className="text-lg font-semibold">PKR {convertToPKR(selectedPatient.atBalance).toLocaleString()}</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -453,36 +471,10 @@ export default function PatientsPage() {
                     <CardContent>
                       <p className="text-4xl font-bold text-green-600">{selectedPatient.htBalance.toLocaleString()}</p>
                       <p className="text-sm text-muted-foreground mt-2">Current balance</p>
-                      <div className="mt-4 pt-4 border-t border-green-200">
-                        <p className="text-xs text-muted-foreground">Equivalent Value</p>
-                        <p className="text-lg font-semibold">${(selectedPatient.htBalance * 10).toLocaleString()}</p>
-                        <p className="text-xs text-muted-foreground mt-1">@ PKR 1,000 per HT</p>
-                      </div>
                     </CardContent>
                   </Card>
                 </div>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Balance Breakdown</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
-                        <span className="text-sm">Total Portfolio Value</span>
-                        <span className="font-bold">${(selectedPatient.atBalance + selectedPatient.htBalance * 10).toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between items-center p-3 border rounded-lg">
-                        <span className="text-sm">AT Percentage</span>
-                        <span className="font-medium">{((selectedPatient.atBalance / (selectedPatient.atBalance + selectedPatient.htBalance * 10)) * 100).toFixed(1)}%</span>
-                      </div>
-                      <div className="flex justify-between items-center p-3 border rounded-lg">
-                        <span className="text-sm">HT Percentage</span>
-                        <span className="font-medium">{((selectedPatient.htBalance * 10 / (selectedPatient.atBalance + selectedPatient.htBalance * 10)) * 100).toFixed(1)}%</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
               </TabsContent>
 
               <TabsContent value="history" className="space-y-4">
@@ -531,8 +523,8 @@ export default function PatientsPage() {
                                     transaction.type === 'redemption' ? 'text-red-600' : 'text-green-600'
                                   }`}>
                                     {transaction.type === 'redemption' ? '-' : '+'}
-                                    {transaction.type === 'deposit' ? '$' : ''}
-                                    {transaction.amount.toLocaleString()}
+                                    {transaction.type === 'deposit' ? 'PKR ' : ''}
+                                    {transaction.type === 'deposit' ? convertToPKR(transaction.amount).toLocaleString() : transaction.amount.toLocaleString()}
                                     {transaction.type !== 'deposit' ? (transaction.type === 'mint' || transaction.type === 'allocation' ? ' tokens' : '') : ''}
                                   </p>
                                   <p className="text-xs text-muted-foreground mt-1">ID: {transaction.id}</p>

@@ -23,6 +23,7 @@ export const Header: React.FC = () => {
   // For patient role, use profile store; otherwise fall back to auth user
   const displayName = user?.role?.toLowerCase() === 'patient' ? profile.fullName : (user?.name || 'User')
   const displayEmail = user?.role?.toLowerCase() === 'patient' ? profile.email : (user?.email || 'No email')
+  console.log(displayName)
 
   // Close dropdowns when clicking outside
   
@@ -167,8 +168,14 @@ export const Header: React.FC = () => {
                 onClick={() => {
                   setShowProfile(false)
                   const role = user?.role?.toLowerCase() || 'patient'
-                  const settingsPath = role === 'super_admin' ? '/admin/settings' : `/${role}/settings`
-                  window.location.href = settingsPath
+                  // Navigate to settings and optionally specify tab via query parameter
+                  if (role === 'super_admin') {
+                    window.location.href = '/admin/settings?tab=general'
+                  } else if (role === 'adminuser') {
+                    window.location.href = '/hospitaladmin/settings?tab=general'
+                  } else {
+                    window.location.href = `/hospitaladmin/settings?tab=general`
+                  }
                 }}
                 className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
               >
