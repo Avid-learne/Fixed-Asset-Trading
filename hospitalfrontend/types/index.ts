@@ -8,6 +8,21 @@ export enum UserRole {
   SUPER_ADMIN = 'Super_Admin',
 }
 
+// Health Token Transactions
+export type TransactionType = 'ISSUED' | 'REDEEMED' | 'ALLOCATED' | 'TRADING_PROFIT'
+
+export interface HealthTokenTransaction {
+  id: string
+  patient_id: string
+  patient_address: string
+  type: TransactionType
+  amount: number
+  source: string
+  tx_hash: string
+  block_number: number
+  created_at: string
+}
+
 export enum DepositStatus {
   SUBMITTED = 'Submitted',
   PENDING = 'Pending',

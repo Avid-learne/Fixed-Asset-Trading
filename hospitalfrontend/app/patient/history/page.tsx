@@ -1,138 +1,199 @@
 // src/app/patient/history/page.tsx
 'use client'
 
-import React, { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { useMemo, useState } from 'react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Search, Download, Filter, Upload, Sparkles, RefreshCcw, Gift, ArrowRight, FileText } from 'lucide-react'
-import { tokenService } from '@/services/tokenService'
-import { formatNumber, formatDateTime, getStatusColor } from '@/lib/utils'
-import { TokenHistory, TransactionType } from '@/types'
+import { Search, ShieldCheck, Globe2, Smartphone, Laptop, AlertTriangle } from 'lucide-react'
+import { formatRelativeTime } from '@/lib/utils'
+
+type LoginStatus = 'success' | 'failed' | 'challenge'
+
+type LoginLog = {
+  id: string
+  timestamp: string
+  ipAddress: string
+  location: string
+  device: string
+  browser: string
+  status: LoginStatus
+  factorUsed: 'password' | 'password+otp' | 'password+hardware'
+}
+
+const loginLogs: LoginLog[] = [
+  {
+    id: 'log-1',
+    timestamp: '2025-12-08T09:32:00Z',
+    ipAddress: '203.99.180.12',
+    location: 'Islamabad, PK',
+    device: 'MacBook Pro 16"',
+    browser: 'Chrome 123.0',
+    status: 'success',
+    factorUsed: 'password+otp',
+  },
+  {
+    id: 'log-2',
+    timestamp: '2025-12-07T22:18:00Z',
+    ipAddress: '110.38.74.6',
+    location: 'Lahore, PK',
+    device: 'iPhone 15 Pro',
+    browser: 'Safari 18.0',
+    status: 'success',
+    factorUsed: 'password+otp',
+  },
+  {
+    id: 'log-3',
+    timestamp: '2025-12-07T05:02:00Z',
+    ipAddress: '154.62.210.44',
+    location: 'Dubai, AE',
+    device: 'Surface Laptop',
+    browser: 'Edge 121.0',
+    status: 'challenge',
+    factorUsed: 'password',
+  },
+  {
+    id: 'log-4',
+    timestamp: '2025-12-06T18:41:00Z',
+    ipAddress: '110.38.74.6',
+    location: 'Lahore, PK',
+    device: 'iPhone 15 Pro',
+    browser: 'Safari 18.0',
+    status: 'failed',
+    factorUsed: 'password',
+  },
+  {
+    id: 'log-5',
+    timestamp: '2025-12-05T11:15:00Z',
+    ipAddress: '39.51.220.91',
+    location: 'Karachi, PK',
+    device: 'ThinkPad X1',
+    browser: 'Firefox 122.0',
+    status: 'success',
+    factorUsed: 'password+otp',
+  },
+]
+
+const statusStyles: Record<LoginStatus, { label: string; className: string }> = {
+  success: { label: 'Successful', className: 'bg-emerald-50 text-emerald-700 border border-emerald-100' },
+  failed: { label: 'Failed', className: 'bg-red-50 text-red-700 border border-red-100' },
+  challenge: { label: 'Challenge Issued', className: 'bg-amber-50 text-amber-700 border border-amber-100' },
+}
+
+const deviceIcon = (device: string) => {
+  return /iphone|android|mobile/i.test(device) ? <Smartphone className="w-4 h-4" /> : <Laptop className="w-4 h-4" />
+}
+
+const orderedLogs = [...loginLogs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
 
 export default function HistoryPage() {
-  const [history, setHistory] = useState<TokenHistory[]>([])
-  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [filterType, setFilterType] = useState<string>('all')
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
+  const [statusFilter, setStatusFilter] = useState<'all' | LoginStatus>('all')
 
-  useEffect(() => {
-    fetchHistory()
-  }, [currentPage])
+  const filteredLogs = useMemo(() => {
+    return orderedLogs.filter(log => {
+      const matchesSearch = [log.location, log.device, log.browser, log.ipAddress]
+        .join(' ')
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase())
 
-  const fetchHistory = async () => {
-    try {
-      setLoading(true)
-      const response = await tokenService.getHistory(currentPage, 20)
-      setHistory(response.data)
-      setTotalPages(response.totalPages)
-    } catch (error) {
-      console.error('Error fetching history:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+      const matchesStatus = statusFilter === 'all' || log.status === statusFilter
 
-  const getTypeIcon = (type: TransactionType) => {
-    const iconMap: Record<string, React.ReactNode> = {
-      [TransactionType.DEPOSIT]: <Upload className="w-4 h-4 mr-1" />,
-      [TransactionType.MINT]: <Sparkles className="w-4 h-4 mr-1" />,
-      [TransactionType.TRADE]: <RefreshCcw className="w-4 h-4 mr-1" />,
-      [TransactionType.REDEEM]: <Gift className="w-4 h-4 mr-1" />,
-      [TransactionType.TRANSFER]: <ArrowRight className="w-4 h-4 mr-1" />,
-    }
-    return iconMap[type] || <FileText className="w-4 h-4 mr-1" />
-  }
+      return matchesSearch && matchesStatus
+    })
+  }, [searchTerm, statusFilter])
 
-  const getTypeColor = (type: TransactionType) => {
-    const colors = {
-      [TransactionType.DEPOSIT]: 'text-blue-600 bg-blue-50',
-      [TransactionType.MINT]: 'text-accent bg-teal-50',
-      [TransactionType.TRADE]: 'text-primary bg-primary-50',
-      [TransactionType.REDEEM]: 'text-purple-600 bg-purple-50',
-      [TransactionType.TRANSFER]: 'text-gray-600 bg-gray-50',
-    }
-    return colors[type] || 'text-gray-600 bg-gray-50'
-  }
-
-  const filteredHistory = history.filter(item => {
-    const matchesSearch = item.description.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesFilter = filterType === 'all' || item.type === filterType
-    return matchesSearch && matchesFilter
-  })
-
-  const handleExport = () => {
-    const csvContent = [
-      ['Date', 'Type', 'Amount', 'Balance', 'Description'],
-      ...filteredHistory.map(item => [
-        formatDateTime(item.timestamp),
-        item.type,
-        item.amount.toString(),
-        item.balance.toString(),
-        item.description
-      ])
-    ].map(row => row.join(',')).join('\n')
-
-    const blob = new Blob([csvContent], { type: 'text/csv' })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `transaction-history-${new Date().toISOString().split('T')[0]}.csv`
-    a.click()
-  }
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-96 w-full" />
-      </div>
-    )
-  }
+  const lastSuccessfulLogin = orderedLogs.find(log => log.status === 'success')
+  const unusualAttempts = orderedLogs.filter(log => log.status !== 'success').length
+  const uniqueLocations = new Set(orderedLogs.map(log => log.location)).size
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Transaction History</h1>
-          <p className="text-gray-500 mt-1">View all your token transactions and activities</p>
-        </div>
-        <Button onClick={handleExport} variant="outline">
-          <Download className="w-4 h-4 mr-2" />
-          Export CSV
-        </Button>
+      <div className="flex flex-col gap-2">
+        <h1 className="text-3xl font-bold">Access Logs</h1>
+        <p className="text-muted-foreground">
+          Review recent sign-ins, device usage, and any unusual login attempts on your account.
+        </p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Last successful login</CardTitle>
+            <CardDescription>Most recent verified access</CardDescription>
+          </CardHeader>
+          <CardContent className="flex items-center gap-3 text-sm">
+            <ShieldCheck className="w-5 h-5 text-emerald-500" />
+            <div>
+              <p className="font-medium text-foreground">
+                {lastSuccessfulLogin
+                  ? formatRelativeTime(new Date(lastSuccessfulLogin.timestamp))
+                  : 'No logins yet'}
+              </p>
+              {lastSuccessfulLogin && (
+                <p className="text-muted-foreground">
+                  {lastSuccessfulLogin.location} • {lastSuccessfulLogin.device}
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Unusual activity</CardTitle>
+            <CardDescription>Challenges or failed attempts</CardDescription>
+          </CardHeader>
+          <CardContent className="flex items-center gap-3 text-sm">
+            <AlertTriangle className={`w-5 h-5 ${unusualAttempts ? 'text-amber-500' : 'text-muted-foreground'}`} />
+            <div>
+              <p className="font-medium text-foreground">{unusualAttempts} events</p>
+              <p className="text-muted-foreground">Monitor unexpected access attempts</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Active locations</CardTitle>
+            <CardDescription>Cities detected in recent logins</CardDescription>
+          </CardHeader>
+          <CardContent className="flex items-center gap-3 text-sm">
+            <Globe2 className="w-5 h-5 text-primary" />
+            <div>
+              <p className="font-medium text-foreground">{uniqueLocations} cities</p>
+              <p className="text-muted-foreground">Keep an eye on where you sign in</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
-            <CardTitle>All Transactions</CardTitle>
-            <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <CardTitle>Sign-in history</CardTitle>
+              <CardDescription>Click any row for quick details.</CardDescription>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Search transactions..."
+                  placeholder="Search device, location, or IP"
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 w-full md:w-64"
+                  onChange={event => setSearchTerm(event.target.value)}
+                  className="pl-9 sm:w-64"
                 />
               </div>
               <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-                className="h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                value={statusFilter}
+                onChange={event => setStatusFilter(event.target.value as 'all' | LoginStatus)}
+                className="h-10 rounded-md border border-border bg-background px-3 py-2 text-sm"
               >
-                <option value="all">All Types</option>
-                <option value={TransactionType.DEPOSIT}>Deposits</option>
-                <option value={TransactionType.MINT}>Minting</option>
-                <option value={TransactionType.TRADE}>Trading</option>
-                <option value={TransactionType.REDEEM}>Redemptions</option>
-                <option value={TransactionType.TRANSFER}>Transfers</option>
+                <option value="all">All statuses</option>
+                <option value="success">Successful</option>
+                <option value="challenge">Challenge issued</option>
+                <option value="failed">Failed</option>
               </select>
             </div>
           </div>
@@ -141,156 +202,71 @@ export default function HistoryPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Date & Time</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead className="text-right">Balance</TableHead>
+                <TableHead>When</TableHead>
+                <TableHead>Device</TableHead>
+                <TableHead>Browser</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>IP Address</TableHead>
+                <TableHead>Security</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredHistory.length === 0 ? (
+              {filteredLogs.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-gray-500">
-                    No transactions found
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                    No sign-in records match your filters.
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredHistory.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="text-gray-600">
-                      {formatDateTime(item.timestamp)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getTypeColor(item.type)}>
-                        <span className="inline-flex items-center">{getTypeIcon(item.type)} {item.type}</span>
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="max-w-md">
-                      <p className="text-gray-900">{item.description}</p>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <span className={`font-semibold ${item.amount >= 0 ? 'text-success' : 'text-error'}`}>
-                        {item.amount >= 0 ? '+' : ''}{formatNumber(item.amount)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right font-medium text-gray-900">
-                      {formatNumber(item.balance)}
-                    </TableCell>
-                  </TableRow>
-                ))
+                filteredLogs.map(log => {
+                  const status = statusStyles[log.status]
+                  return (
+                    <TableRow key={log.id}>
+                      <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                        <div className="font-medium text-foreground">{formatRelativeTime(new Date(log.timestamp))}</div>
+                        <div>{new Date(log.timestamp).toLocaleString()}</div>
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        <div className="flex items-center gap-2 text-foreground">
+                          {deviceIcon(log.device)}
+                          <span>{log.device}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{log.browser}</TableCell>
+                      <TableCell className="text-sm">
+                        <div className="font-medium text-foreground">{log.location}</div>
+                        <div className="text-muted-foreground">{log.ipAddress}</div>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{log.ipAddress}</TableCell>
+                      <TableCell className="text-sm">
+                        <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ${status.className}`}>
+                          {status.label}
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">Auth: {log.factorUsed}</p>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
               )}
             </TableBody>
           </Table>
-
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-6">
-              <p className="text-sm text-gray-600">
-                Page {currentPage} of {totalPages}
-              </p>
-              <div className="flex space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Summary</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Total Transactions</span>
-              <span className="font-semibold text-gray-900">{history.length}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Total Earned</span>
-              <span className="font-semibold text-success">
-                +{formatNumber(history.filter(h => h.amount > 0).reduce((sum, h) => sum + h.amount, 0))}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Total Spent</span>
-              <span className="font-semibold text-error">
-                {formatNumber(history.filter(h => h.amount < 0).reduce((sum, h) => sum + h.amount, 0))}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Transaction Types</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {Object.values(TransactionType).map(type => (
-              <div key={type} className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">{type}</span>
-                <span className="font-semibold text-gray-900">
-                  {history.filter(h => h.type === type).length}
-                </span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Activity</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">This Month</span>
-              <span className="font-semibold text-gray-900">
-                {history.filter(h => {
-                  const date = new Date(h.timestamp)
-                  const now = new Date()
-                  return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()
-                }).length}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">This Week</span>
-              <span className="font-semibold text-gray-900">
-                {history.filter(h => {
-                  const date = new Date(h.timestamp)
-                  const now = new Date()
-                  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-                  return date >= weekAgo
-                }).length}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Today</span>
-              <span className="font-semibold text-gray-900">
-                {history.filter(h => {
-                  const date = new Date(h.timestamp)
-                  const now = new Date()
-                  return date.toDateString() === now.toDateString()
-                }).length}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Tips to stay secure</CardTitle>
+          <CardDescription>Respond quickly if you see activity you do not recognise.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 text-sm text-muted-foreground md:grid-cols-2">
+          <div>
+            • If you notice a new device or location, review your trusted devices in security settings.
+          </div>
+          <div>• Keep two-factor authentication enabled to prevent unauthorised access.</div>
+          <div>• Failed attempts from unfamiliar locations may indicate someone trying to access your account.</div>
+          <div>• Update your password regularly and avoid reusing it across services.</div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

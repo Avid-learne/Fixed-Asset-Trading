@@ -8,21 +8,13 @@ import { Input } from "@/components/ui/input"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { Modal, ModalTrigger, ModalContent, ModalHeader, ModalTitle, ModalFooter, ModalClose } from '@/components/ui/Modal'
 import { ArrowUpRight, Activity, Gift } from 'lucide-react'
+import { HealthTokenTransaction } from '@/types'
 
-type HTTransaction = {
-  id: string
-  date: string
-  type: 'redeem' | 'transfer' | 'reward' | 'conversion'
-  amount: number
-  description: string
-  status: 'success' | 'pending'
-}
-
-const MOCK_HT_TXS: HTTransaction[] = [
-  { id: '1', date: '2025-12-05', type: 'redeem', amount: -50, description: 'Dental checkup benefit', status: 'success' },
-  { id: '2', date: '2025-12-04', type: 'reward', amount: 100, description: 'Platform loyalty reward', status: 'success' },
-  { id: '3', date: '2025-12-03', type: 'conversion', amount: 150, description: 'Converted from 200 AT', status: 'success' },
-  { id: '4', date: '2025-12-02', type: 'transfer', amount: -25, description: 'Sent to user 0x456', status: 'success' },
+const MOCK_HT_TXS: HealthTokenTransaction[] = [
+  { id: '1', patient_id: 'PAT001', patient_address: '0x123patient', type: 'REDEEMED', amount: -50, source: 'Dental checkup benefit', tx_hash: '0xabc123', block_number: 12345, created_at: '2025-12-05' },
+  { id: '2', patient_id: 'PAT001', patient_address: '0x123patient', type: 'TRADING_PROFIT', amount: 100, source: 'Asset trading profit', tx_hash: '0xdef456', block_number: 12346, created_at: '2025-12-04' },
+  { id: '3', patient_id: 'PAT001', patient_address: '0x123patient', type: 'ISSUED', amount: 150, source: 'Initial issuance', tx_hash: '0x789abc', block_number: 12347, created_at: '2025-12-03' },
+  { id: '4', patient_id: 'PAT001', patient_address: '0x123patient', type: 'ALLOCATED', amount: 25, source: 'Hospital allocation', tx_hash: "0x789abc", block_number: 0, created_at: '2025-12-02' },
 ]
 
 type Props = {
@@ -33,6 +25,7 @@ type Props = {
 
 export default function HTWalletCard({ balance, totalRedeemed = 0, upcomingBenefits = 0 }: Props) {
   const [transferOpen, setTransferOpen] = useState(false)
+  const [selectedTx, setSelectedTx] = useState<HealthTokenTransaction | null>(null)
   const [toAddress, setToAddress] = useState('')
   const [transferAmount, setTransferAmount] = useState(0)
 
@@ -104,33 +97,33 @@ export default function HTWalletCard({ balance, totalRedeemed = 0, upcomingBenef
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>Your HT redemptions, transfers, and rewards</CardDescription>
+          <CardTitle>Recent Redemptions</CardTitle>
+          <CardDescription>Your HT benefit redemption history</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Date</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Description</TableHead>
+                <TableHead>Benefit</TableHead>
                 <TableHead>Amount</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Tx Hash</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {MOCK_HT_TXS.map((tx) => (
+              {MOCK_HT_TXS.filter(tx => tx.type === 'REDEEMED').map((tx) => (
                 <TableRow key={tx.id}>
-                  <TableCell>{tx.date}</TableCell>
-                  <TableCell className="capitalize">{tx.type}</TableCell>
-                  <TableCell>{tx.description}</TableCell>
-                  <TableCell className={tx.amount > 0 ? 'text-green-600' : 'text-red-600'}>
-                    {tx.amount > 0 ? '+' : ''}{tx.amount} HT
+                  <TableCell>{new Date(tx.created_at).toLocaleDateString()}</TableCell>
+                  <TableCell>{tx.source}</TableCell>
+                  <TableCell className="text-red-600">
+                    -{Math.abs(tx.amount)} HT
+                  </TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {tx.tx_hash ? `${tx.tx_hash.slice(0, 10)}...` : 'N/A'}
                   </TableCell>
                   <TableCell>
-                    <span className={`px-2 py-0.5 rounded-full text-xs ${tx.status === 'success' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
-                      {tx.status}
-                    </span>
+                    <Button variant="ghost" size="sm" onClick={() => setSelectedTx(tx)}>View</Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -138,6 +131,53 @@ export default function HTWalletCard({ balance, totalRedeemed = 0, upcomingBenef
           </Table>
         </CardContent>
       </Card>
+
+      <Modal open={!!selectedTx} onOpenChange={(open) => !open && setSelectedTx(null)}>
+        <ModalContent className="max-w-2xl">
+          <ModalHeader>
+            <ModalTitle>Redemption Details</ModalTitle>
+          </ModalHeader>
+          {selectedTx && (
+            <div className="space-y-4 p-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Patient ID</p>
+                  <p className="font-mono text-sm mt-1">{selectedTx.patient_id}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Patient Address</p>
+                  <p className="font-mono text-sm break-all mt-1">{selectedTx.patient_address}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Benefit</p>
+                  <p className="text-sm mt-1">{selectedTx.source}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Amount</p>
+                  <p className="font-semibold text-red-600 text-sm mt-1">-{Math.abs(selectedTx.amount)} HT</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Transaction Hash</p>
+                  <p className="font-mono text-sm break-all mt-1">{selectedTx.tx_hash || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Block Number</p>
+                  <p className="text-sm mt-1">{selectedTx.block_number || 'N/A'}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-sm text-muted-foreground">Date</p>
+                  <p className="text-sm mt-1">{new Date(selectedTx.created_at).toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          <ModalFooter>
+            <ModalClose asChild>
+              <Button variant="outline">Close</Button>
+            </ModalClose>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   )
 }

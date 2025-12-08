@@ -4,6 +4,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Bell, ChevronDown, LogOut, User as UserIcon, X } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
+import { usePatientProfileStore } from '@/store/patientProfileStore'
 import { useNotificationStore } from '@/store/notificationStore'
 import { signOut } from 'next-auth/react'
 import { Badge } from '@/components/ui/badge'
@@ -12,11 +13,16 @@ import { formatRelativeTime } from '@/lib/utils'
 
 export const Header: React.FC = () => {
   const { user } = useAuthStore()
+  const profile = usePatientProfileStore(state => state.profile)
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotificationStore()
   const [showNotifications, setShowNotifications] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const notificationRef = useRef<HTMLDivElement>(null)
   const profileRef = useRef<HTMLDivElement>(null)
+
+  // For patient role, use profile store; otherwise fall back to auth user
+  const displayName = user?.role?.toLowerCase() === 'patient' ? profile.fullName : (user?.name || 'User')
+  const displayEmail = user?.role?.toLowerCase() === 'patient' ? profile.email : (user?.email || 'No email')
 
   // Close dropdowns when clicking outside
   
@@ -44,7 +50,7 @@ export const Header: React.FC = () => {
         <SidebarTrigger />
         <div>
           <h1 className="text-lg font-semibold text-gray-800">
-            Welcome back, {user?.name || 'User'}
+            Welcome back, {displayName}
           </h1>
           <p className="text-sm text-gray-500">{user?.role || 'Guest'}</p>
         </div>
@@ -145,7 +151,7 @@ export const Header: React.FC = () => {
             className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 transition-colors"
           >
             <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-medium">
-              {user?.name?.charAt(0).toUpperCase() || 'U'}
+              {displayName.charAt(0).toUpperCase()}
             </div>
             <ChevronDown className={`w-4 h-4 text-gray-600 transition-transform ${showProfile ? 'rotate-180' : ''}`} />
           </button>
@@ -153,8 +159,8 @@ export const Header: React.FC = () => {
           {showProfile && (
             <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
               <div className="px-4 py-2 border-b border-gray-200">
-                <p className="text-sm font-medium text-gray-800">{user?.name || 'User'}</p>
-                <p className="text-xs text-gray-500">{user?.email || 'No email'}</p>
+                <p className="text-sm font-medium text-gray-800">{displayName}</p>
+                <p className="text-xs text-gray-500">{displayEmail}</p>
               </div>
               
               <button

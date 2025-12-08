@@ -15,11 +15,6 @@ export default function ATWalletPage() {
       </div>
       <ATWalletCard
         balance={1050}
-        assetBreakdown={[
-          { asset: 'gold', tokens: 500 },
-          { asset: 'silver', tokens: 300 },
-          { asset: 'property', tokens: 250 },
-        ]}
       />
     </div>
   )

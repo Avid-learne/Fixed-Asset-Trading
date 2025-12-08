@@ -9,31 +9,39 @@ type Props = { transactions: Tx[] }
 
 export default function ActivitySummary({ transactions }: Props) {
   const totals = useMemo(() => {
-    const totalAT = transactions.reduce((s, t) => s + (t.atTokens ?? 0), 0)
-    const totalHTUsed = transactions.reduce((s, t) => s + (t.htUsed ?? 0), 0)
-    const profit = transactions.reduce((s, t) => s + (t.profit ?? 0), 0)
-    return { totalAT, totalHTUsed, profit }
+    const totalAT = transactions
+      .filter(t => t.token_type === 'AT')
+      .reduce((s, t) => s + t.amount, 0)
+    const totalHT = transactions
+      .filter(t => t.token_type === 'HT')
+      .reduce((s, t) => s + t.amount, 0)
+    const totalTransactions = transactions.length
+    return { totalAT, totalHT, totalTransactions }
   }, [transactions])
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Summary</CardTitle>
-        <CardDescription>AT / HT balances and profit overview</CardDescription>
+        <CardDescription>AT / HT transaction overview</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">Total AT Tokens</div>
-            <div className="font-semibold">{totals.totalAT}</div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-4 border rounded-md">
+            <div className="text-sm text-muted-foreground">Total AT Transactions</div>
+            <div className={`text-2xl font-bold mt-1 ${totals.totalAT >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {totals.totalAT >= 0 ? '+' : ''}{totals.totalAT} AT
+            </div>
           </div>
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">HT Used</div>
-            <div className="font-semibold">{totals.totalHTUsed}</div>
+          <div className="p-4 border rounded-md">
+            <div className="text-sm text-muted-foreground">Total HT Transactions</div>
+            <div className={`text-2xl font-bold mt-1 ${totals.totalHT >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {totals.totalHT >= 0 ? '+' : ''}{totals.totalHT} HT
+            </div>
           </div>
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">Unrealized / Realized Profit</div>
-            <div className="font-semibold text-green-600">PKR {totals.profit.toLocaleString()}</div>
+          <div className="p-4 border rounded-md">
+            <div className="text-sm text-muted-foreground">Total Transactions</div>
+            <div className="text-2xl font-bold mt-1">{totals.totalTransactions}</div>
           </div>
         </div>
       </CardContent>
