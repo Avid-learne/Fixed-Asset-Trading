@@ -45,4 +45,9 @@ export const BENEFIT_CATEGORIES = [
 ]
 
 export const DATE_FORMAT = 'MMM dd, yyyy'
-export const DATETIME_FORMAT = 'MMM dd, yyyy HH:mm'
+export const DATETIME_FORMAT = 'MMM dd, yyyy HH:mm'  
+// Blockchain constants  
+export const BLOCKCHAIN = {  
+  NETWORK_NAME: 'Hardhat Local',  
+  CHAIN_ID: 31337,  
+} as const 
