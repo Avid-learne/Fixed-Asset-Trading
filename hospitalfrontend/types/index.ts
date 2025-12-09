@@ -9,13 +9,13 @@ export enum UserRole {
 }
 
 // Health Token Transactions
-export type TransactionType = 'ISSUED' | 'REDEEMED' | 'ALLOCATED' | 'TRADING_PROFIT'
+export type HealthTokenTransactionType = 'ISSUED' | 'REDEEMED' | 'ALLOCATED' | 'TRADING_PROFIT'
 
 export interface HealthTokenTransaction {
   id: string
   patient_id: string
   patient_address: string
-  type: TransactionType
+  type: HealthTokenTransactionType
   amount: number
   source: string
   tx_hash: string

@@ -1,24 +1,37 @@
-// Patient-specific types for Fixed Asset Trading Platform
-// This file contains all patient-related types, interfaces, and enums used across the frontend
+// ============================================================================
+// PATIENT TYPES - Fixed Asset Trading Platform
+// ============================================================================
+// This file contains all patient-related types organized in logical tables
 
-// ===== Patient Profile & Personal Information =====
+// ============================================================================
+// TABLE 1: CORE PATIENT INFORMATION
+// ============================================================================
 
 export interface PatientProfile {
+  // Identity
   id: string
   registrationId: string
   fullName: string
   email: string
   phone: string
-  address?: string
-  location?: string
+  
+  // Personal Details
   dateOfBirth: string
   bloodGroup?: string
+  address?: string
+  location?: string
   avatar?: string
-  walletAddress?: string
   bio?: string
+  
+  // Account Status
   status: PatientStatus
   profileCompletion: number
   memberSince: string
+  
+  // Blockchain
+  walletAddress?: string
+  
+  // Timestamps
   createdAt: string
   updatedAt?: string
 }
@@ -30,9 +43,20 @@ export type PatientStatus =
   | 'Verified Patient'
   | 'Pending Verification'
 
-// ===== KYC & Document Verification =====
+// ============================================================================
+// TABLE 2: KYC & DOCUMENT VERIFICATION
+// ============================================================================
 
-export type DocumentStatus = 'pending' | 'verified' | 'rejected' | 'not_submitted'
+export interface Document {
+  id: string
+  name: string
+  type: DocumentType
+  status: DocumentStatus
+  fileUrl?: string
+  uploadedAt?: string
+  verifiedAt?: string
+  rejectionReason?: string
+}
 
 export type DocumentType = 
   | 'identity' 
@@ -41,23 +65,11 @@ export type DocumentType =
   | 'asset'
   | 'subscription'
 
-export interface Document {
-  id: string
-  name: string
-  type: DocumentType
-  status: DocumentStatus
-  uploadedAt?: string
-  verifiedAt?: string
-  fileUrl?: string
-  rejectionReason?: string
-}
-
-export type KYCStatus = 
-  | 'not_submitted' 
+export type DocumentStatus = 
   | 'pending' 
   | 'verified' 
-  | 'rejected'
-  | 'incomplete'
+  | 'rejected' 
+  | 'not_submitted'
 
 export interface KYCData {
   status: KYCStatus
@@ -69,7 +81,43 @@ export interface KYCData {
   rejectionReason?: string
 }
 
-// ===== Asset Deposits =====
+export type KYCStatus = 
+  | 'not_submitted' 
+  | 'pending' 
+  | 'verified' 
+  | 'rejected'
+  | 'incomplete'
+
+// ============================================================================
+// TABLE 3: ASSET DEPOSITS & REQUESTS
+// ============================================================================
+
+export interface AssetDeposit {
+  // Identification
+  id: string
+  patientId: string
+  
+  // Asset Details
+  assetType: AssetType
+  assetValue: number
+  weight: number
+  
+  // Status & Processing
+  status: AssetRequestStatus
+  submittedAt: string
+  approvedAt?: string
+  rejectedAt?: string
+  processedAt?: string
+  rejectionReason?: string
+  
+  // Associated Data
+  hospitalId?: string
+  hospitalName?: string
+  tokenAmount?: number
+  documentUrls?: string[]
+  documents?: Document[]
+  remarks?: string
+}
 
 export type AssetType = 'gold' | 'silver' | ''
 
@@ -80,49 +128,46 @@ export type AssetRequestStatus =
   | 'processing'
   | 'verified'
 
-export interface AssetRequest {
-  id: string
-  assetType: AssetType
-  amount: number
-  weight?: number
-  status: AssetRequestStatus
-  submittedAt: string
-  processedAt?: string
-  documents: Document[]
-  remarks?: string
-  hospitalId?: string
-  hospitalName?: string
-  tokenAmount?: number
-}
-
-export interface AssetDeposit {
-  id: string
-  patientId: string
-  assetType: AssetType
-  assetValue: number
-  weight: number
-  status: string
-  submittedAt: string
-  approvedAt?: string
-  rejectedAt?: string
-  rejectionReason?: string
-  hospitalId?: string
-  documentUrls?: string[]
-}
-
-// ===== Token Balances & Transactions =====
+// ============================================================================
+// TABLE 4: TOKENS & BALANCES
+// ============================================================================
 
 export interface PatientTokenBalance {
+  // Token Balances
   assetToken: number
   healthToken: number
+  
+  // Locked Tokens
   lockedAssetToken?: number
   lockedHealthToken?: number
+  
+  // Metadata
   lastUpdated: string
 }
 
 export type TokenType = 'AT' | 'HT' | 'asset' | 'health'
 
-export type TransactionStatus = 'success' | 'pending' | 'failed' | 'cancelled'
+// ============================================================================
+// TABLE 5: TRANSACTIONS
+// ============================================================================
+
+export interface Transaction {
+  // Identification
+  id: string
+  date: string
+  
+  // Transaction Details
+  type: TransactionType
+  amount: number
+  token: TokenType
+  status: TransactionStatus
+  description?: string
+  
+  // Blockchain
+  txHash?: string
+  from?: string
+  to?: string
+}
 
 export type TransactionType =
   | 'Deposit'
@@ -133,32 +178,54 @@ export type TransactionType =
   | 'Mint'
   | 'Trade'
 
-export interface Transaction {
-  id: string
-  date: string
-  type: TransactionType
-  amount: number
-  token: TokenType
-  status: TransactionStatus
-  description?: string
-  txHash?: string
-  from?: string
-  to?: string
-}
+export type TransactionStatus = 
+  | 'success' 
+  | 'pending' 
+  | 'failed' 
+  | 'cancelled'
 
-export interface TokenTransaction {
-  id: string
-  patientId: string
-  type: TransactionType
-  amount: number
+export interface BlockchainTransaction {
+  txHash: string
+  from: string
+  to: string
+  value: number
   tokenType: TokenType
-  balance: number
-  description: string
   timestamp: string
-  txHash?: string
+  blockNumber: number
+  confirmations: number
+  status: 'pending' | 'confirmed' | 'failed'
 }
 
-// ===== Health Benefits & Marketplace =====
+// ============================================================================
+// TABLE 6: HEALTH BENEFITS & MARKETPLACE
+// ============================================================================
+
+export interface HealthBenefit {
+  // Identification
+  id: string
+  name: string
+  description: string
+  
+  // Classification
+  category: BenefitCategory
+  
+  // Pricing
+  tokenCost: number
+  htCost?: number
+  
+  // Availability
+  available: boolean
+  provider?: string
+  
+  // Ratings & Reviews
+  rating?: number
+  reviews?: number
+  
+  // Additional Info
+  imageUrl?: string
+  terms?: string
+  expiresAt?: string
+}
 
 export type BenefitCategory = 
   | 'healthcare' 
@@ -167,22 +234,6 @@ export type BenefitCategory =
   | 'pharmacy' 
   | 'wellness' 
   | 'mental_health'
-
-export interface HealthBenefit {
-  id: string
-  name: string
-  description: string
-  category: BenefitCategory
-  tokenCost: number
-  htCost?: number
-  available: boolean
-  provider?: string
-  rating?: number
-  reviews?: number
-  imageUrl?: string
-  terms?: string
-  expiresAt?: string
-}
 
 export interface MarketItem {
   id: string
@@ -200,8 +251,6 @@ export interface MarketItem {
   popular?: boolean
 }
 
-export type RedemptionStatus = 'pending' | 'approved' | 'completed' | 'rejected'
-
 export interface BenefitRedemption {
   id: string
   patientId: string
@@ -214,21 +263,15 @@ export interface BenefitRedemption {
   notes?: string
 }
 
-// ===== Subscriptions & Plans =====
-
-export type SubscriptionStatus = 
-  | 'active' 
+export type RedemptionStatus = 
   | 'pending' 
-  | 'expired' 
-  | 'cancelled'
-  | 'trial'
+  | 'approved' 
+  | 'completed' 
+  | 'rejected'
 
-export type SubscriptionPlanType = 
-  | 'Basic' 
-  | 'Premium' 
-  | 'Enterprise'
-  | 'Starter'
-  | 'Professional'
+// ============================================================================
+// TABLE 7: SUBSCRIPTIONS & PAYMENTS
+// ============================================================================
 
 export interface SubscriptionPlan {
   id: string
@@ -251,7 +294,19 @@ export interface SubscriptionRequest {
   nextBillingDate?: string
 }
 
-export type PaymentStatus = 'paid' | 'pending' | 'failed' | 'refunded'
+export type SubscriptionPlanType = 
+  | 'Basic' 
+  | 'Premium' 
+  | 'Enterprise'
+  | 'Starter'
+  | 'Professional'
+
+export type SubscriptionStatus = 
+  | 'active' 
+  | 'pending' 
+  | 'expired' 
+  | 'cancelled'
+  | 'trial'
 
 export interface PaymentHistory {
   id: string
@@ -263,13 +318,15 @@ export interface PaymentHistory {
   invoiceUrl?: string
 }
 
-// ===== Notifications & Activity =====
+export type PaymentStatus = 
+  | 'paid' 
+  | 'pending' 
+  | 'failed' 
+  | 'refunded'
 
-export type NotificationType = 
-  | 'info' 
-  | 'success' 
-  | 'warning' 
-  | 'error'
+// ============================================================================
+// TABLE 8: NOTIFICATIONS & ACTIVITY
+// ============================================================================
 
 export interface Notification {
   id: string
@@ -281,6 +338,12 @@ export interface Notification {
   title?: string
 }
 
+export type NotificationType = 
+  | 'info' 
+  | 'success' 
+  | 'warning' 
+  | 'error'
+
 export interface Activity {
   id: string
   type: string
@@ -290,9 +353,9 @@ export interface Activity {
   metadata?: Record<string, any>
 }
 
-// ===== Login & Security =====
-
-export type LoginStatus = 'success' | 'failed' | 'challenge'
+// ============================================================================
+// TABLE 9: SECURITY & LOGIN
+// ============================================================================
 
 export interface LoginLog {
   id: string
@@ -304,6 +367,11 @@ export interface LoginLog {
   userAgent?: string
 }
 
+export type LoginStatus = 
+  | 'success' 
+  | 'failed' 
+  | 'challenge'
+
 export interface SecuritySettings {
   twoFactorEnabled: boolean
   loginNotifications: boolean
@@ -312,7 +380,9 @@ export interface SecuritySettings {
   phoneVerified: boolean
 }
 
-// ===== Dashboard Data =====
+// ============================================================================
+// TABLE 10: DASHBOARD & ANALYTICS
+// ============================================================================
 
 export interface DashboardData {
   assetTokenBalance: number
@@ -334,7 +404,46 @@ export interface DashboardStats {
   pendingVerifications: number
 }
 
-// ===== API Request/Response Types =====
+export interface ChartDataPoint {
+  date: string
+  value: number
+  label?: string
+  category?: string
+}
+
+export interface TokenChartData {
+  assetToken: ChartDataPoint[]
+  healthToken: ChartDataPoint[]
+}
+
+// ============================================================================
+// TABLE 11: WALLET & BLOCKCHAIN
+// ============================================================================
+
+export interface WalletInfo {
+  address: string
+  balance: number
+  network: string
+  connected: boolean
+  provider?: string
+}
+
+// ============================================================================
+// TABLE 12: HOSPITAL SELECTION
+// ============================================================================
+
+export interface Hospital {
+  id: string
+  name: string
+  address: string
+  contactNumber?: string
+  rating?: number
+  verified: boolean
+}
+
+// ============================================================================
+// TABLE 13: API REQUEST/RESPONSE TYPES
+// ============================================================================
 
 export interface DepositRequest {
   patientId: string
@@ -376,21 +485,9 @@ export interface TokenBalanceDTO {
   lastUpdated: string
 }
 
-// ===== Chart & Analytics =====
-
-export interface ChartDataPoint {
-  date: string
-  value: number
-  label?: string
-  category?: string
-}
-
-export interface TokenChartData {
-  assetToken: ChartDataPoint[]
-  healthToken: ChartDataPoint[]
-}
-
-// ===== Form States =====
+// ============================================================================
+// TABLE 14: FORM STATES
+// ============================================================================
 
 export interface ProfileFormState {
   fullName: string
@@ -408,7 +505,9 @@ export interface DepositFormState {
   selectedDocuments: File[]
 }
 
-// ===== Filters & Pagination =====
+// ============================================================================
+// TABLE 15: FILTERS & PAGINATION
+// ============================================================================
 
 export interface PatientFilterOptions {
   search?: string
@@ -431,40 +530,9 @@ export interface PaginatedPatientData<T> {
   totalPages: number
 }
 
-// ===== Wallet & Blockchain =====
-
-export interface WalletInfo {
-  address: string
-  balance: number
-  network: string
-  connected: boolean
-  provider?: string
-}
-
-export interface BlockchainTransaction {
-  txHash: string
-  from: string
-  to: string
-  value: number
-  tokenType: TokenType
-  timestamp: string
-  blockNumber: number
-  confirmations: number
-  status: 'pending' | 'confirmed' | 'failed'
-}
-
-// ===== Hospital Selection =====
-
-export interface Hospital {
-  id: string
-  name: string
-  address: string
-  contactNumber?: string
-  rating?: number
-  verified: boolean
-}
-
-// ===== Error & Validation =====
+// ============================================================================
+// TABLE 16: ERROR HANDLING
+// ============================================================================
 
 export interface ValidationError {
   field: string
@@ -476,4 +544,122 @@ export interface PatientApiError {
   message: string
   details?: ValidationError[]
   timestamp: string
+}
+
+// ============================================================================
+// TABLE 17: COMPREHENSIVE PATIENT METADATA
+// ============================================================================
+
+export interface PatientMetadata {
+  // ===== PERSONAL INFORMATION =====
+  patientId: string
+  fullName: string
+  email: string
+  phone: string
+  dateOfBirth: string
+  bloodGroup?: string
+  address?: string
+  city?: string
+  country?: string
+  
+  // ===== ACCOUNT INFORMATION =====
+  registrationDate: string
+  membershipTier: 'basic' | 'silver' | 'gold' | 'platinum'
+  accountStatus: PatientStatus
+  kycStatus: KYCStatus
+  kycVerifiedAt?: string
+  profileCompletionPercentage: number
+  
+  // ===== WALLET & BLOCKCHAIN =====
+  walletAddress?: string
+  walletConnected: boolean
+  blockchainNetwork?: string
+  
+  // ===== ASSET TOKENS (AT) =====
+  totalATBalance: number
+  totalATMinted: number
+  totalATRedeemed: number
+  totalATInTrading: number
+  totalATAvailable: number
+  
+  // ===== HEALTH TOKENS (HT) =====
+  totalHTBalance: number
+  totalHTEarned: number
+  totalHTSpent: number
+  totalHTExpired: number
+  
+  // ===== ASSET DEPOSITS =====
+  totalGoldDeposited: number // grams
+  totalSilverDeposited: number // grams
+  totalDepositValue: number // PKR
+  totalDeposits: number
+  pendingDeposits: number
+  approvedDeposits: number
+  rejectedDeposits: number
+  
+  // ===== SUBSCRIPTION =====
+  hasActiveSubscription: boolean
+  subscriptionPlan?: 'monthly' | 'quarterly' | 'annual'
+  subscriptionStartDate?: string
+  subscriptionEndDate?: string
+  subscriptionAmount?: number
+  totalSubscriptionPaid: number
+  
+  // ===== TRADING & PROFITS =====
+  totalProfitEarned: number // PKR
+  totalProfitWithdrawn: number
+  availableProfit: number
+  averageMonthlyProfit: number
+  totalTradingDays: number
+  
+  // ===== TRANSACTIONS =====
+  totalTransactions: number
+  lastTransactionDate?: string
+  totalDepositsCount: number
+  totalWithdrawalsCount: number
+  totalTrades: number
+  
+  // ===== HEALTHCARE USAGE =====
+  totalHospitalVisits: number
+  lastVisitDate?: string
+  preferredHospital?: string
+  preferredHospitalId?: string
+  totalHTSpentOnServices: number
+  
+  // ===== DOCUMENTS & VERIFICATION =====
+  totalDocumentsUploaded: number
+  verifiedDocuments: number
+  pendingDocuments: number
+  rejectedDocuments: number
+  
+  // ===== ACTIVITY & NOTIFICATIONS =====
+  unreadNotifications: number
+  lastLoginDate?: string
+  lastActivityDate?: string
+  
+  // ===== FINANCIAL SUMMARY =====
+  totalAssetWorth: number // PKR - Current value of all assets
+  netWorth: number // PKR - Total assets + tokens + profits
+  monthlyAverageDeposit: number
+  yearlyGrowthRate: number // Percentage
+  
+  // ===== RISK & COMPLIANCE =====
+  riskScore?: number // 0-100
+  complianceStatus: 'compliant' | 'flagged' | 'under_review'
+  flaggedTransactions: number
+  lastAuditDate?: string
+  
+  // ===== PREFERENCES =====
+  languagePreference?: string
+  currencyPreference?: string
+  notificationPreferences?: {
+    email: boolean
+    sms: boolean
+    push: boolean
+  }
+  
+  // ===== TIMESTAMPS =====
+  createdAt: string
+  updatedAt: string
+  lastModifiedBy?: string
 }
