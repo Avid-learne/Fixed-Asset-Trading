@@ -1,5 +1,5 @@
 // ============================================================================
-// BANK TYPES - Fixed Asset Trading Platform
+// BANK TYPES - SehatVault Platform
 // ============================================================================
 // This file contains all bank-related types organized in logical tables
 

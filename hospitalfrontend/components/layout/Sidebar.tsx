@@ -150,7 +150,7 @@ export const Sidebar: React.FC<LayoutSidebarProps> = ({ userRole, withProvider =
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shrink-0">
                 <Coins className="w-5 h-5 text-white" />
               </div>
-              <span className="text-xl font-bold text-primary group-data-[state=collapsed]:hidden">FixedAsset</span>
+              <span className="text-xl font-bold text-primary group-data-[state=collapsed]:hidden">SehatVault</span>
             </Link>
           </div>
         </SidebarHeader>
@@ -160,11 +160,23 @@ export const Sidebar: React.FC<LayoutSidebarProps> = ({ userRole, withProvider =
             <SidebarMenu>
               {navItems.map((item) => {
                 const Icon = item.icon
-                const basePaths = ['/patient', '/hospital', '/bank', '/admin']
-                const isBase = basePaths.includes(item.href)
-                const isActive = item.activeMatch 
-                  ? pathname.startsWith(item.activeMatch)
-                  : (pathname === item.href || (!isBase && pathname.startsWith(item.href)));
+                // Base paths that should only match exactly (dashboard pages)
+                const basePaths = ['/patient', '/hospital', '/hospitaladmin', '/bank', '/admin']
+                const isBasePath = basePaths.includes(item.href)
+                
+                // Determine if this item is active
+                let isActive = false
+                if (item.activeMatch) {
+                  // Use custom activeMatch pattern if provided
+                  isActive = pathname.startsWith(item.activeMatch)
+                } else if (isBasePath) {
+                  // For base paths (dashboards), only match exactly
+                  isActive = pathname === item.href
+                } else {
+                  // For other paths, match if current path starts with item href
+                  // but ensure we're not just matching a partial segment
+                  isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+                }
                 
                 return (
                   <SidebarMenuItem key={item.name}>

@@ -7,7 +7,7 @@ import { Providers } from './providers'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Fixed Asset Trading',
+  title: 'SehatVault',
   description: 'Tokenize physical assets for healthcare benefits',
 }
 

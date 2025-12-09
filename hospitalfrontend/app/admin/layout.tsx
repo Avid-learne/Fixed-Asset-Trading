@@ -3,7 +3,7 @@
 
 import { useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { Header } from '@/components/layout/Header'
@@ -18,21 +18,31 @@ export default function AdminLayout({
 }) {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const { setUser, user, hasRole } = useAuthStore()
+  const pathname = usePathname()
+  const { setUser, user } = useAuthStore()
 
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/auth')
-    } else if (status === 'authenticated' && session?.user) {
-      setUser(session.user as any)
+      return
+    }
+    
+    if (session?.user) {
+      // Only set user if not already set or if user has changed
+      if (!user || user.id !== session.user.id) {
+        setUser(session.user as any)
+      }
       
-      // Only redirect if user doesn't have SUPER_ADMIN role
+      // Only redirect if user doesn't have SUPER_ADMIN role AND not on correct path
       const userRole = session.user.role
       if (userRole !== UserRole.SUPER_ADMIN && userRole !== 'SUPER_ADMIN') {
-        router.push(roleToPath(userRole))
+        const correctPath = roleToPath(userRole)
+        if (!pathname.startsWith(correctPath)) {
+          router.push(correctPath)
+        }
       }
     }
-  }, [status, session?.user?.role, router, setUser])
+  }, [session?.user?.id, status, pathname])
 
   if (status === 'loading' || !user) {
     return (

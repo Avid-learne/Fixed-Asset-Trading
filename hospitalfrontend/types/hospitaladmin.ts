@@ -1,5 +1,5 @@
 // ============================================================================
-// HOSPITAL ADMIN TYPES - Fixed Asset Trading Platform
+// HOSPITAL ADMIN TYPES - SehatVault Platform
 // ============================================================================
 // This file contains all hospital admin-related types organized in logical tables
 

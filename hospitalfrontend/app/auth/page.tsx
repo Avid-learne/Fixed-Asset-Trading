@@ -131,7 +131,7 @@ export default function Auth() {
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
               <Coins className="h-6 w-6 text-primary-foreground" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground">Fixed Asset Trading</h1>
+            <h1 className="text-2xl font-bold text-foreground">SehatVault</h1>
             <p className="mt-1 text-muted-foreground">Healthcare Asset Tokenization Platform</p>
           </div>
 

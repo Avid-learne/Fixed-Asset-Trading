@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { Header } from '@/components/layout/Header'
@@ -17,18 +17,30 @@ export default function BankLayout({
 }) {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const pathname = usePathname()
   const { setUser, user } = useAuthStore()
 
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/auth')
-    } else if (session?.user) {
-      setUser(session.user as any)
+      return
+    }
+    
+    if (session?.user) {
+      // Only set user if not already set or if user has changed
+      if (!user || user.id !== session.user.id) {
+        setUser(session.user as any)
+      }
+      
+      // Only redirect if user has wrong role AND not already on correct path
       if (session.user.role !== UserRole.BANK_OFFICER) {
-        router.push(roleToPath(session.user.role))
+        const correctPath = roleToPath(session.user.role)
+        if (!pathname.startsWith(correctPath)) {
+          router.push(correctPath)
+        }
       }
     }
-  }, [session, status, router, setUser])
+  }, [session?.user?.id, status, pathname])
 
   if (status === 'loading' || !user) {
     return (

@@ -134,14 +134,14 @@ export default function SystemSettingsPage() {
               <CardContent className="space-y-4">
                 <FormField
                   label="Platform Name"
-                  defaultValue="Fixed Asset Trading"
+                  defaultValue="SehatVault"
                   placeholder="Enter platform name"
                 />
                 
                 <FormField
                   label="Support Email"
                   type="email"
-                  defaultValue="support@fixedassettrading.com"
+                  defaultValue="support@sehatvault.com"
                   placeholder="Enter support email"
                 />
 

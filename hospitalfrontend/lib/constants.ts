@@ -1,5 +1,5 @@
 // hospitalfrontend/lib/constants.ts
-export const APP_NAME = 'Fixed Asset Trading'
+export const APP_NAME = 'SehatVault'
 export const APP_DESCRIPTION = 'Healthcare financing through asset tokenization'
 
 export const ROLES = {

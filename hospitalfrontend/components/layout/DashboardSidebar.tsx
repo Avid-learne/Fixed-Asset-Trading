@@ -176,7 +176,7 @@ export function DashboardSidebar({ role, onSignOut }: DashboardSidebarProps) {
               </div>
               <div>
                 <p className="text-sm font-semibold text-sidebar-foreground">
-                  Fixed Asset Trading
+                  SehatVault
                 </p>
                 <p className="text-xs text-sidebar-foreground/70">
                   {roleLabels[role]}

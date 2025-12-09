@@ -1,5 +1,5 @@
 // ============================================================================
-// PATIENT TYPES - Fixed Asset Trading Platform
+// PATIENT TYPES - SehatVault Platform
 // ============================================================================
 // This file contains all patient-related types organized in logical tables
 
