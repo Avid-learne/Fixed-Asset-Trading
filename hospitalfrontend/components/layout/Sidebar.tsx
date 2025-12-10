@@ -93,7 +93,6 @@ const hospitalAdminNavItems: NavItem[] = [
 
 const bankNavItems: NavItem[] = [
   { name: 'Dashboard', href: '/bank', icon: LayoutDashboard, roles: [UserRole.BANK_OFFICER] },
-  { name: 'Marketplace', href: '/bank/marketplace', icon: ShoppingCart, roles: [UserRole.BANK_OFFICER] },
   { name: 'Policies', href: '/bank/policies', icon: Shield, roles: [UserRole.BANK_OFFICER] },
   { name: 'Tokenized Assets', href: '/bank/assets', icon: Building, roles: [UserRole.BANK_OFFICER] },
   { name: 'Reports', href: '/bank/reports', icon: DollarSign, roles: [UserRole.BANK_OFFICER] },
