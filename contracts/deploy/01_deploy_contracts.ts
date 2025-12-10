@@ -40,16 +40,16 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   // Grant DEFAULT_ADMIN_ROLE to HospitalFinancials
   console.log('\nGranting DEFAULT_ADMIN_ROLE permissions...');
-  
+
   const AssetTokenContract = await ethers.getContractAt('AssetToken', assetToken.address);
   const HealthTokenContract = await ethers.getContractAt('HealthToken', healthToken.address);
-  
+
   const DEFAULT_ADMIN_ROLE = await AssetTokenContract.DEFAULT_ADMIN_ROLE();
-  
+
   const tx1 = await AssetTokenContract.grantRole(DEFAULT_ADMIN_ROLE, hospitalFinancials.address);
   await tx1.wait();
   console.log('Granted DEFAULT_ADMIN_ROLE on AssetToken to HospitalFinancials');
-  
+
   const tx2 = await HealthTokenContract.grantRole(DEFAULT_ADMIN_ROLE, hospitalFinancials.address);
   await tx2.wait();
   console.log('Granted DEFAULT_ADMIN_ROLE on HealthToken to HospitalFinancials');
@@ -60,7 +60,6 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   console.log('AssetToken:', assetToken.address);
   console.log('HealthToken:', healthToken.address);
   console.log('HospitalFinancials:', hospitalFinancials.address);
-  
   console.log('\nDeployment data saved to: deployments/localhost/');
 };
 

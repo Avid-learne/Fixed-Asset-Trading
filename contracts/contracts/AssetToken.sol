@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 /// @title Asset Token (AT) - Real Asset Tokenization
 /// @notice Minted when a patient’s real asset is verified & deposited
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol"; //fungible tokens
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
 /// inherits all ERC-20 & AccessControl(roles) features

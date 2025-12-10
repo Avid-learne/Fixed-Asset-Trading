@@ -62,10 +62,6 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.AssetToken__factory>;
     getContractFactory(
-      name: "Counter",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.Counter__factory>;
-    getContractFactory(
       name: "HealthToken",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.HealthToken__factory>;
@@ -135,11 +131,6 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.AssetToken>;
     getContractAt(
-      name: "Counter",
-      address: string | ethers.Addressable,
-      signer?: ethers.Signer
-    ): Promise<Contracts.Counter>;
-    getContractAt(
       name: "HealthToken",
       address: string | ethers.Addressable,
       signer?: ethers.Signer
@@ -198,10 +189,6 @@ declare module "hardhat/types/runtime" {
       name: "AssetToken",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.AssetToken>;
-    deployContract(
-      name: "Counter",
-      signerOrOptions?: ethers.Signer | DeployContractOptions
-    ): Promise<Contracts.Counter>;
     deployContract(
       name: "HealthToken",
       signerOrOptions?: ethers.Signer | DeployContractOptions
@@ -271,11 +258,6 @@ declare module "hardhat/types/runtime" {
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.AssetToken>;
-    deployContract(
-      name: "Counter",
-      args: any[],
-      signerOrOptions?: ethers.Signer | DeployContractOptions
-    ): Promise<Contracts.Counter>;
     deployContract(
       name: "HealthToken",
       args: any[],

@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 /// @title Hospital Financial Smart Contract
 /// @notice Controls AT minting, profit distribution, and HT redemption
 import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";// locking functions
 import "./AssetToken.sol";
 import "./HealthToken.sol";
 
@@ -13,9 +13,9 @@ contract HospitalFinancials is AccessControl, ReentrancyGuard {
     HealthToken public healthToken;
     address public hospitalWallet;
 
-    mapping(uint256 => bool) public depositProcessed;
-    mapping(uint256 => address) public depositOwner;
-    mapping(uint256 => uint256) public depositAmountAT;
+    mapping(uint256 => bool) public depositProcessed; //successful/not successful
+    mapping(uint256 => address) public depositOwner; //depositId -> owneraddress
+    mapping(uint256 => uint256) public depositAmountAT; //DepositId -> depositAmountAT
 
     struct Trade {
         uint256 investedAT;
@@ -23,11 +23,11 @@ contract HospitalFinancials is AccessControl, ReentrancyGuard {
         uint256 timestamp;
     }
 
-    uint256 public nextTradeId = 1;
-    mapping(uint256 => Trade) public trades;
+    uint256 public nextTradeId = 1; //counter for tradeId
+    mapping(uint256 => Trade) public trades; //tradeId -> investedAT, profitEarned, timestamp
 
     event AssetTokenMinted(
-        address indexed patient,
+        address indexed patient, // indexed helps in searching logs
         uint256 indexed depositId,
         uint256 amountAT,
         uint256 timestamp,
@@ -56,20 +56,20 @@ contract HospitalFinancials is AccessControl, ReentrancyGuard {
     );
 
     constructor(
-        address _assetToken,
-        address _healthToken,
-        address admin,
-        address _hospitalWallet
+        address _assetToken, //the one we saw on terminal
+        address _healthToken, //the one we saw on terminal
+        address admin, // wallet address
+        address _hospitalWallet //wallet address
     ) {
-        assetToken = AssetToken(_assetToken);
-        healthToken = HealthToken(_healthToken);
-        hospitalWallet = _hospitalWallet;
+        assetToken = AssetToken(_assetToken); //sends to assetToken
+        healthToken = HealthToken(_healthToken); //sends to healthToken
+        hospitalWallet = _hospitalWallet; //saves in this contract
 
-        _grantRole(DEFAULT_ADMIN_ROLE, admin);
+        _grantRole(DEFAULT_ADMIN_ROLE, admin); //gives admin address the DEFAULT_ADMIN_ROLE
     }
 
     function mintAssetToken(
-        address patient,
+        address patient, //wallet address of patient
         uint256 depositId,
         uint256 amountAT,
         string calldata metadata

@@ -30,8 +30,6 @@ export type { ReentrancyGuard } from "./@openzeppelin/contracts/utils/Reentrancy
 export { ReentrancyGuard__factory } from "./factories/@openzeppelin/contracts/utils/ReentrancyGuard__factory";
 export type { AssetToken } from "./contracts/AssetToken";
 export { AssetToken__factory } from "./factories/contracts/AssetToken__factory";
-export type { Counter } from "./contracts/Counter";
-export { Counter__factory } from "./factories/contracts/Counter__factory";
 export type { HealthToken } from "./contracts/HealthToken";
 export { HealthToken__factory } from "./factories/contracts/HealthToken__factory";
 export type { HospitalFinancials } from "./contracts/HospitalFinancials";
