@@ -1,0 +1,382 @@
+erDiagram
+
+    %% ============================
+    %% CORE TABLES
+    %% ============================
+
+    TOKENS {
+        int token_id PK
+        string token_name
+        string token_symbol
+        int token_price
+    }
+
+    SETTINGS {
+        int setting_id PK
+        int user_id FK
+        boolean multiFactorEnabled
+        boolean emailVerified
+        boolean notificationEnabled
+    }
+
+    ROLES {
+        int role_id PK
+        string role_name
+    }
+
+    USERS {
+        int user_id PK
+        int role_id FK
+        string phone_num
+        string email
+        string password_hash
+        string address
+        string city
+        string blood_group
+        string created_at
+        string date_of_birth
+        boolean MFA
+    }
+
+    TRANSACTION {
+        int transaction_id PK
+        int user_id FK
+        string timestamp
+        string type
+        int token_id FK
+        int amount
+        string description
+        string senderWallet
+        string receiverWallet
+        int blockNumber
+        string status
+    }
+
+    NOTIFICATION {
+        int noti_id PK
+        int sender_id FK
+        int receiver_id FK
+        string notification_text
+        string timestamp
+        boolean read
+    }
+
+    %% ============================
+    %% PATIENT DOMAIN
+    %% ============================
+
+    PATIENT {
+        int patient_id PK
+        string name
+        int hospital_id FK
+        boolean asset_enabled
+        boolean subscription_enabled
+        string kyc_status
+        string created_at
+        string walletAddress
+    }
+
+    DOCUMENTS {
+        int document_id PK
+        int patient_id FK
+        string documentType
+        string file_url
+        string uploaded_at
+        string verified_at
+        string rejectionReason
+    }
+
+    KYC {
+        int kyc_id PK
+        int patient_id FK
+        int completionPercentage
+        string submitted_at
+        string status
+        string rejectionReason
+    }
+
+    ASSET_DEPOSIT {
+        int asset_id PK
+        int patient_id FK
+        int bank_id FK
+        string assetType
+        int assetValue
+        int weight
+        string status
+        string submittedAt
+        string approvedAt
+        string rejectedAt
+        string rejectionReason
+    }
+
+    PATIENT_TOKEN_BALANCE {
+        int balance_id PK
+        int patient_id FK
+        int totalAT
+        int totalHT
+        string lastUpdated
+    }
+
+    %% ============================
+    %% SUBSCRIPTIONS & PAYMENTS
+    %% ============================
+
+    SUBSCRIPTION_PLAN {
+        int subs_id PK
+        int hospital_id FK
+        string name
+        int monthlyAmount
+        string features
+    }
+
+    PATIENT_SUBSCRIPTION {
+        int subs_req_id PK
+        int subscription_id FK
+        int patient_id FK
+        string startDate
+        string endDate
+        string status
+    }
+
+    PAYMENT_HISTORY {
+        int payment_id PK
+        int patient_id FK
+        string timestamp
+        int amount
+        int subs_id FK
+        string status
+        string paymentMethod
+        string invoiceUrl
+    }
+
+    %% ============================
+    %% ACTIVITY LOGS
+    %% ============================
+
+    ACTIVITY {
+        int act_id PK
+        int user_id FK
+        string activityName
+        string description
+        string type
+        string status
+        string timestamp
+        string ipAddress
+    }
+
+    %% ============================
+    %% PATIENT CARDS
+    %% ============================
+
+    PATIENT_CARD {
+        int patient_card_id PK
+        int patient_id FK
+        int card_id FK
+        string card_num
+        string cvv
+        string expiryDate
+        int HTbalance
+    }
+
+    CARDS {
+        int card_id PK
+        string card_name
+    }
+
+    %% ============================
+    %% HOSPITAL DOMAIN
+    %% ============================
+
+    HOSPITAL {
+        int h_id PK
+        string name
+        string registrationNum
+        string address
+        string contactNum
+        string email
+        string code
+        string city
+        string verificationStatus
+        string createdAt
+        int totalAssets
+        int totalAT
+        int totalPatients
+    }
+
+    %% ============================
+    %% MINTING & TRADING
+    %% ============================
+
+    MINT_RECORD {
+        int mint_id PK
+        string timestamp
+        int minter_id
+        int amount
+        int patient_id FK
+        int tokens_minted
+        string status
+        int block_number
+        int asset_id FK
+        string txHash
+    }
+
+    TRADES {
+        int trade_id PK
+        int hospital_id FK
+        int amountInvested
+        string investmentDescription
+        int amountBefore
+        int amountAfter
+        int pnl
+        string tradeType
+        string startTime
+        string endTime
+        int totalATBurnt
+        int openPrice
+        int closePrice
+        int high
+        int low
+        int volume
+    }
+
+    %% ============================
+    %% PROFIT DISTRIBUTION
+    %% ============================
+
+    PROFIT_DISTRIBUTION {
+        int profit_distribution_id PK
+        int hospital_id FK
+        int total_profit
+        int patient_percentage
+        int hospital_operations
+        int hospital_earning
+        int bank_loan_funds
+    }
+
+    PROFIT_ALLOCATION {
+        int profit_allocation_id PK
+        int profit_distribution_id FK
+        int patient_id FK
+        int allocatedPercentage
+        int allocatedAmount
+        string timestamp
+        int asset_id FK
+    }
+
+    %% ============================
+    %% ERROR LOGS & REPORTS
+    %% ============================
+
+    ERRORS {
+        int error_id PK
+        string error_description
+        int user_id
+        string status
+    }
+
+    REPORT_LOG {
+        int id PK
+        string generated_at
+        string from_period
+        string to_period
+        int generated_by FK
+        string status
+    }
+
+    %% ============================
+    %% BANK DOMAIN
+    %% ============================
+
+    BANK {
+        int bank_id PK
+        string bankName
+        string registration
+        string swiftCode
+        string bankCode
+        string address
+        string email
+        string contactNum
+        string city
+        string createdAt
+        string verificationStatus
+    }
+
+    POLICIES {
+        int policy_id PK
+        int bank_id FK
+        string policyName
+        string policyDescription
+        string policyType
+        string createdAt
+        string coverage
+        string premium
+        string startDate
+        string endDate
+        string renewalDate
+        string status
+    }
+
+    PARTNERSHIP {
+        int partnership_id PK
+        int bank_id FK
+        int hospital_id FK
+        string startDate
+        int assetsDeposited
+        int loansTaken
+        int totalDeposits
+        int contactPerson FK
+    }
+
+    COMPLIANCE {
+        int compliance_id PK
+        int bank_id FK
+        string title
+        string category
+        string description
+        string dueDate
+        int assignedTo FK
+    }
+
+    ASSETS_BANK {
+        int id PK
+        int bank_id FK
+        int hospital_id FK
+        int asset_id FK
+        string vaultNum
+    }
+
+    %% ============================
+    %% RELATIONSHIPS
+    %% ============================
+
+    ROLES ||--|{ USERS : has
+    USERS ||--|| SETTINGS : config
+    USERS ||--|{ TRANSACTION : makes
+    USERS ||--|{ NOTIFICATION : sends
+    USERS ||--|{ ACTIVITY : performs
+
+    PATIENT ||--|{ DOCUMENTS : uploads
+    PATIENT ||--|| KYC : has
+    PATIENT ||--|{ ASSET_DEPOSIT : makes
+    PATIENT ||--|| PATIENT_TOKEN_BALANCE : balance
+    PATIENT ||--|{ PATIENT_SUBSCRIPTION : subscribes
+    PATIENT ||--|{ PAYMENT_HISTORY : pays
+    PATIENT ||--|{ PATIENT_CARD : owns
+
+    CARDS ||--|{ PATIENT_CARD : assigned
+
+    HOSPITAL ||--|{ PATIENT : has
+    HOSPITAL ||--|{ SUBSCRIPTION_PLAN : offers
+    HOSPITAL ||--|{ TRADES : performs
+    HOSPITAL ||--|{ PROFIT_DISTRIBUTION : generates
+
+    MINT_RECORD ||--|| ASSET_DEPOSIT : references
+
+    PROFIT_DISTRIBUTION ||--|{ PROFIT_ALLOCATION : allocates
+
+    BANK ||--|{ POLICIES : provides
+    BANK ||--|{ PARTNERSHIP : partners
+    BANK ||--|{ ASSETS_BANK : holds
+
+    PARTNERSHIP ||--|| HOSPITAL : links
+    COMPLIANCE ||--|| HOSPITAL : assigns
