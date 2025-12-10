@@ -1,467 +1,823 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Building2, Home, Landmark, Factory, Store, TrendingUp, TrendingDown, Search, ArrowLeft, BarChart3, MapPin, Clock, Info, Eye, Activity, type LucideIcon } from 'lucide-react'
+import { ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { TrendingUp, TrendingDown, Search, Building2, Users, Coins, DollarSign, Activity, Shield, AlertCircle, CheckCircle } from 'lucide-react'
-import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
-interface MarketOverview {
+// Investment types available for trading
+type InvestmentType = {
   id: string
-  category: 'hospital' | 'bank' | 'patient' | 'token'
   name: string
-  value: number
+  symbol: string
+  icon: LucideIcon
+  currentPrice: number
   change24h: number
   volume24h: number
-  participants: number
-  status: 'healthy' | 'warning' | 'critical'
+  marketCap: number
+  category: string
+  description: string
 }
 
-const mockMarketData: MarketOverview[] = [
-  {
-    id: 'MKT-001',
-    category: 'hospital',
-    name: 'Hospital Asset Tokens (AT)',
-    value: 86500000,
-    change24h: 3.2,
-    volume24h: 3450000,
-    participants: 28,
-    status: 'healthy'
-  },
-  {
-    id: 'MKT-002',
-    category: 'patient',
-    name: 'Health Benefit Tokens (HT)',
-    value: 12450000,
-    change24h: 1.8,
-    volume24h: 890000,
-    participants: 1240,
-    status: 'healthy'
-  },
-  {
-    id: 'MKT-003',
-    category: 'bank',
-    name: 'Investment Funding',
-    value: 45200000,
-    change24h: -0.5,
-    volume24h: 1820000,
-    participants: 12,
-    status: 'healthy'
-  },
-  {
-    id: 'MKT-004',
-    category: 'token',
-    name: 'Equipment Tokenization',
-    value: 32800000,
-    change24h: 5.4,
-    volume24h: 1560000,
-    participants: 18,
-    status: 'healthy'
-  },
-  {
-    id: 'MKT-005',
-    category: 'token',
-    name: 'Real Estate Tokens',
-    value: 28900000,
-    change24h: 2.1,
-    volume24h: 980000,
-    participants: 15,
-    status: 'healthy'
-  },
-  {
-    id: 'MKT-006',
-    category: 'hospital',
-    name: 'Receivables Pool',
-    value: 8200000,
-    change24h: 7.8,
-    volume24h: 450000,
-    participants: 22,
-    status: 'warning'
-  }
-]
-
-const marketVolumeData = [
-  { month: 'Jul', hospitals: 2800000, patients: 650000, banks: 1450000 },
-  { month: 'Aug', hospitals: 3100000, patients: 720000, banks: 1580000 },
-  { month: 'Sep', hospitals: 2950000, patients: 780000, banks: 1620000 },
-  { month: 'Oct', hospitals: 3250000, patients: 810000, banks: 1750000 },
-  { month: 'Nov', hospitals: 3400000, patients: 850000, banks: 1800000 },
-  { month: 'Dec', hospitals: 3450000, patients: 890000, banks: 1820000 }
-]
-
-const categoryDistribution = [
-  { name: 'Hospital Assets', value: 42, amount: 86500000 },
-  { name: 'Bank Investments', value: 22, amount: 45200000 },
-  { name: 'Equipment', value: 16, amount: 32800000 },
-  { name: 'Real Estate', value: 14, amount: 28900000 },
-  { name: 'Patient Benefits', value: 6, amount: 12450000 }
-]
-
-const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899']
-
-interface Transaction {
+// Trade data type
+type Trade = {
   id: string
-  type: 'mint' | 'trade' | 'redeem' | 'transfer'
-  from: string
-  to: string
-  amount: number
-  tokenType: 'AT' | 'HT'
-  timestamp: string
-  status: 'success' | 'pending' | 'failed'
+  timestamp: Date
+  type: 'BUY' | 'SELL'
+  investment: string
+  location: string
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+  liquidity: number
+  profitLoss: number
+  status: 'OPEN' | 'CLOSED'
+  notes: string
 }
 
-const recentTransactions: Transaction[] = [
+// Order book type
+type OrderBookItem = {
+  price: number
+  volume: number
+  total: number
+  type: 'BID' | 'ASK'
+}
+
+// Investment categories with real estate and financial instruments
+const INVESTMENT_TYPES: InvestmentType[] = [
   {
-    id: 'TX-001',
-    type: 'mint',
-    from: 'Liaquat National Hospital',
-    to: 'Asset Pool',
-    amount: 125000,
-    tokenType: 'AT',
-    timestamp: '2 min ago',
-    status: 'success'
+    id: 'commercial-real-estate',
+    name: 'Commercial Real Estate',
+    symbol: 'CRE',
+    icon: Building2,
+    currentPrice: 7850.25,
+    change24h: 2.45,
+    volume24h: 45000000,
+    marketCap: 2800000000,
+    category: 'Real Estate',
+    description: 'Office buildings, retail spaces, and commercial properties'
   },
   {
-    id: 'TX-002',
-    type: 'trade',
-    from: 'National Bank of Pakistan',
-    to: 'Investment Pool',
-    amount: 450000,
-    tokenType: 'AT',
-    timestamp: '5 min ago',
-    status: 'success'
+    id: 'residential-property',
+    name: 'Residential Property',
+    symbol: 'RES',
+    icon: Home,
+    currentPrice: 4520.80,
+    change24h: -1.23,
+    volume24h: 32000000,
+    marketCap: 1950000000,
+    category: 'Real Estate',
+    description: 'Apartments, houses, and residential units'
   },
   {
-    id: 'TX-003',
-    type: 'redeem',
-    from: 'Ahmed Patient',
-    to: 'Benefits Provider',
-    amount: 2500,
-    tokenType: 'HT',
-    timestamp: '12 min ago',
-    status: 'success'
+    id: 'government-bonds',
+    name: 'Government Bonds',
+    symbol: 'GOV',
+    icon: Landmark,
+    currentPrice: 1050.00,
+    change24h: 0.15,
+    volume24h: 85000000,
+    marketCap: 5600000000,
+    category: 'Bonds',
+    description: 'Federal and state government securities'
   },
   {
-    id: 'TX-004',
-    type: 'transfer',
-    from: 'Metro Medical',
-    to: 'Regional Health Bank',
-    amount: 850000,
-    tokenType: 'AT',
-    timestamp: '18 min ago',
-    status: 'pending'
+    id: 'industrial-property',
+    name: 'Industrial Property',
+    symbol: 'IND',
+    icon: Factory,
+    currentPrice: 6320.50,
+    change24h: 3.82,
+    volume24h: 28000000,
+    marketCap: 1450000000,
+    category: 'Real Estate',
+    description: 'Warehouses, factories, and industrial facilities'
+  },
+  {
+    id: 'retail-spaces',
+    name: 'Retail Spaces',
+    symbol: 'RET',
+    icon: Store,
+    currentPrice: 3890.30,
+    change24h: -2.10,
+    volume24h: 19000000,
+    marketCap: 980000000,
+    category: 'Real Estate',
+    description: 'Shopping centers, malls, and retail outlets'
+  },
+  {
+    id: 'corporate-bonds',
+    name: 'Corporate Bonds',
+    symbol: 'COR',
+    icon: Landmark,
+    currentPrice: 980.75,
+    change24h: 0.85,
+    volume24h: 62000000,
+    marketCap: 4200000000,
+    category: 'Bonds',
+    description: 'Investment-grade corporate debt securities'
+  },
+  {
+    id: 'land-development',
+    name: 'Land Development',
+    symbol: 'LND',
+    icon: Building2,
+    currentPrice: 5640.90,
+    change24h: 4.25,
+    volume24h: 21000000,
+    marketCap: 1120000000,
+    category: 'Real Estate',
+    description: 'Undeveloped land and development projects'
+  },
+  {
+    id: 'office-space',
+    name: 'Office Space',
+    symbol: 'OFC',
+    icon: Building2,
+    currentPrice: 6890.40,
+    change24h: 1.67,
+    volume24h: 35000000,
+    marketCap: 2100000000,
+    category: 'Real Estate',
+    description: 'Class A and B office buildings'
   }
 ]
 
-export default function AdminMarketplace() {
+// Generate initial trades for selected investment
+const generateInitialTrades = (investmentName: string, basePrice: number): Trade[] => {
+  const trades: Trade[] = []
+  const now = new Date()
+  
+  for (let i = 0; i < 50; i++) {
+    const timestamp = new Date(now.getTime() - (49 - i) * 2 * 60 * 60 * 1000)
+    const volatility = basePrice * 0.02
+    const open = basePrice + (Math.random() - 0.5) * volatility
+    const close = open + (Math.random() - 0.5) * volatility
+    const high = Math.max(open, close) + Math.random() * volatility * 0.5
+    const low = Math.min(open, close) - Math.random() * volatility * 0.5
+    const profitLoss = (close - open) * (Math.random() * 1000)
+    
+    trades.push({
+      id: `TRD-${Date.now()}-${i}`,
+      timestamp,
+      type: Math.random() > 0.5 ? 'BUY' : 'SELL',
+      investment: investmentName,
+      location: ['Lahore', 'Karachi', 'Islamabad', 'Rawalpindi', 'Faisalabad'][Math.floor(Math.random() * 5)],
+      open: open * 10, // Store in PKR
+      high: high * 10,
+      low: low * 10,
+      close: close * 10,
+      volume: Math.floor(Math.random() * 1000000) + 100000,
+      liquidity: Math.floor(Math.random() * 10000000) + 1000000,
+      profitLoss: profitLoss * 10, // Store in PKR
+      status: Math.random() > 0.3 ? 'OPEN' : 'CLOSED',
+      notes: ''
+    })
+  }
+  
+  return trades
+}
+
+// Generate order book
+const generateOrderBook = (basePrice: number) => {
+  const bids: OrderBookItem[] = []
+  const asks: OrderBookItem[] = []
+  const price = basePrice * 10 // Convert to PKR
+  
+  for (let i = 0; i < 8; i++) {
+    const volume = Math.floor(Math.random() * 100) + 10
+    bids.push({
+      price: price - i * 100 - 50,
+      volume,
+      total: (price - i * 100) * volume,
+      type: 'BID'
+    })
+  }
+  
+  for (let i = 0; i < 8; i++) {
+    const volume = Math.floor(Math.random() * 100)
+    asks.push({
+      price: price + i * 100,
+      volume,
+      total: (price + i * 100) * volume,
+      type: 'ASK'
+    })
+  }
+  
+  return { bids, asks }
+}
+
+// Conversion rate: 1 AT = 10 PKR
+const AT_TO_PKR = 10
+const convertPKRtoAT = (pkr: number) => pkr / AT_TO_PKR
+
+export default function PatientMarketplace() {
+  const [selectedInvestment, setSelectedInvestment] = useState<InvestmentType | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState('all')
-  const [sortBy, setSortBy] = useState('volume')
-  const [timeframe, setTimeframe] = useState('24h')
+  const [categoryFilter, setCategoryFilter] = useState<string>('All')
 
-  const categories = [
-    { value: 'all', label: 'All Categories' },
-    { value: 'hospital', label: 'Hospital Assets' },
-    { value: 'bank', label: 'Bank Investments' },
-    { value: 'patient', label: 'Patient Benefits' },
-    { value: 'token', label: 'Token Markets' }
-  ]
-
-  const filteredMarkets = mockMarketData.filter(market => {
-    const matchesSearch = market.name.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesCategory = selectedCategory === 'all' || market.category === selectedCategory
+  // Filter investments
+  const filteredInvestments = INVESTMENT_TYPES.filter(inv => {
+    const matchesSearch = inv.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         inv.symbol.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesCategory = categoryFilter === 'All' || inv.category === categoryFilter
     return matchesSearch && matchesCategory
   })
 
-  const sortedMarkets = [...filteredMarkets].sort((a, b) => {
-    switch (sortBy) {
-      case 'value': return b.value - a.value
-      case 'change': return b.change24h - a.change24h
-      case 'participants': return b.participants - a.participants
-      default: return b.volume24h - a.volume24h
-    }
-  })
+  // Get unique categories
+  const categories = ['All', ...Array.from(new Set(INVESTMENT_TYPES.map(inv => inv.category)))]
 
-  const totalMarketValue = mockMarketData.reduce((sum, m) => sum + m.value, 0)
-  const totalVolume24h = mockMarketData.reduce((sum, m) => sum + m.volume24h, 0)
-  const totalParticipants = mockMarketData.reduce((sum, m) => sum + m.participants, 0)
-  const avgChange = (mockMarketData.reduce((sum, m) => sum + m.change24h, 0) / mockMarketData.length).toFixed(2)
+  if (!selectedInvestment) {
+    // INVESTMENT SELECTION VIEW
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Investment Marketplace</h1>
+          <p className="text-slate-600 mt-1">View active trades and market information</p>
+        </div>
+
+        {/* Search and Filters */}
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="Search investments..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <div className="flex gap-2 overflow-x-auto">
+            {categories.map((category) => (
+              <Button
+                key={category}
+                variant={categoryFilter === category ? "default" : "outline"}
+                size="sm"
+                onClick={() => setCategoryFilter(category)}
+                className="whitespace-nowrap"
+              >
+                {category}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        {/* Investment Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filteredInvestments.map((investment) => {
+            const Icon = investment.icon
+            const isPositive = investment.change24h >= 0
+            
+            return (
+              <Card
+                key={investment.id}
+                className="hover:shadow-lg transition-shadow cursor-pointer hover:border-emerald-300"
+                onClick={() => setSelectedInvestment(investment)}
+              >
+                <CardContent className="pt-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                        <Icon className="h-5 w-5 text-emerald-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-slate-900">{investment.symbol}</h3>
+                        <p className="text-xs text-slate-500">{investment.category}</p>
+                      </div>
+                    </div>
+                    <Badge variant={isPositive ? "default" : "destructive"} className="flex items-center gap-1">
+                      {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                      {isPositive ? '+' : ''}{investment.change24h.toFixed(2)}%
+                    </Badge>
+                  </div>
+
+                  <p className="text-sm text-slate-600 mb-4 line-clamp-2">{investment.name}</p>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-600">Price:</span>
+                      <span className="font-semibold">{investment.currentPrice.toLocaleString()} AT</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-600">Volume (24h):</span>
+                      <span className="font-medium">₨{(investment.volume24h / 1000000).toFixed(2)}M</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-600">Market Cap:</span>
+                      <span className="font-medium">₨{(investment.marketCap / 1000000000).toFixed(2)}B</span>
+                    </div>
+                  </div>
+
+                  <Button className="w-full mt-4 bg-blue-600 hover:bg-blue-700" disabled>
+                    <Eye className="h-4 w-4 mr-2" />
+                    View Details
+                  </Button>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+
+        {filteredInvestments.length === 0 && (
+          <div className="text-center py-12">
+            <Info className="h-12 w-12 mx-auto mb-4 text-slate-400" />
+            <p className="text-slate-600">No investments found matching your criteria</p>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // TRADING DASHBOARD VIEW (READ-ONLY)
+  return <ReadOnlyTradingDashboard investment={selectedInvestment} onBack={() => setSelectedInvestment(null)} />
+}
+
+// Read-Only Trading Dashboard Component
+function ReadOnlyTradingDashboard({ investment, onBack }: { investment: InvestmentType; onBack: () => void }) {
+  const [trades] = useState<Trade[]>(generateInitialTrades(investment.name, investment.currentPrice))
+  const [orderBook] = useState(generateOrderBook(investment.currentPrice))
+  
+  // Chart data type
+  interface ChartDataPoint {
+    time: string
+    open: number
+    high: number
+    low: number
+    close: number
+    volume: number
+    liquidity: number
+    profitLoss: number
+    fullData: Trade
+  }
+  
+  const [hoveredCandle, setHoveredCandle] = useState<ChartDataPoint | null>(null)
+  
+  // Calculate market stats
+  const latestTrade = trades[trades.length - 1]
+  const previousTrade = trades[trades.length - 2]
+  const priceChange = latestTrade && previousTrade ? latestTrade.close - previousTrade.close : 0
+  const priceChangePercent = previousTrade ? (priceChange / previousTrade.close) * 100 : 0
+  const totalVolume = trades.reduce((sum, t) => sum + t.volume, 0)
+  const avgLiquidity = trades.reduce((sum, t) => sum + t.liquidity, 0) / trades.length
+  const totalProfitLoss = trades.reduce((sum, t) => sum + t.profitLoss, 0)
+  const openTrades = trades.filter(t => t.status === 'OPEN').length
+
+  // Format chart data
+  const chartData = trades.map(trade => ({
+    time: trade.timestamp.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+    open: trade.open,
+    high: trade.high,
+    low: trade.low,
+    close: trade.close,
+    volume: trade.volume,
+    liquidity: trade.liquidity,
+    profitLoss: trade.profitLoss,
+    fullData: trade
+  }))
+
+  // Custom candlestick rendering
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const CustomCandlestick = (props: Record<string, unknown>) => {
+    const { x, y, width, height, payload } = props as any
+    const trade = (payload as any)?.fullData as Trade
+    
+    if (!trade) return null
+    
+    const isGreen = trade.close >= trade.open
+    const bodyHeight = Math.abs(y - height)
+    const wickTop = Math.min(y, height)
+    
+    // Find the corresponding chart data point to set in hoveredCandle
+    const chartDataPoint = chartData.find(d => d.fullData.id === trade.id)
+    
+    return (
+      <g
+        onMouseEnter={() => chartDataPoint && setHoveredCandle(chartDataPoint)}
+        onMouseLeave={() => setHoveredCandle(null)}
+        style={{ cursor: 'pointer' }}
+      >
+        {/* Wick */}
+        <line
+          x1={x + width / 2}
+          y1={wickTop}
+          x2={x + width / 2}
+          y2={wickTop + bodyHeight}
+          stroke={isGreen ? '#10b981' : '#ef4444'}
+          strokeWidth={1}
+        />
+        
+        {/* Body */}
+        <rect
+          x={x + width * 0.25}
+          y={Math.min(y, height)}
+          width={width * 0.5}
+          height={bodyHeight || 1}
+          fill={isGreen ? '#10b981' : '#ef4444'}
+          stroke={isGreen ? '#059669' : '#dc2626'}
+          strokeWidth={1}
+          opacity={hoveredCandle?.fullData.id === trade.id ? 1 : 0.8}
+        />
+      </g>
+    )
+  }
+
+  const Icon = investment.icon
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Marketplace Overview</h1>
-        <p className="text-muted-foreground mt-1">Monitor all market activities across the platform</p>
-      </div>
-
-      {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Market Value</p>
-                <p className="text-2xl font-bold text-foreground mt-1">
-                  ${(totalMarketValue / 1000000).toFixed(1)}M
-                </p>
-                <p className="text-xs text-green-600 mt-1">+{avgChange}% avg</p>
-              </div>
-              <DollarSign className="w-8 h-8 text-green-500" />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="sm" onClick={onBack}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+          <div className="flex items-center gap-3">
+            <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center">
+              <Icon className="h-6 w-6 text-emerald-600" />
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">24h Volume</p>
-                <p className="text-2xl font-bold text-foreground mt-1">
-                  ${(totalVolume24h / 1000000).toFixed(1)}M
-                </p>
-                <p className="text-xs text-blue-600 mt-1">Across all markets</p>
-              </div>
-              <Activity className="w-8 h-8 text-blue-500" />
+            <div>
+              <h1 className="text-3xl font-bold text-slate-900">{investment.symbol} - Market View</h1>
+              <p className="text-slate-600">{investment.name}</p>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Active Participants</p>
-                <p className="text-2xl font-bold text-foreground mt-1">{totalParticipants}</p>
-                <p className="text-xs text-purple-600 mt-1">Hospitals & Banks</p>
-              </div>
-              <Users className="w-8 h-8 text-purple-500" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Market Health</p>
-                <p className="text-2xl font-bold text-green-600 mt-1">Healthy</p>
-                <p className="text-xs text-muted-foreground mt-1">All systems operational</p>
-              </div>
-              <Shield className="w-8 h-8 text-green-500" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Market Volume Trends</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={marketVolumeData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip formatter={(value: any) => `$${Number(value).toLocaleString()}`} />
-                <Legend />
-                <Bar dataKey="hospitals" fill="#3B82F6" name="Hospitals" />
-                <Bar dataKey="patients" fill="#10B981" name="Patients" />
-                <Bar dataKey="banks" fill="#F59E0B" name="Banks" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Market Distribution</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={categoryDistribution}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, value }) => `${name}: ${value}%`}
-                  outerRadius={100}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {categoryDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value: any, name: any, props: any) => [`$${props.payload.amount.toLocaleString()}`, name]} />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search markets..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-full md:w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map(cat => (
-                  <SelectItem key={cat.value} value={cat.value}>
-                    {cat.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-full md:w-48">
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="volume">24h Volume</SelectItem>
-                <SelectItem value="value">Market Value</SelectItem>
-                <SelectItem value="change">Price Change</SelectItem>
-                <SelectItem value="participants">Participants</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={timeframe} onValueChange={setTimeframe}>
-              <SelectTrigger className="w-full md:w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="24h">24 Hours</SelectItem>
-                <SelectItem value="7d">7 Days</SelectItem>
-                <SelectItem value="30d">30 Days</SelectItem>
-                <SelectItem value="all">All Time</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      {/* Market Listings */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Market Overview</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {sortedMarkets.map(market => (
-              <div key={market.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
-                <div className="flex items-center gap-4 flex-1">
-                  <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
-                    {market.category.substring(0, 2).toUpperCase()}
-                  </div>
-                  
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-foreground">{market.name}</h3>
-                      <Badge variant="outline" className="text-xs">
-                        {market.category}
-                      </Badge>
-                      {market.status === 'healthy' && (
-                        <CheckCircle className="w-4 h-4 text-green-500" />
-                      )}
-                      {market.status === 'warning' && (
-                        <AlertCircle className="w-4 h-4 text-yellow-500" />
-                      )}
-                    </div>
-                    <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Users className="w-3 h-3" />
-                        {market.participants} participants
-                      </span>
-                    </div>
-                  </div>
+      {/* Market Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-600">Current Price</p>
+                <p className="text-2xl font-bold text-slate-900">
+                  {latestTrade?.close ? convertPKRtoAT(latestTrade.close).toLocaleString(undefined, {maximumFractionDigits: 2}) : '0'} AT
+                </p>
+                <div className="flex items-center gap-1 mt-1">
+                  {priceChange >= 0 ? (
+                    <TrendingUp className="h-4 w-4 text-emerald-600" />
+                  ) : (
+                    <TrendingDown className="h-4 w-4 text-red-600" />
+                  )}
+                  <span className={`text-sm font-medium ${priceChange >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {priceChangePercent.toFixed(2)}%
+                  </span>
                 </div>
-
-                <div className="flex items-center gap-8">
-                  <div className="text-right">
-                    <p className="font-bold text-lg text-foreground">
-                      ${(market.value / 1000000).toFixed(1)}M
-                    </p>
-                    <div className={`flex items-center gap-1 text-sm ${market.change24h >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {market.change24h >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                      {market.change24h >= 0 ? '+' : ''}{market.change24h.toFixed(2)}%
-                    </div>
-                  </div>
-
-                  <div className="text-right">
-                    <p className="text-sm text-muted-foreground">24h Volume</p>
-                    <p className="font-semibold text-foreground">
-                      ${(market.volume24h / 1000000).toFixed(2)}M
-                    </p>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm">View Details</Button>
-                    <Button size="sm">Manage</Button>
-                  </div>
-                </div>
+                <p className="text-xs text-slate-500 mt-1">1 AT = {AT_TO_PKR} PKR</p>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center">
+                <TrendingUp className="h-6 w-6 text-emerald-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Recent Transactions */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-600">Total Volume</p>
+                <p className="text-2xl font-bold text-slate-900">
+                  {(totalVolume / 1000000).toFixed(2)}M
+                </p>
+                <p className="text-xs text-slate-500 mt-1">{trades.length} trades | 1 AT = {AT_TO_PKR} PKR</p>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
+                <BarChart3 className="h-6 w-6 text-blue-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-600">Avg Liquidity</p>
+                <p className="text-2xl font-bold text-slate-900">
+                  {convertPKRtoAT(avgLiquidity / 1000000).toFixed(2)}M AT
+                </p>
+                <p className="text-xs text-slate-500 mt-1">1 AT = {AT_TO_PKR} PKR</p>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center">
+                <BarChart3 className="h-6 w-6 text-purple-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-600">Total P&L</p>
+                <p className={`text-2xl font-bold ${totalProfitLoss >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                  {totalProfitLoss >= 0 ? '+' : ''}{convertPKRtoAT(totalProfitLoss / 1000).toFixed(0)}K AT
+                </p>
+                <p className="text-xs text-slate-500 mt-1">{openTrades} open | 1 AT = {AT_TO_PKR} PKR</p>
+              </div>
+              <div className={`h-12 w-12 rounded-full flex items-center justify-center ${totalProfitLoss >= 0 ? 'bg-emerald-100' : 'bg-red-100'}`}>
+                <Activity className={`h-6 w-6 ${totalProfitLoss >= 0 ? 'text-emerald-600' : 'text-red-600'}`} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Candlestick Chart */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Recent Transactions</CardTitle>
-            <Button variant="outline" size="sm">View All</Button>
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                Price Chart - {investment.symbol}
+              </CardTitle>
+              <CardDescription>Candlestick chart with volume and OHLC data</CardDescription>
+            </div>
+            <div className="flex gap-2">
+              {['1H', '4H', '1D', '1W', '1M'].map((timeRange) => (
+                <Button
+                  key={timeRange}
+                  variant="outline"
+                  size="sm"
+                  className={timeRange === '1D' ? 'border-emerald-200 bg-emerald-50 text-emerald-600' : ''}
+                >
+                  {timeRange}
+                </Button>
+              ))}
+            </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {recentTransactions.map(tx => (
-              <div key={tx.id} className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Badge variant="outline" className="text-xs">
-                    {tx.type.toUpperCase()}
-                  </Badge>
-                  <div>
-                    <p className="text-sm font-medium">{tx.from} → {tx.to}</p>
-                    <p className="text-xs text-muted-foreground">{tx.timestamp}</p>
-                  </div>
+        <CardContent className="space-y-4">
+          {/* Hover Info Panel */}
+          {hoveredCandle && (
+            <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <p className="text-slate-600">Time</p>
+                  <p className="font-semibold text-slate-900">{hoveredCandle.time}</p>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <p className="font-semibold">{tx.amount.toLocaleString()} {tx.tokenType}</p>
-                    <p className="text-xs text-muted-foreground">${(tx.amount * 1).toLocaleString()}</p>
-                  </div>
-                  {tx.status === 'success' && (
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                  )}
-                  {tx.status === 'pending' && (
-                    <Activity className="w-5 h-5 text-yellow-500 animate-pulse" />
-                  )}
+                <div>
+                  <p className="text-slate-600">Open</p>
+                  <p className="font-semibold text-slate-900">{convertPKRtoAT(hoveredCandle.open).toFixed(2)} AT</p>
+                </div>
+                <div>
+                  <p className="text-slate-600">High</p>
+                  <p className="font-semibold text-slate-900">{convertPKRtoAT(hoveredCandle.high).toFixed(2)} AT</p>
+                </div>
+                <div>
+                  <p className="text-slate-600">Low</p>
+                  <p className="font-semibold text-slate-900">{convertPKRtoAT(hoveredCandle.low).toFixed(2)} AT</p>
+                </div>
+                <div>
+                  <p className="text-slate-600">Close</p>
+                  <p className="font-semibold text-slate-900">{convertPKRtoAT(hoveredCandle.close).toFixed(2)} AT</p>
+                </div>
+                <div>
+                  <p className="text-slate-600">Volume</p>
+                  <p className="font-semibold text-slate-900">{(hoveredCandle.volume / 1000).toFixed(0)}K</p>
+                </div>
+                <div>
+                  <p className="text-slate-600">Liquidity</p>
+                  <p className="font-semibold text-slate-900">{convertPKRtoAT(hoveredCandle.liquidity).toFixed(2)} AT</p>
+                </div>
+                <div>
+                  <p className="text-slate-600">P&L</p>
+                  <p className={`font-semibold ${hoveredCandle.profitLoss >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {hoveredCandle.profitLoss >= 0 ? '+' : ''}{convertPKRtoAT(hoveredCandle.profitLoss).toFixed(2)} AT
+                  </p>
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          )}
+          <ResponsiveContainer width="100%" height={500}>
+            <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis 
+                dataKey="time" 
+                stroke="#64748b"
+                style={{ fontSize: '12px' }}
+              />
+              <YAxis 
+                yAxisId="price"
+                stroke="#64748b"
+                style={{ fontSize: '12px' }}
+              />
+              <YAxis 
+                yAxisId="volume"
+                orientation="right"
+                stroke="#cbd5e1"
+                style={{ fontSize: '12px' }}
+              />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend wrapperStyle={{ fontSize: '12px' }} />
+              <Bar 
+                yAxisId="volume"
+                dataKey="volume" 
+                fill="#94a3b8"
+                opacity={0.3}
+                radius={0}
+                isAnimationActive={false}
+                name="Volume"
+              />
+              <Bar 
+                yAxisId="price"
+                dataKey="high" 
+                // @ts-expect-error - Recharts shape prop type mismatch
+                shape={<CustomCandlestick />}
+                isAnimationActive={false}
+                name="Price"
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
         </CardContent>
       </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Order Book */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Order Book</CardTitle>
+            <CardDescription>Live bid and ask prices</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="all">
+              <TabsList className="grid w-full grid-cols-3 mb-4">
+                <TabsTrigger value="bids" className="text-xs">Bids</TabsTrigger>
+                <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
+                <TabsTrigger value="asks" className="text-xs">Asks</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="all" className="space-y-2">
+                {/* Asks */}
+                <div className="space-y-1">
+                  {orderBook.asks.slice().reverse().map((ask, idx) => (
+                    <div key={`ask-${idx}`} className="flex justify-between items-center text-xs py-1 px-2 rounded hover:bg-red-50">
+                      <span className="text-red-600 font-medium">{convertPKRtoAT(ask.price).toFixed(2)} AT</span>
+                      <span className="text-slate-600">{ask.volume}</span>
+                      <span className="text-slate-500">{(ask.total / 1000).toFixed(0)}K</span>
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Spread */}
+                <div className="py-2 px-2 bg-slate-100 rounded text-center">
+                  <span className="text-xs font-semibold text-slate-700">
+                    Spread: {convertPKRtoAT(orderBook.asks[0].price - orderBook.bids[0].price).toFixed(2)} AT
+                  </span>
+                </div>
+                
+                {/* Bids */}
+                <div className="space-y-1">
+                  {orderBook.bids.map((bid, idx) => (
+                    <div key={`bid-${idx}`} className="flex justify-between items-center text-xs py-1 px-2 rounded hover:bg-emerald-50">
+                      <span className="text-emerald-600 font-medium">{convertPKRtoAT(bid.price).toFixed(2)} AT</span>
+                      <span className="text-slate-600">{bid.volume}</span>
+                      <span className="text-slate-500">{(bid.total / 1000).toFixed(0)}K</span>
+                    </div>
+                  ))}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="bids">
+                <div className="space-y-1">
+                  {orderBook.bids.map((bid, idx) => (
+                    <div key={`bid-${idx}`} className="flex justify-between items-center text-xs py-1 px-2 rounded hover:bg-emerald-50">
+                      <span className="text-emerald-600 font-medium">{convertPKRtoAT(bid.price).toFixed(2)} AT</span>
+                      <span className="text-slate-600">{bid.volume}</span>
+                      <span className="text-slate-500">{(bid.total / 1000).toFixed(0)}K</span>
+                    </div>
+                  ))}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="asks">
+                <div className="space-y-1">
+                  {orderBook.asks.map((ask, idx) => (
+                    <div key={`ask-${idx}`} className="flex justify-between items-center text-xs py-1 px-2 rounded hover:bg-red-50">
+                      <span className="text-red-600 font-medium">{convertPKRtoAT(ask.price).toFixed(2)} AT</span>
+                      <span className="text-slate-600">{ask.volume}</span>
+                      <span className="text-slate-500">{(ask.total / 1000).toFixed(0)}K</span>
+                    </div>
+                  ))}
+                </div>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+
+        {/* All Trades (View Only) */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-lg">Market Trades</CardTitle>
+            <CardDescription>View recent market activity</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3 max-h-[600px] overflow-y-auto">
+              {trades.map((trade) => (
+                <div key={trade.id} className="border border-slate-200 rounded-lg p-4 hover:border-blue-300 transition-colors">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge variant={trade.type === 'BUY' ? 'default' : 'destructive'}>
+                          {trade.type}
+                        </Badge>
+                        <span className="font-semibold text-slate-900 text-sm">{trade.id}</span>
+                        <Badge variant="outline" className="text-xs">
+                          {trade.status}
+                        </Badge>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <div className="flex items-center gap-2 text-slate-600 mb-1">
+                            <MapPin className="h-4 w-4" />
+                            <span>{trade.location}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-slate-600">
+                            <Clock className="h-4 w-4" />
+                            <span className="text-xs">{trade.timestamp.toLocaleString()}</span>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-1">
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Entry:</span>
+                            <span className="font-medium">{convertPKRtoAT(trade.open).toFixed(2)} AT</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Current:</span>
+                            <span className="font-medium">{convertPKRtoAT(trade.close).toFixed(2)} AT</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">P&L:</span>
+                            <span className={`font-medium ${trade.profitLoss >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                              {trade.profitLoss >= 0 ? '+' : ''}{convertPKRtoAT(trade.profitLoss).toFixed(0)} AT
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              {trades.length === 0 && (
+                <div className="text-center py-8 text-slate-500">
+                  <Info className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p>No trades available</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
+}
+
+// Custom Tooltip Component
+const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: { fullData: Trade } }> }) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload.fullData as Trade
+    return (
+      <div className="bg-white p-3 rounded-lg shadow-lg border border-slate-200">
+        <p className="text-xs text-slate-600 mb-2">{data.timestamp.toLocaleString()}</p>
+        <div className="space-y-1 text-xs">
+          <div className="flex justify-between gap-4">
+            <span className="text-slate-600">Open:</span>
+            <span className="font-medium">{convertPKRtoAT(data.open).toFixed(2)} AT</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-slate-600">High:</span>
+            <span className="font-medium text-emerald-600">{convertPKRtoAT(data.high).toFixed(2)} AT</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-slate-600">Low:</span>
+            <span className="font-medium text-red-600">{convertPKRtoAT(data.low).toFixed(2)} AT</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-slate-600">Close:</span>
+            <span className="font-medium">{convertPKRtoAT(data.close).toFixed(2)} AT</span>
+          </div>
+          <div className="border-t pt-1 mt-1">
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-600">Volume:</span>
+              <span className="font-medium">{data.volume.toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+  return null
 }

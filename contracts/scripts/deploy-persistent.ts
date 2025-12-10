@@ -40,23 +40,16 @@ async function main() {
 
   // Grant MINTER_ROLE
   console.log('\n🔐 Granting MINTER_ROLE permissions...');
-  const MINTER_ROLE = await assetToken.MINTER_ROLE();
+  const DEFAULT_ADMIN_ROLE = await assetToken.DEFAULT_ADMIN_ROLE();
 
-  const tx1 = await assetToken.grantRole(MINTER_ROLE, hospitalFinancialsAddress);
+  const tx1 = await assetToken.grantRole(DEFAULT_ADMIN_ROLE, hospitalFinancialsAddress);
   await tx1.wait();
   console.log('✅ Granted MINTER_ROLE on AssetToken to HospitalFinancials');
 
-  const tx2 = await healthToken.grantRole(MINTER_ROLE, hospitalFinancialsAddress);
+  const tx2 = await healthToken.grantRole(DEFAULT_ADMIN_ROLE, hospitalFinancialsAddress);
   await tx2.wait();
   console.log('✅ Granted MINTER_ROLE on HealthToken to HospitalFinancials');
 
-  // Deploy Counter
-  console.log('\n📝 Deploying Counter...');
-  const Counter = await ethers.getContractFactory('Counter');
-  const counter = await Counter.deploy();
-  await counter.waitForDeployment();
-  const counterAddress = await counter.getAddress();
-  console.log('✅ Counter deployed to:', counterAddress);
 
   // Save deployment addresses to file
   const deploymentData = {
@@ -67,8 +60,7 @@ async function main() {
     contracts: {
       AssetToken: assetTokenAddress,
       HealthToken: healthTokenAddress,
-      HospitalFinancials: hospitalFinancialsAddress,
-      Counter: counterAddress,
+      HospitalFinancials: hospitalFinancialsAddress
     },
   };
 
@@ -92,7 +84,6 @@ async function main() {
   console.log('AssetToken:', assetTokenAddress);
   console.log('HealthToken:', healthTokenAddress);
   console.log('HospitalFinancials:', hospitalFinancialsAddress);
-  console.log('Counter:', counterAddress);
   
   console.log('\n📝 Update your frontend .env.local with these addresses:');
   console.log(`NEXT_PUBLIC_ASSET_TOKEN_ADDRESS=${assetTokenAddress}`);

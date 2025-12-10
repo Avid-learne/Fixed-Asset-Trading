@@ -797,3 +797,88 @@ export interface HospitalAdminMetadata {
   updatedAt: string
   lastModifiedBy?: string
 }
+
+// ============================================================================
+// TABLE 15: MARKETPLACE & TRADING (HOSPITAL ADMIN)
+// ============================================================================
+
+export interface InvestmentType {
+  id: string
+  name: string
+  symbol: string
+  icon: any
+  currentPrice: number
+  change24h: number
+  volume24h: number
+  marketCap: number
+  category: string
+  description: string
+}
+
+export interface Trade {
+  id: string
+  timestamp: Date
+  type: 'BUY' | 'SELL'
+  assetType: string
+  location: string
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+  liquidity: number
+  profitLoss: number
+  status: 'OPEN' | 'CLOSED'
+  notes?: string
+}
+
+export interface ChartDataPoint {
+  time: string
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+  liquidity: number
+  profitLoss: number
+  fullData: Trade
+}
+
+export interface OrderBookEntry {
+  price: number
+  volume: number
+  total: number
+}
+
+export interface OrderBook {
+  bids: OrderBookEntry[]
+  asks: OrderBookEntry[]
+}
+
+export interface MarketStats {
+  currentPrice: number
+  priceChange: number
+  priceChangePercent: number
+  totalVolume: number
+  avgLiquidity: number
+  totalProfitLoss: number
+  openTrades: number
+  latestTrade?: Trade
+}
+
+export interface NewTradeFormData {
+  type: 'BUY' | 'SELL'
+  location: string
+  open: number
+  volume: number
+  liquidity: number
+  notes?: string
+}
+
+export interface EditTradeFormData {
+  location: string
+  open: number
+  volume: number
+  liquidity: number
+  notes?: string
+}
