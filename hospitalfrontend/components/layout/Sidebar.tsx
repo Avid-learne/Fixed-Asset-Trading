@@ -63,14 +63,19 @@ const patientNavItems: NavItem[] = [
   { name: 'Activity', href: '/patient/activity', icon: History, roles: [UserRole.PATIENT] },
   { name: 'Health Card', href: '/patient/health-card', icon: Users, roles: [UserRole.PATIENT] },
   { name: 'Subscription', href: '/patient/subscription', icon: DollarSign, roles: [UserRole.PATIENT] },
-  { name: 'Profile', href: '/patient/profile', icon: Settings, roles: [UserRole.PATIENT], activeMatch: '/patient/profile' },
+  { name: 'Profile', href: '/patient/profile/info', icon: Settings, roles: [UserRole.PATIENT], activeMatch: '/patient/profile' },
 ]
 
 const hospitalNavItems: NavItem[] = [
   { name: 'Dashboard', href: '/hospital', icon: LayoutDashboard, roles: [UserRole.HOSPITAL_STAFF] },
   { name: 'Marketplace', href: '/hospital/marketplace', icon: ShoppingCart, roles: [UserRole.HOSPITAL_STAFF] },
   { name: 'Approve Deposits', href: '/hospital/deposits', icon: CheckSquare, roles: [UserRole.HOSPITAL_STAFF] },
+  { name: 'Token Minting', href: '/hospital/minting', icon: Coins, roles: [UserRole.HOSPITAL_STAFF] },
+  { name: 'Trading Simulator', href: '/hospital/trading', icon: TrendingUp, roles: [UserRole.HOSPITAL_STAFF] },
+  { name: 'Profit Allocation', href: '/hospital/profit', icon: Gift, roles: [UserRole.HOSPITAL_STAFF] },
   { name: 'Patient Profiles', href: '/hospital/patients', icon: Users, roles: [UserRole.HOSPITAL_STAFF] },
+  { name: 'Reports', href: '/hospital/reports', icon: FileText, roles: [UserRole.HOSPITAL_STAFF] },
+  { name: 'Audit Trail', href: '/hospital/audit', icon: FileText, roles: [UserRole.HOSPITAL_STAFF] },
   { name: 'Settings', href: '/hospital/settings', icon: Settings, roles: [UserRole.HOSPITAL_STAFF] },
 ]
 
@@ -92,12 +97,10 @@ const hospitalAdminNavItems: NavItem[] = [
 
 const bankNavItems: NavItem[] = [
   { name: 'Dashboard', href: '/bank', icon: LayoutDashboard, roles: [UserRole.BANK_OFFICER] },
-  { name: 'Asset Custody', href: '/bank/assets', icon: Building, roles: [UserRole.BANK_OFFICER] },
-  { name: 'Deposit Requests', href: '/bank/approvals', icon: CheckSquare, roles: [UserRole.BANK_OFFICER] },
+  { name: 'Marketplace', href: '/bank/marketplace', icon: ShoppingCart, roles: [UserRole.BANK_OFFICER] },
   { name: 'Policies', href: '/bank/policies', icon: Shield, roles: [UserRole.BANK_OFFICER] },
-  { name: 'Compliance', href: '/bank/compliance', icon: FileText, roles: [UserRole.BANK_OFFICER] },
+  { name: 'Tokenized Assets', href: '/bank/assets', icon: Building, roles: [UserRole.BANK_OFFICER] },
   { name: 'Reports', href: '/bank/reports', icon: DollarSign, roles: [UserRole.BANK_OFFICER] },
-  { name: 'Settings', href: '/bank/settings', icon: Settings, roles: [UserRole.BANK_OFFICER] },
 ]
 
 const superAdminNavItems: NavItem[] = [
@@ -150,7 +153,7 @@ export const Sidebar: React.FC<LayoutSidebarProps> = ({ userRole, withProvider =
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shrink-0">
                 <Coins className="w-5 h-5 text-white" />
               </div>
-              <span className="text-xl font-bold text-primary group-data-[state=collapsed]:hidden">SehatVault</span>
+              <span className="text-xl font-bold text-primary group-data-[state=collapsed]:hidden">FixedAsset</span>
             </Link>
           </div>
         </SidebarHeader>
@@ -160,21 +163,22 @@ export const Sidebar: React.FC<LayoutSidebarProps> = ({ userRole, withProvider =
             <SidebarMenu>
               {navItems.map((item) => {
                 const Icon = item.icon
-                // Base paths that should only match exactly (dashboard pages)
+                // Check if current item is a base/root path
                 const basePaths = ['/patient', '/hospital', '/hospitaladmin', '/bank', '/admin']
                 const isBasePath = basePaths.includes(item.href)
                 
-                // Determine if this item is active
+                // Determine if this item should be active
                 let isActive = false
+                
                 if (item.activeMatch) {
-                  // Use custom activeMatch pattern if provided
+                  // Use custom activeMatch if provided
                   isActive = pathname.startsWith(item.activeMatch)
                 } else if (isBasePath) {
-                  // For base paths (dashboards), only match exactly
+                  // For base paths, only match exact path
                   isActive = pathname === item.href
                 } else {
-                  // For other paths, match if current path starts with item href
-                  // but ensure we're not just matching a partial segment
+                  // For sub-paths, check if pathname starts with href
+                  // But ensure we don't accidentally match a base path
                   isActive = pathname === item.href || pathname.startsWith(item.href + '/')
                 }
                 

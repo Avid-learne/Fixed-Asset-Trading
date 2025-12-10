@@ -15,11 +15,11 @@ export default withAuth(
 
     // Redirect to appropriate dashboard based on role
     if (path === '/') {
-      if (token?.role === 'PATIENT') {
+      if (token?.role === 'Patient') {
         return NextResponse.redirect(new URL('/patient', req.url))
-      } else if (token?.role === 'HOSPITAL_STAFF' || token?.role === 'HOSPITAL_ADMIN') {
+      } else if (token?.role === 'Hospital_Staff' || token?.role === 'HospitalAdmin') {
         return NextResponse.redirect(new URL('/hospital', req.url))
-      } else if (token?.role === 'BANK_OFFICER') {
+      } else if (token?.role === 'Bank_Officer') {
         return NextResponse.redirect(new URL('/bank', req.url))
       }
     }

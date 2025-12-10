@@ -3,7 +3,7 @@
 
 import { useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { Header } from '@/components/layout/Header'
@@ -18,19 +18,30 @@ export default function HospitalLayout({
 }) {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const { setUser, user, hasRole } = useAuthStore()
+  const pathname = usePathname()
+  const { setUser, user } = useAuthStore()
 
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/auth')
-    } else if (session?.user) {
-      setUser(session.user as any)
+      return
+    }
+    
+    if (session?.user) {
+      // Only set user if not already set or if user has changed
+      if (!user || user.id !== session.user.id) {
+        setUser(session.user as any)
+      }
       
-      if (!hasRole([UserRole.HOSPITAL_STAFF])) {
-        router.push(roleToPath(session.user.role))
+      // Only redirect if user has wrong role AND not already on correct path
+      if (session.user.role !== UserRole.HOSPITAL_STAFF) {
+        const correctPath = roleToPath(session.user.role)
+        if (!pathname.startsWith(correctPath)) {
+          router.push(correctPath)
+        }
       }
     }
-  }, [session, status, router, setUser, hasRole])
+  }, [session?.user?.id, status, pathname])
 
   if (status === 'loading' || !user) {
     return (
@@ -42,7 +53,7 @@ export default function HospitalLayout({
 
   return (
     <SidebarProvider>
-      <Sidebar userRole={user?.role as UserRole || UserRole.HOSPITAL_STAFF} withProvider={false} />
+      <Sidebar userRole={UserRole.HOSPITAL_STAFF} withProvider={false} />
       <SidebarInset className="flex-1 flex flex-col overflow-hidden bg-background">
         <Header />
         <main className="flex-1 overflow-y-auto p-6 w-full">

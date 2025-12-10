@@ -8,28 +8,28 @@ const demoUsers = [
     email: 'ahmed.patient@lnh.com',
     password: 'password',
     name: 'Ahmed Patient',
-    role: 'PATIENT'
+    role: 'Patient'
   },
   {
     id: '2',
     email: 'staff@lnh.com',
     password: 'password',
     name: 'Jane Staff',
-    role: 'HOSPITAL_STAFF'
+    role: 'Hospital_Staff'
   },
   {
     id: '3',
     email: 'admin@lnh.com',
     password: 'password',
     name: 'Admin User',
-    role: 'HOSPITAL_ADMIN'
+    role: 'HospitalAdmin'
   },
   {
     id: '4',
     email: 'officer@nbp.com',
     password: 'password',
     name: 'Bank Officer',
-    role: 'BANK_OFFICER'
+    role: 'Bank_Officer'
   }
   ,
   {
@@ -37,7 +37,7 @@ const demoUsers = [
     email: 'superadmin@lnh.com',
     password: 'password',
     name: 'Super Admin',
-    role: 'SUPER_ADMIN'
+    role: 'Super_Admin'
   }
 ]
 

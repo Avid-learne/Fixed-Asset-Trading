@@ -15,7 +15,7 @@ import Link from 'next/link'
 
 const COLORS = ['#38ADA9', '#0A3D62', '#3C6382', '#E2B93B']
 
-export default function HospitalDashboard() {
+export default function HospitalStaffDashboard() {
   const [pendingAssets, setPendingAssets] = useState<Asset[]>([])
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [chartData, setChartData] = useState<any[]>([])
@@ -78,8 +78,8 @@ export default function HospitalDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Hospital Dashboard</h1>
-        <p className="text-muted-foreground mt-1">Manage asset deposits and token minting</p>
+        <h1 className="text-3xl font-bold text-foreground">Hospital Staff Dashboard</h1>
+        <p className="text-muted-foreground mt-1">Manage asset deposits and patient profiles</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
