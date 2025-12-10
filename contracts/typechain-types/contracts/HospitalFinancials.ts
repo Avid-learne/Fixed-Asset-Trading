@@ -26,9 +26,7 @@ import type {
 export interface HospitalFinancialsInterface extends Interface {
   getFunction(
     nameOrSignature:
-      | "BANK_ROLE"
       | "DEFAULT_ADMIN_ROLE"
-      | "FINANCE_ROLE"
       | "assetToken"
       | "depositAmountAT"
       | "depositOwner"
@@ -60,13 +58,8 @@ export interface HospitalFinancialsInterface extends Interface {
       | "TradeRecorded"
   ): EventFragment;
 
-  encodeFunctionData(functionFragment: "BANK_ROLE", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "DEFAULT_ADMIN_ROLE",
-    values?: undefined
-  ): string;
-  encodeFunctionData(
-    functionFragment: "FINANCE_ROLE",
     values?: undefined
   ): string;
   encodeFunctionData(
@@ -142,13 +135,8 @@ export interface HospitalFinancialsInterface extends Interface {
     values: [BigNumberish]
   ): string;
 
-  decodeFunctionResult(functionFragment: "BANK_ROLE", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "DEFAULT_ADMIN_ROLE",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
-    functionFragment: "FINANCE_ROLE",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "assetToken", data: BytesLike): Result;
@@ -414,11 +402,7 @@ export interface HospitalFinancials extends BaseContract {
     event?: TCEvent
   ): Promise<this>;
 
-  BANK_ROLE: TypedContractMethod<[], [string], "view">;
-
   DEFAULT_ADMIN_ROLE: TypedContractMethod<[], [string], "view">;
-
-  FINANCE_ROLE: TypedContractMethod<[], [string], "view">;
 
   assetToken: TypedContractMethod<[], [string], "view">;
 
@@ -520,13 +504,7 @@ export interface HospitalFinancials extends BaseContract {
   ): T;
 
   getFunction(
-    nameOrSignature: "BANK_ROLE"
-  ): TypedContractMethod<[], [string], "view">;
-  getFunction(
     nameOrSignature: "DEFAULT_ADMIN_ROLE"
-  ): TypedContractMethod<[], [string], "view">;
-  getFunction(
-    nameOrSignature: "FINANCE_ROLE"
   ): TypedContractMethod<[], [string], "view">;
   getFunction(
     nameOrSignature: "assetToken"

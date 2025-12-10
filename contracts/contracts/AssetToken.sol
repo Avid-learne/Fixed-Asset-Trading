@@ -7,14 +7,11 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
 /// inherits all ERC-20 & AccessControl(roles) features
-contract AssetToken is ERC20, AccessControl {   
-    //32 bytes hash 
-    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE"); //converts text into hash
-    //MINTER ROLE -> used to control who can mint & burn tokens
-    
-    // Creates a key-value storage.
+contract AssetToken is ERC20, AccessControl {
+
+    // Creates a key-value storage. store deposit metadata
     mapping(uint256 => string) public depositMetadata;
-    
+
     //event -> gets logged on blockchain. frontend apps can listen for it.
     event DepositMetadataSet(uint256 indexed depositId, string metadata);
 
@@ -25,12 +22,12 @@ contract AssetToken is ERC20, AccessControl {
     }
 
     // external-> can be called from outside the contract
-    function mint(address to, uint256 amount) external onlyRole(MINTER_ROLE) {//only addresses with minter role
+    function mint(address to, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {//only addresses with admin role
         _mint(to, amount);
     }
 
-    //function to destroy tokens. only minter role
-    function burn(address from, uint256 amount) external onlyRole(MINTER_ROLE) {
+    //function to destroy tokens. only admin role
+    function burn(address from, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _burn(from, amount); //removes 'amount' tokens from 'from' address
     }
 

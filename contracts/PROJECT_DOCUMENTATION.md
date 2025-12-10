@@ -34,6 +34,7 @@ d:\contracts\
 
 ## 📜 SMART CONTRACTS EXPLAINED
 
+
 ### 1️⃣ **AssetToken.sol** (AT Token)
 
 **Purpose:** Represents real-world assets deposited by patients (property, gold, etc.)
@@ -48,13 +49,13 @@ d:\contracts\
 #### `constructor(address admin)`
 - **What it does:** Creates the token contract and sets up the admin
 - **Parameters:** 
-  - `admin`: Address that gets admin permissions
+  - `admin`: Address that gets DEFAULT_ADMIN_ROLE permissions
 - **Called when:** Contract is deployed
 - **Example:** When you deploy, it sets you as admin
 
 #### `mint(address to, uint256 amount)`
 - **What it does:** Creates new AT tokens
-- **Who can call:** Only addresses with MINTER_ROLE
+- **Who can call:** Only DEFAULT_ADMIN_ROLE
 - **Parameters:**
   - `to`: Address receiving the tokens
   - `amount`: Number of tokens to create
@@ -62,7 +63,7 @@ d:\contracts\
 
 #### `burn(address from, uint256 amount)`
 - **What it does:** Destroys AT tokens
-- **Who can call:** Only MINTER_ROLE
+- **Who can call:** Only DEFAULT_ADMIN_ROLE
 - **Parameters:**
   - `from`: Address to burn tokens from
   - `amount`: Number of tokens to destroy
@@ -70,17 +71,17 @@ d:\contracts\
 
 #### `setDepositMetadata(uint256 depositId, string metadata)`
 - **What it does:** Stores reference info about a deposit (like IPFS hash with property details)
-- **Who can call:** Only admin
+- **Who can call:** Only DEFAULT_ADMIN_ROLE
 - **Parameters:**
   - `depositId`: Unique ID for the deposit
   - `metadata`: Information reference (URL, IPFS hash, etc.)
 - **Use case:** Store link to property documents
 
 **State Variables:**
-- `MINTER_ROLE`: Permission identifier for minting/burning
 - `depositMetadata`: Maps deposit IDs to their metadata
 
 ---
+
 
 ### 2️⃣ **HealthToken.sol** (HT Token)
 
@@ -96,12 +97,12 @@ d:\contracts\
 #### `constructor(address admin)`
 - **What it does:** Creates the HT token contract
 - **Parameters:** 
-  - `admin`: Address that gets admin permissions
+  - `admin`: Address that gets DEFAULT_ADMIN_ROLE permissions
 - **Called when:** Contract is deployed
 
 #### `mint(address to, uint256 amount)`
 - **What it does:** Creates new HT tokens
-- **Who can call:** Only MINTER_ROLE
+- **Who can call:** Only DEFAULT_ADMIN_ROLE
 - **Parameters:**
   - `to`: Address receiving tokens
   - `amount`: Number of tokens to create
@@ -109,7 +110,7 @@ d:\contracts\
 
 #### `burn(address from, uint256 amount)`
 - **What it does:** Destroys HT tokens
-- **Who can call:** Only MINTER_ROLE
+- **Who can call:** Only DEFAULT_ADMIN_ROLE
 - **Parameters:**
   - `from`: Address to burn from
   - `amount`: Number of tokens to destroy
@@ -119,14 +120,13 @@ d:\contracts\
 
 ---
 
+
 ### 3️⃣ **HospitalFinancials.sol** (Main Logic)
 
 **Purpose:** Central controller managing the entire system - asset deposits, trading, profit distribution, and benefit redemption
 
 **Roles:**
-- `DEFAULT_ADMIN_ROLE`: Full control
-- `BANK_ROLE`: Can process asset deposits
-- `FINANCE_ROLE`: Can record trades and distribute profits
+- `DEFAULT_ADMIN_ROLE`: Full control and the only role. All actions require this role.
 
 **Functions:**
 
@@ -141,7 +141,7 @@ d:\contracts\
 
 #### `mintAssetToken(address patient, uint256 depositId, uint256 amountAT, string metadata)`
 - **What it does:** Process patient's asset deposit and mint AT tokens
-- **Who can call:** Only BANK_ROLE
+- **Who can call:** Only DEFAULT_ADMIN_ROLE
 - **Parameters:**
   - `patient`: Patient's wallet address
   - `depositId`: Unique deposit identifier
@@ -162,7 +162,7 @@ d:\contracts\
 
 #### `recordTrade(uint256 investedAT, uint256 profit)`
 - **What it does:** Records a trading activity and its profit
-- **Who can call:** Only FINANCE_ROLE
+- **Who can call:** Only DEFAULT_ADMIN_ROLE
 - **Parameters:**
   - `investedAT`: Amount of AT tokens used for investment
   - `profit`: Profit earned from the trade
@@ -182,7 +182,7 @@ d:\contracts\
 
 #### `distributeProfit(uint256 tradeId, address[] recipients, uint256[] amountsHT)`
 - **What it does:** Distributes profit as HT tokens to patients
-- **Who can call:** Only FINANCE_ROLE
+- **Who can call:** Only DEFAULT_ADMIN_ROLE
 - **Parameters:**
   - `tradeId`: ID of the trade generating profits
   - `recipients`: Array of patient addresses
@@ -203,7 +203,7 @@ d:\contracts\
 
 #### `redeemHealthToken(address patient, uint256 amountHT, string serviceType)`
 - **What it does:** Patient uses HT tokens for healthcare services
-- **Who can call:** Only FINANCE_ROLE
+- **Who can call:** Only DEFAULT_ADMIN_ROLE
 - **Parameters:**
   - `patient`: Patient's address
   - `amountHT`: Amount of HT to redeem
@@ -239,24 +239,10 @@ d:\contracts\
 
 ---
 
-### 4️⃣ **Counter.sol** (Test Contract)
 
-**Purpose:** Simple test contract to verify deployment and testing works
+### 4️⃣ **Counter.sol**
 
-**Functions:**
-
-#### `inc()`
-- **What it does:** Increases counter by 1
-- **Emits:** `Increment(1)` event
-
-#### `incBy(uint by)`
-- **What it does:** Increases counter by specified amount
-- **Parameters:** `by`: Amount to increment
-- **Requirement:** `by` must be > 0
-- **Emits:** `Increment(by)` event
-
-**State Variables:**
-- `x`: The counter value (public, anyone can read)
+**This contract has been removed. It was only for testing and is not part of the main system.**
 
 ---
 

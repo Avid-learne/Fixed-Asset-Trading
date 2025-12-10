@@ -38,38 +38,28 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   });
   console.log('✅ HospitalFinancials deployed to:', hospitalFinancials.address);
 
-  // Grant MINTER_ROLE to HospitalFinancials
-  console.log('\n🔐 Granting MINTER_ROLE permissions...');
+  // Grant DEFAULT_ADMIN_ROLE to HospitalFinancials
+  console.log('\n🔐 Granting DEFAULT_ADMIN_ROLE permissions...');
   
   const AssetTokenContract = await ethers.getContractAt('AssetToken', assetToken.address);
   const HealthTokenContract = await ethers.getContractAt('HealthToken', healthToken.address);
   
-  const MINTER_ROLE = await AssetTokenContract.MINTER_ROLE();
+  const DEFAULT_ADMIN_ROLE = await AssetTokenContract.DEFAULT_ADMIN_ROLE();
   
-  const tx1 = await AssetTokenContract.grantRole(MINTER_ROLE, hospitalFinancials.address);
+  const tx1 = await AssetTokenContract.grantRole(DEFAULT_ADMIN_ROLE, hospitalFinancials.address);
   await tx1.wait();
-  console.log('✅ Granted MINTER_ROLE on AssetToken to HospitalFinancials');
+  console.log('✅ Granted DEFAULT_ADMIN_ROLE on AssetToken to HospitalFinancials');
   
-  const tx2 = await HealthTokenContract.grantRole(MINTER_ROLE, hospitalFinancials.address);
+  const tx2 = await HealthTokenContract.grantRole(DEFAULT_ADMIN_ROLE, hospitalFinancials.address);
   await tx2.wait();
-  console.log('✅ Granted MINTER_ROLE on HealthToken to HospitalFinancials');
+  console.log('✅ Granted DEFAULT_ADMIN_ROLE on HealthToken to HospitalFinancials');
 
-  // Deploy Counter (optional)
-  console.log('\n📝 Deploying Counter...');
-  const counter = await deploy('Counter', {
-    from: deployer,
-    args: [],
-    log: true,
-    waitConfirmations: 1,
-  });
-  console.log('✅ Counter deployed to:', counter.address);
 
   console.log('\n🎉 All contracts deployed and configured successfully!');
   console.log('\n📍 Contract Addresses:');
   console.log('AssetToken:', assetToken.address);
   console.log('HealthToken:', healthToken.address);
   console.log('HospitalFinancials:', hospitalFinancials.address);
-  console.log('Counter:', counter.address);
   
   console.log('\n💾 Deployment data saved to: deployments/localhost/');
 };
