@@ -35,21 +35,14 @@ async function main() {
   console.log("✅ HospitalFinancials deployed to:", hospitalAddress);
 
   // Grant minter roles
-  console.log("\n🔐 Granting MINTER_ROLE permissions...");
-  const minterRole = await assetToken.MINTER_ROLE();
+  console.log("\n🔐 Granting DEFAULT_ADMIN_ROLE permissions...");
+  const defaultAdminRole = await assetToken.DEFAULT_ADMIN_ROLE();
   
-  await assetToken.grantRole(minterRole, hospitalAddress);
-  console.log("✅ Granted MINTER_ROLE on AssetToken to HospitalFinancials");
+  await assetToken.grantRole(defaultAdminRole, hospitalAddress);
+  console.log("✅ Granted DEFAULT_ADMIN_ROLE on AssetToken to HospitalFinancials");
   
-  await healthToken.grantRole(minterRole, hospitalAddress);
-  console.log("✅ Granted MINTER_ROLE on HealthToken to HospitalFinancials");
-
-  // Deploy Counter (optional test contract)
-  console.log("\n📝 Deploying Counter...");
-  const Counter = await hre.ethers.getContractFactory("Counter");
-  const counter = await Counter.deploy();
-  await counter.waitForDeployment();
-  console.log("✅ Counter deployed to:", await counter.getAddress());
+  await healthToken.grantRole(defaultAdminRole, hospitalAddress);
+  console.log("✅ Granted DEFAULT_ADMIN_ROLE on HealthToken to HospitalFinancials");
 
   console.log("\n🎉 All contracts deployed successfully!");
   console.log("\n📋 Deployment Summary:");
@@ -57,7 +50,6 @@ async function main() {
   console.log("AssetToken:         ", assetTokenAddress);
   console.log("HealthToken:        ", healthTokenAddress);
   console.log("HospitalFinancials: ", hospitalAddress);
-  console.log("Counter:            ", await counter.getAddress());
 }
 
 main()

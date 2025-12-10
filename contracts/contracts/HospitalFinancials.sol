@@ -9,9 +9,6 @@ import "./AssetToken.sol";
 import "./HealthToken.sol";
 
 contract HospitalFinancials is AccessControl, ReentrancyGuard {
-    bytes32 public constant BANK_ROLE = keccak256("BANK_ROLE");
-    bytes32 public constant FINANCE_ROLE = keccak256("FINANCE_ROLE");
-
     AssetToken public assetToken;
     HealthToken public healthToken;
     address public hospitalWallet;
@@ -69,7 +66,6 @@ contract HospitalFinancials is AccessControl, ReentrancyGuard {
         hospitalWallet = _hospitalWallet;
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
-        _grantRole(FINANCE_ROLE, admin);
     }
 
     function mintAssetToken(
@@ -77,7 +73,7 @@ contract HospitalFinancials is AccessControl, ReentrancyGuard {
         uint256 depositId,
         uint256 amountAT,
         string calldata metadata
-    ) external onlyRole(BANK_ROLE) nonReentrant {
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) nonReentrant {
         require(!depositProcessed[depositId], "Already processed");
         require(amountAT > 0, "Zero AT amount");
 
@@ -93,7 +89,7 @@ contract HospitalFinancials is AccessControl, ReentrancyGuard {
 
     function recordTrade(uint256 investedAT, uint256 profit)
         external
-        onlyRole(FINANCE_ROLE)
+        onlyRole(DEFAULT_ADMIN_ROLE)
         returns (uint256)
     {
         require(investedAT > 0, "Invalid AT amount");
@@ -110,7 +106,7 @@ contract HospitalFinancials is AccessControl, ReentrancyGuard {
         uint256 tradeId,
         address[] calldata recipients,
         uint256[] calldata amountsHT
-    ) external onlyRole(FINANCE_ROLE) nonReentrant {
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) nonReentrant {
         require(trades[tradeId].timestamp > 0, "Invalid trade");
         require(recipients.length == amountsHT.length, "Length mismatch");
 
@@ -133,7 +129,7 @@ contract HospitalFinancials is AccessControl, ReentrancyGuard {
         address patient,
         uint256 amountHT,
         string calldata serviceType
-    ) external onlyRole(FINANCE_ROLE) {
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(amountHT > 0, "Invalid");
 
         healthToken.burn(patient, amountHT);
