@@ -1,42 +1,23 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Save, RefreshCw, Shield, Network, Bell, Database, Eye, Download, CheckCircle, AlertTriangle, Copy, ExternalLink, Zap, Lock, Users, Smartphone, Clock, Info, Mail } from 'lucide-react'
+import { Save, RefreshCw, Bell, Database, Eye, Download, CheckCircle, AlertTriangle, Smartphone, Clock, Mail, User } from 'lucide-react'
 
-interface HospitalSettings {
-  hospitalName: string
-  hospitalCode: string
-  contactEmail: string
-  contactPhone: string
-  maxDepositValue: number
-  minDepositValue: number
-  tokenizationFeePercent: number
-}
-
-interface KYCSettings {
-  provider: 'Manual' | 'Onfido' | 'Jumio' | 'Sumsub'
-  apiKey: string
-  autoApprove: boolean
-  requiredDocuments: string[]
-  verificationLevel: 'Basic' | 'Standard' | 'Enhanced'
-}
-
-interface BlockchainSettings {
-  network: 'Ethereum' | 'Polygon' | 'Base' | 'Arbitrum'
-  rpcUrl: string
-  contractAddress: string
-  gasLimit: number
-  confirmationsRequired: number
+interface StaffSettings {
+  staffName: string
+  staffId: string
+  email: string
+  phone: string
+  department: string
+  role: string
 }
 
 interface NotificationSettings {
@@ -58,30 +39,13 @@ interface AuditLog {
   status: 'success' | 'warning' | 'error'
 }
 
-const initialSettings: HospitalSettings = {
-  hospitalName: 'Liaquat National Hospital',
-  hospitalCode: 'LNH-001',
-  contactEmail: 'admin@lnh.com',
-  contactPhone: '+92 21 111 456 456',
-  maxDepositValue: 500000,
-  minDepositValue: 1000,
-  tokenizationFeePercent: 2.5,
-}
-
-const initialKYC: KYCSettings = {
-  provider: 'Onfido',
-  apiKey: 'sk_live_********************************',
-  autoApprove: false,
-  requiredDocuments: ['Government ID', 'Proof of Address', 'Selfie'],
-  verificationLevel: 'Standard'
-}
-
-const initialBlockchain: BlockchainSettings = {
-  network: 'Polygon',
-  rpcUrl: 'https://polygon-rpc.com',
-  contractAddress: '0x1234567890123456789012345678901234567890',
-  gasLimit: 300000,
-  confirmationsRequired: 12
+const initialStaffSettings: StaffSettings = {
+  staffName: 'Jane Staff',
+  staffId: 'STAFF-001',
+  email: 'staff@lnh.com',
+  phone: '+92 300 1234567',
+  department: 'Patient Services',
+  role: 'Hospital Staff'
 }
 
 const initialNotifications: NotificationSettings = {
@@ -97,32 +61,32 @@ const initialNotifications: NotificationSettings = {
 const mockAuditLogs: AuditLog[] = [
   {
     id: 'AUD-001',
-    timestamp: '2024-12-04 10:30',
-    user: 'admin@lnh.com',
-    action: 'Updated Blockchain Settings',
-    details: 'Changed network from Ethereum to Polygon',
+    timestamp: '2025-12-10 10:30',
+    user: 'staff@lnh.com',
+    action: 'Updated Profile Settings',
+    details: 'Changed contact information',
     status: 'success'
   },
   {
     id: 'AUD-002',
-    timestamp: '2024-12-04 09:15',
-    user: 'admin@lnh.com',
+    timestamp: '2025-12-10 09:15',
+    user: 'staff@lnh.com',
     action: 'Backup Created',
     details: 'Full system backup completed successfully',
     status: 'success'
   },
   {
     id: 'AUD-003',
-    timestamp: '2024-12-03 16:45',
-    user: 'admin@lnh.com',
-    action: 'KYC Settings Modified',
-    details: 'Updated verification level to Enhanced',
-    status: 'warning'
+    timestamp: '2025-12-09 16:45',
+    user: 'staff@lnh.com',
+    action: 'Notification Settings Modified',
+    details: 'Enabled SMS notifications',
+    status: 'success'
   },
   {
     id: 'AUD-004',
-    timestamp: '2024-12-03 14:20',
-    user: 'finance@lnh.com',
+    timestamp: '2025-12-09 14:20',
+    user: 'staff@lnh.com',
     action: 'Failed Backup Attempt',
     details: 'Insufficient storage space',
     status: 'error'
@@ -130,28 +94,15 @@ const mockAuditLogs: AuditLog[] = [
 ]
 
 export default function SettingsPage() {
-  const searchParams = useSearchParams()
-  const [settings, setSettings] = useState<HospitalSettings>(initialSettings)
-  const [kycSettings, setKycSettings] = useState<KYCSettings>(initialKYC)
-  const [blockchainSettings, setBlockchainSettings] = useState<BlockchainSettings>(initialBlockchain)
+  const [staffSettings, setStaffSettings] = useState<StaffSettings>(initialStaffSettings)
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(initialNotifications)
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(mockAuditLogs)
-  const [lastBackupTime, setLastBackupTime] = useState<string>('December 4, 2024 at 9:15 AM')
+  const [lastBackupTime, setLastBackupTime] = useState<string>('December 10, 2025 at 9:15 AM')
   const [isSaved, setIsSaved] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [selectedTab, setSelectedTab] = useState('general')
+  const [selectedTab, setSelectedTab] = useState('profile')
   const [showTestEmailDialog, setShowTestEmailDialog] = useState(false)
-  const [showNetworkTestDialog, setShowNetworkTestDialog] = useState(false)
   const [testEmail, setTestEmail] = useState('')
-  const [networkStatus, setNetworkStatus] = useState('connecting')
-
-  // Set tab from URL parameter
-  useEffect(() => {
-    const tabParam = searchParams.get('tab')
-    if (tabParam) {
-      setSelectedTab(tabParam)
-    }
-  }, [searchParams])
 
   const handleSave = async () => {
     setIsLoading(true)
@@ -165,7 +116,7 @@ export default function SettingsPage() {
     const newLog: AuditLog = {
       id: `AUD-${String(auditLogs.length + 1).padStart(3, '0')}`,
       timestamp: new Date().toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
-      user: 'admin@lnh.com',
+      user: staffSettings.email,
       action,
       details,
       status
@@ -216,26 +167,6 @@ export default function SettingsPage() {
     setTestEmail('')
   }
 
-  const handleTestNetwork = async () => {
-    setNetworkStatus('connecting')
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    setNetworkStatus('connected')
-  }
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-    alert('Copied to clipboard!')
-  }
-
-  const getStatusIcon = (status: string) => {
-    switch(status) {
-      case 'success': return <CheckCircle className="h-4 w-4 text-green-600" />
-      case 'warning': return <AlertTriangle className="h-4 w-4 text-yellow-600" />
-      case 'error': return <AlertTriangle className="h-4 w-4 text-red-600" />
-      default: return null
-    }
-  }
-
   const getStatusBadge = (status: string) => {
     switch(status) {
       case 'success': return <Badge className="bg-green-100 text-green-800">Success</Badge>
@@ -249,8 +180,8 @@ export default function SettingsPage() {
     <div className="container mx-auto p-8">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold">System Settings</h1>
-          <p className="text-gray-600 mt-1">Configure hospital system and integration settings</p>
+          <h1 className="text-3xl font-bold">Settings</h1>
+          <p className="text-gray-600 mt-1">Manage your profile and system preferences</p>
         </div>
       </div>
 
@@ -262,349 +193,91 @@ export default function SettingsPage() {
       )}
 
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="kyc">KYC Settings</TabsTrigger>
-          <TabsTrigger value="blockchain">Blockchain</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="profile">Profile Settings</TabsTrigger>
           <TabsTrigger value="backup">Backup & Audit</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
         </TabsList>
 
-        {/* General Settings */}
-        <TabsContent value="general" className="space-y-4">
+        {/* Profile Settings */}
+        <TabsContent value="profile" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Info className="h-5 w-5" />
-                Hospital Information
+                <User className="h-5 w-5" />
+                Hospital Staff Information
               </CardTitle>
-              <CardDescription>Basic hospital details and operational parameters</CardDescription>
+              <CardDescription>Manage your profile and contact details</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Hospital Name</label>
+                  <label className="text-sm font-medium mb-2 block">Full Name</label>
                   <Input
-                    value={settings.hospitalName}
-                    onChange={(e) => setSettings({...settings, hospitalName: e.target.value})}
-                    placeholder="Enter hospital name"
+                    value={staffSettings.staffName}
+                    onChange={(e) => setStaffSettings({...staffSettings, staffName: e.target.value})}
+                    placeholder="Enter your full name"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Official name of the hospital</p>
+                  <p className="text-xs text-gray-500 mt-1">Your full name as registered</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Hospital Code</label>
+                  <label className="text-sm font-medium mb-2 block">Staff ID</label>
                   <Input
-                    value={settings.hospitalCode}
-                    onChange={(e) => setSettings({...settings, hospitalCode: e.target.value})}
-                    placeholder="e.g., LNH-001"
+                    value={staffSettings.staffId}
+                    disabled
+                    className="bg-gray-50"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Unique identifier for the hospital</p>
+                  <p className="text-xs text-gray-500 mt-1">Unique staff identifier (read-only)</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Contact Email</label>
+                  <label className="text-sm font-medium mb-2 block">Email Address</label>
                   <Input
                     type="email"
-                    value={settings.contactEmail}
-                    onChange={(e) => setSettings({...settings, contactEmail: e.target.value})}
-                    placeholder="admin@hospital.com"
+                    value={staffSettings.email}
+                    onChange={(e) => setStaffSettings({...staffSettings, email: e.target.value})}
+                    placeholder="staff@lnh.com"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Primary contact email address</p>
+                  <p className="text-xs text-gray-500 mt-1">Primary email for notifications</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Contact Phone</label>
+                  <label className="text-sm font-medium mb-2 block">Phone Number</label>
                   <Input
-                    value={settings.contactPhone}
-                    onChange={(e) => setSettings({...settings, contactPhone: e.target.value})}
-                    placeholder="+92 21 111 456 456"
+                    value={staffSettings.phone}
+                    onChange={(e) => setStaffSettings({...staffSettings, phone: e.target.value})}
+                    placeholder="+92 300 1234567"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Primary contact phone number</p>
+                  <p className="text-xs text-gray-500 mt-1">Contact phone number</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Department</label>
+                  <Input
+                    value={staffSettings.department}
+                    disabled
+                    className="bg-gray-50"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Your department (read-only)</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Role</label>
+                  <Input
+                    value={staffSettings.role}
+                    disabled
+                    className="bg-gray-50"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Your system role (read-only)</p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Zap className="h-5 w-5" />
-                Operational Parameters
-              </CardTitle>
-              <CardDescription>Configure deposit limits, fees, and thresholds</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Max Deposit Value (PKR)</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-2.5 text-gray-600 font-medium">₨</span>
-                    <Input
-                      type="number"
-                      value={settings.maxDepositValue}
-                      onChange={(e) => setSettings({...settings, maxDepositValue: parseFloat(e.target.value)})}
-                      placeholder="500000"
-                      className="pl-9"
-                    />
+              <div className="pt-4 border-t">
+                <h4 className="font-medium mb-3">Profile Summary</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-blue-50 rounded-lg">
+                    <p className="text-xs text-blue-600 font-semibold">Staff ID</p>
+                    <p className="text-sm font-bold text-blue-900">{staffSettings.staffId}</p>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">Maximum allowed deposit amount</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Min Deposit Value (PKR)</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-2.5 text-gray-600 font-medium">₨</span>
-                    <Input
-                      type="number"
-                      value={settings.minDepositValue}
-                      onChange={(e) => setSettings({...settings, minDepositValue: parseFloat(e.target.value)})}
-                      placeholder="1000"
-                      className="pl-9"
-                    />
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">Minimum allowed deposit amount</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Tokenization Fee</label>
-                  <div className="relative">
-                    <Input
-                      type="number"
-                      step="0.1"
-                      value={settings.tokenizationFeePercent}
-                      onChange={(e) => setSettings({...settings, tokenizationFeePercent: parseFloat(e.target.value)})}
-                      placeholder="2.5"
-                    />
-                    <span className="absolute right-3 top-3 text-gray-500">%</span>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">Fee charged per tokenization</p>
-                </div>
-              </div>
-
-              {/* Summary Stats */}
-              <div className="mt-6 pt-4 border-t grid grid-cols-3 gap-4">
-                <div className="p-3 bg-blue-50 rounded-lg">
-                  <p className="text-xs text-blue-600 font-semibold">Deposit Range (PKR)</p>
-                  <p className="text-sm font-bold text-blue-900">₨{settings.minDepositValue.toLocaleString()} - ₨{settings.maxDepositValue.toLocaleString()}</p>
-                </div>
-                <div className="p-3 bg-green-50 rounded-lg">
-                  <p className="text-xs text-green-600 font-semibold">Fee Per Deposit</p>
-                  <p className="text-sm font-bold text-green-900">{settings.tokenizationFeePercent}%</p>
-                </div>
-                <div className="p-3 bg-purple-50 rounded-lg">
-                  <p className="text-xs text-purple-600 font-semibold">Max Fee Amount (PKR)</p>
-                  <p className="text-sm font-bold text-purple-900">₨{(settings.maxDepositValue * settings.tokenizationFeePercent / 100).toLocaleString()}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* KYC Settings */}
-        <TabsContent value="kyc" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5" />
-                KYC Provider Configuration
-              </CardTitle>
-              <CardDescription>Configure third-party KYC verification settings</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium mb-2 block">KYC Provider</label>
-                  <Select value={kycSettings.provider} onValueChange={(value: any) => setKycSettings({...kycSettings, provider: value})}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Manual">Manual Verification</SelectItem>
-                      <SelectItem value="Onfido">Onfido</SelectItem>
-                      <SelectItem value="Jumio">Jumio</SelectItem>
-                      <SelectItem value="Sumsub">Sumsub</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-gray-500 mt-1">Select which KYC provider to use</p>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Verification Level</label>
-                  <Select value={kycSettings.verificationLevel} onValueChange={(value: any) => setKycSettings({...kycSettings, verificationLevel: value})}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Basic">Basic (ID only)</SelectItem>
-                      <SelectItem value="Standard">Standard (ID + Address)</SelectItem>
-                      <SelectItem value="Enhanced">Enhanced (Full KYC)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-gray-500 mt-1">Strictness level of verification</p>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium mb-2 block flex items-center gap-2">
-                  <Lock className="h-4 w-4" />
-                  API Key
-                </label>
-                <div className="relative">
-                  <Input
-                    type="password"
-                    value={kycSettings.apiKey}
-                    onChange={(e) => setKycSettings({...kycSettings, apiKey: e.target.value})}
-                    placeholder="Enter API key"
-                  />
-                  <button
-                    onClick={() => copyToClipboard(kycSettings.apiKey)}
-                    className="absolute right-3 top-3 text-gray-500 hover:text-gray-700"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </button>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">API key for KYC provider authentication</p>
-              </div>
-
-              <div className="border-t pt-4">
-                <h4 className="font-medium mb-3 flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  Required Documents
-                </h4>
-                <div className="grid grid-cols-2 gap-3">
-                  {['Government ID', 'Proof of Address', 'Selfie', 'Bank Statement'].map(doc => (
-                    <div key={doc} className="flex items-center space-x-2 p-2 border rounded-lg hover:bg-gray-50">
-                      <Checkbox
-                        id={doc}
-                        checked={kycSettings.requiredDocuments.includes(doc)}
-                      />
-                      <label htmlFor={doc} className="text-sm font-medium cursor-pointer">{doc}</label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200 flex items-center gap-3">
-                <Checkbox
-                  id="autoApprove"
-                  checked={kycSettings.autoApprove}
-                  onCheckedChange={(checked) => setKycSettings({...kycSettings, autoApprove: checked as boolean})}
-                />
-                <div className="flex-1">
-                  <label htmlFor="autoApprove" className="text-sm font-medium block">Auto-approve Verified Patients</label>
-                  <p className="text-xs text-blue-600">Automatically approve patients who pass KYC verification</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Blockchain Settings */}
-        <TabsContent value="blockchain" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Network className="h-5 w-5" />
-                Blockchain Network Configuration
-              </CardTitle>
-              <CardDescription>Configure blockchain network and smart contract settings</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Network</label>
-                  <Select value={blockchainSettings.network} onValueChange={(value: any) => setBlockchainSettings({...blockchainSettings, network: value})}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Ethereum">Ethereum Mainnet</SelectItem>
-                      <SelectItem value="Polygon">Polygon (Recommended)</SelectItem>
-                      <SelectItem value="Base">Base</SelectItem>
-                      <SelectItem value="Arbitrum">Arbitrum</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-gray-500 mt-1">Select blockchain network</p>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Confirmations Required</label>
-                  <Input
-                    type="number"
-                    value={blockchainSettings.confirmationsRequired}
-                    onChange={(e) => setBlockchainSettings({...blockchainSettings, confirmationsRequired: parseInt(e.target.value)})}
-                    placeholder="12"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Number of block confirmations for finality</p>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium mb-2 block flex items-center gap-2">
-                  <ExternalLink className="h-4 w-4" />
-                  RPC URL
-                </label>
-                <div className="relative">
-                  <Input
-                    value={blockchainSettings.rpcUrl}
-                    onChange={(e) => setBlockchainSettings({...blockchainSettings, rpcUrl: e.target.value})}
-                    placeholder="https://..."
-                  />
-                  <button
-                    onClick={() => copyToClipboard(blockchainSettings.rpcUrl)}
-                    className="absolute right-3 top-3 text-gray-500 hover:text-gray-700"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </button>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">RPC endpoint for blockchain connection</p>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium mb-2 block flex items-center gap-2">
-                  <Lock className="h-4 w-4" />
-                  Contract Address
-                </label>
-                <div className="relative">
-                  <Input
-                    value={blockchainSettings.contractAddress}
-                    onChange={(e) => setBlockchainSettings({...blockchainSettings, contractAddress: e.target.value})}
-                    placeholder="0x..."
-                  />
-                  <button
-                    onClick={() => copyToClipboard(blockchainSettings.contractAddress)}
-                    className="absolute right-3 top-3 text-gray-500 hover:text-gray-700"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </button>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">Smart contract address for tokens</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Gas Limit</label>
-                  <Input
-                    type="number"
-                    value={blockchainSettings.gasLimit}
-                    onChange={(e) => setBlockchainSettings({...blockchainSettings, gasLimit: parseInt(e.target.value)})}
-                    placeholder="300000"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Maximum gas for transactions</p>
-                </div>
-              </div>
-
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={() => setShowNetworkTestDialog(true)}
-              >
-                <Zap className="h-4 w-4 mr-2" />
-                Test Network Connection
-              </Button>
-
-              <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                <div className="flex items-center gap-3">
-                  <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
-                  <div>
-                    <p className="text-sm text-green-900 font-medium">Network Status</p>
-                    <p className="text-xs text-green-700">Connected to {blockchainSettings.network}</p>
+                  <div className="p-3 bg-green-50 rounded-lg">
+                    <p className="text-xs text-green-600 font-semibold">Department</p>
+                    <p className="text-sm font-bold text-green-900">{staffSettings.department}</p>
                   </div>
                 </div>
               </div>
@@ -620,49 +293,47 @@ export default function SettingsPage() {
                 <Bell className="h-5 w-5" />
                 Notification Channels
               </CardTitle>
-              <CardDescription>Configure how you receive system notifications</CardDescription>
+              <CardDescription>Configure how you receive notifications</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
-                  <div className="flex items-center gap-3">
-                    <Bell className="h-5 w-5 text-blue-600" />
-                    <div>
-                      <p className="font-medium text-sm">Email Notifications</p>
-                      <p className="text-xs text-gray-500">Receive alerts via email</p>
-                    </div>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
+                <div className="flex items-center gap-3">
+                  <Bell className="h-5 w-5 text-blue-600" />
+                  <div>
+                    <p className="font-medium text-sm">Email Notifications</p>
+                    <p className="text-xs text-gray-500">Receive alerts via email</p>
                   </div>
-                  <Checkbox
-                    checked={notificationSettings.emailNotifications}
-                    onCheckedChange={(checked) => setNotificationSettings({...notificationSettings, emailNotifications: checked as boolean})}
-                  />
                 </div>
-                <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
-                  <div className="flex items-center gap-3">
-                    <Smartphone className="h-5 w-5 text-green-600" />
-                    <div>
-                      <p className="font-medium text-sm">SMS Notifications</p>
-                      <p className="text-xs text-gray-500">Receive alerts via SMS</p>
-                    </div>
+                <Checkbox
+                  checked={notificationSettings.emailNotifications}
+                  onCheckedChange={(checked) => setNotificationSettings({...notificationSettings, emailNotifications: checked as boolean})}
+                />
+              </div>
+              <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
+                <div className="flex items-center gap-3">
+                  <Smartphone className="h-5 w-5 text-green-600" />
+                  <div>
+                    <p className="font-medium text-sm">SMS Notifications</p>
+                    <p className="text-xs text-gray-500">Receive alerts via SMS</p>
                   </div>
-                  <Checkbox
-                    checked={notificationSettings.smsNotifications}
-                    onCheckedChange={(checked) => setNotificationSettings({...notificationSettings, smsNotifications: checked as boolean})}
-                  />
                 </div>
-                <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
-                  <div className="flex items-center gap-3">
-                    <Bell className="h-5 w-5 text-purple-600" />
-                    <div>
-                      <p className="font-medium text-sm">Push Notifications</p>
-                      <p className="text-xs text-gray-500">Receive browser push alerts</p>
-                    </div>
+                <Checkbox
+                  checked={notificationSettings.smsNotifications}
+                  onCheckedChange={(checked) => setNotificationSettings({...notificationSettings, smsNotifications: checked as boolean})}
+                />
+              </div>
+              <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
+                <div className="flex items-center gap-3">
+                  <Bell className="h-5 w-5 text-purple-600" />
+                  <div>
+                    <p className="font-medium text-sm">Push Notifications</p>
+                    <p className="text-xs text-gray-500">Receive browser push alerts</p>
                   </div>
-                  <Checkbox
-                    checked={notificationSettings.pushNotifications}
-                    onCheckedChange={(checked) => setNotificationSettings({...notificationSettings, pushNotifications: checked as boolean})}
-                  />
                 </div>
+                <Checkbox
+                  checked={notificationSettings.pushNotifications}
+                  onCheckedChange={(checked) => setNotificationSettings({...notificationSettings, pushNotifications: checked as boolean})}
+                />
               </div>
             </CardContent>
           </Card>
@@ -786,28 +457,30 @@ export default function SettingsPage() {
               <CardDescription>Recent system changes and administrative actions</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Timestamp</TableHead>
-                    <TableHead>User</TableHead>
-                    <TableHead>Action</TableHead>
-                    <TableHead>Details</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {auditLogs.map((log) => (
-                    <TableRow key={log.id}>
-                      <TableCell className="text-sm">{log.timestamp}</TableCell>
-                      <TableCell className="text-sm">{log.user}</TableCell>
-                      <TableCell className="font-medium">{log.action}</TableCell>
-                      <TableCell className="text-sm text-gray-600">{log.details}</TableCell>
-                      <TableCell>{getStatusBadge(log.status)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-3 font-medium">Timestamp</th>
+                      <th className="text-left p-3 font-medium">User</th>
+                      <th className="text-left p-3 font-medium">Action</th>
+                      <th className="text-left p-3 font-medium">Details</th>
+                      <th className="text-left p-3 font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {auditLogs.map((log) => (
+                      <tr key={log.id} className="border-b hover:bg-gray-50">
+                        <td className="p-3 text-sm">{log.timestamp}</td>
+                        <td className="p-3 text-sm">{log.user}</td>
+                        <td className="p-3 font-medium">{log.action}</td>
+                        <td className="p-3 text-sm text-gray-600">{log.details}</td>
+                        <td className="p-3">{getStatusBadge(log.status)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -845,42 +518,6 @@ export default function SettingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Network Test Dialog */}
-      <Dialog open={showNetworkTestDialog} onOpenChange={setShowNetworkTestDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Test Network Connection</DialogTitle>
-            <DialogDescription>Testing connection to {blockchainSettings.network}...</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-6">
-            {networkStatus === 'connecting' && (
-              <div className="text-center">
-                <div className="inline-block">
-                  <div className="h-8 w-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
-                </div>
-                <p className="text-sm text-gray-600 mt-3">Connecting to blockchain network...</p>
-              </div>
-            )}
-            {networkStatus === 'connected' && (
-              <div className="text-center">
-                <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-2" />
-                <p className="font-medium text-green-900">Connection Successful</p>
-                <p className="text-sm text-gray-600 mt-2">Successfully connected to {blockchainSettings.network}</p>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button onClick={() => {
-              setShowNetworkTestDialog(false)
-              setNetworkStatus('connecting')
-            }}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
-
   )
 }

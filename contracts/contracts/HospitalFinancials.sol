@@ -9,7 +9,7 @@ import "./AssetToken.sol";
 import "./HealthToken.sol";
 
 contract HospitalFinancials is AccessControl, ReentrancyGuard {
-    bytes32 public constant BANK_ROLE = keccak256("BANK_ROLE");
+    bytes32 public constant HOSPITAL_ROLE = keccak256("HOSPITAL_ROLE");
     bytes32 public constant FINANCE_ROLE = keccak256("FINANCE_ROLE");
 
     AssetToken public assetToken;

@@ -69,12 +69,8 @@ const patientNavItems: NavItem[] = [
 const hospitalNavItems: NavItem[] = [
   { name: 'Dashboard', href: '/hospital', icon: LayoutDashboard, roles: [UserRole.HOSPITAL_STAFF] },
   { name: 'Marketplace', href: '/hospital/marketplace', icon: ShoppingCart, roles: [UserRole.HOSPITAL_STAFF] },
-  { name: 'Approve Deposits', href: '/hospital/deposits', icon: CheckSquare, roles: [UserRole.HOSPITAL_STAFF] },
-  { name: 'Token Minting', href: '/hospital/minting', icon: Coins, roles: [UserRole.HOSPITAL_STAFF] },
-  { name: 'Trading Simulator', href: '/hospital/trading', icon: TrendingUp, roles: [UserRole.HOSPITAL_STAFF] },
-  { name: 'Profit Allocation', href: '/hospital/profit', icon: Gift, roles: [UserRole.HOSPITAL_STAFF] },
+  { name: 'Profit Distribution', href: '/hospital/profit', icon: Gift, roles: [UserRole.HOSPITAL_STAFF] },
   { name: 'Patient Profiles', href: '/hospital/patients', icon: Users, roles: [UserRole.HOSPITAL_STAFF] },
-  { name: 'Reports', href: '/hospital/reports', icon: FileText, roles: [UserRole.HOSPITAL_STAFF] },
   { name: 'Audit Trail', href: '/hospital/audit', icon: FileText, roles: [UserRole.HOSPITAL_STAFF] },
   { name: 'Settings', href: '/hospital/settings', icon: Settings, roles: [UserRole.HOSPITAL_STAFF] },
 ]

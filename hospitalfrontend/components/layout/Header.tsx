@@ -173,8 +173,10 @@ export const Header: React.FC = () => {
                     window.location.href = '/admin/settings?tab=general'
                   } else if (role === 'adminuser') {
                     window.location.href = '/hospitaladmin/settings?tab=general'
+                  } else if (role === 'hospital_staff') {
+                    window.location.href = '/hospital/settings?tab=profile'
                   } else {
-                    window.location.href = `/hospitaladmin/settings?tab=general`
+                    window.location.href = `/patient/settings?tab=profile`
                   }
                 }}
                 className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"

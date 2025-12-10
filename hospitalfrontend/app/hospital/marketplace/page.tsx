@@ -1,685 +1,981 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Building2, Home, Landmark, Factory, Store, TrendingUp, TrendingDown, Search, ArrowLeft, BarChart3, MapPin, Clock, Info, Eye, Activity, ShieldCheck, Edit2, Users, type LucideIcon } from 'lucide-react'
+import { ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { TrendingUp, TrendingDown, Search, Star, Eye, BarChart3, Sparkles, CheckCircle, XCircle, Edit } from 'lucide-react'
 
-interface MarketItem {
+// Investment types available for monitoring
+type InvestmentType = {
   id: string
   name: string
-  category: 'healthcare' | 'dental' | 'vision' | 'pharmacy' | 'wellness' | 'mental_health'
-  price: number
-  priceChange24h: number
+  symbol: string
+  icon: LucideIcon
+  currentPrice: number
+  change24h: number
   volume24h: number
+  marketCap: number
+  category: string
   description: string
-  provider: string
-  rating: number
-  reviews: number
-  trending?: boolean
-  new?: boolean
-  popular?: boolean
-  status: 'active' | 'pending' | 'paused'
-  totalSales: number
+  status: 'active' | 'pending' | 'suspended'
+  approvedBy?: string
+  approvedDate?: string
+  totalPatients: number
 }
 
-const mockMarketData: MarketItem[] = [
+// Trade data type for monitoring
+type Trade = {
+  id: string
+  timestamp: Date
+  type: 'BUY' | 'SELL'
+  investment: string
+  location: string
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+  liquidity: number
+  profitLoss: number
+  status: 'OPEN' | 'CLOSED'
+  patientId: string
+  patientName: string
+  notes: string
+}
+
+// Order book type
+type OrderBookItem = {
+  price: number
+  volume: number
+  total: number
+  type: 'BID' | 'ASK'
+}
+
+// Investment categories with real estate and financial instruments
+const INVESTMENT_TYPES: InvestmentType[] = [
   {
-    id: 'HC-001',
-    name: 'Premium Health Checkup',
-    category: 'healthcare',
-    price: 2500,
-    priceChange24h: 5.2,
-    volume24h: 125000,
-    description: 'Comprehensive health screening package',
-    provider: 'Liaquat National Hospital',
-    rating: 4.8,
-    reviews: 234,
-    trending: true,
-    popular: true,
+    id: 'commercial-real-estate',
+    name: 'Commercial Real Estate',
+    symbol: 'CRE',
+    icon: Building2,
+    currentPrice: 7850.25,
+    change24h: 2.45,
+    volume24h: 45000000,
+    marketCap: 2800000000,
+    category: 'Real Estate',
+    description: 'Office buildings, retail spaces, and commercial properties',
     status: 'active',
-    totalSales: 456
+    approvedBy: 'Admin Team',
+    approvedDate: '2024-01-15',
+    totalPatients: 234
   },
   {
-    id: 'DN-001',
-    name: 'Dental Cleaning & Whitening',
-    category: 'dental',
-    price: 1800,
-    priceChange24h: -2.3,
-    volume24h: 89000,
-    description: 'Professional dental care service',
-    provider: 'Smile Dental Clinic',
-    rating: 4.6,
-    reviews: 189,
-    new: true,
+    id: 'residential-property',
+    name: 'Residential Property',
+    symbol: 'RES',
+    icon: Home,
+    currentPrice: 4520.80,
+    change24h: -1.23,
+    volume24h: 32000000,
+    marketCap: 1950000000,
+    category: 'Real Estate',
+    description: 'Apartments, houses, and residential units',
     status: 'active',
-    totalSales: 312
+    approvedBy: 'Admin Team',
+    approvedDate: '2024-01-10',
+    totalPatients: 189
   },
   {
-    id: 'VS-001',
-    name: 'Eye Exam & Glasses',
-    category: 'vision',
-    price: 1200,
-    priceChange24h: 3.1,
-    volume24h: 67000,
-    description: 'Complete vision care package',
-    provider: 'Vision Care Center',
-    rating: 4.7,
-    reviews: 156,
-    popular: true,
+    id: 'government-bonds',
+    name: 'Government Bonds',
+    symbol: 'GOV',
+    icon: Landmark,
+    currentPrice: 1050.00,
+    change24h: 0.15,
+    volume24h: 85000000,
+    marketCap: 5600000000,
+    category: 'Bonds',
+    description: 'Federal and state government securities',
     status: 'active',
-    totalSales: 278
+    approvedBy: 'Admin Team',
+    approvedDate: '2024-01-05',
+    totalPatients: 567
   },
   {
-    id: 'PH-001',
-    name: 'Prescription Medications',
-    category: 'pharmacy',
-    price: 850,
-    priceChange24h: 1.5,
-    volume24h: 234000,
-    description: '30-day supply of common medications',
-    provider: 'MediCare Pharmacy',
-    rating: 4.9,
-    reviews: 567,
-    trending: true,
+    id: 'industrial-property',
+    name: 'Industrial Property',
+    symbol: 'IND',
+    icon: Factory,
+    currentPrice: 6320.50,
+    change24h: 3.82,
+    volume24h: 28000000,
+    marketCap: 1450000000,
+    category: 'Real Estate',
+    description: 'Warehouses, factories, and industrial facilities',
     status: 'active',
-    totalSales: 892
+    approvedBy: 'Admin Team',
+    approvedDate: '2024-01-20',
+    totalPatients: 156
   },
   {
-    id: 'WL-001',
-    name: 'Fitness & Nutrition Plan',
-    category: 'wellness',
-    price: 3200,
-    priceChange24h: 8.7,
-    volume24h: 45000,
-    description: '3-month personalized wellness program',
-    provider: 'WellnessHub',
-    rating: 4.5,
-    reviews: 98,
-    new: true,
+    id: 'retail-spaces',
+    name: 'Retail Spaces',
+    symbol: 'RET',
+    icon: Store,
+    currentPrice: 3890.30,
+    change24h: -2.10,
+    volume24h: 19000000,
+    marketCap: 980000000,
+    category: 'Real Estate',
+    description: 'Shopping centers, malls, and retail outlets',
+    status: 'active',
+    approvedBy: 'Admin Team',
+    approvedDate: '2024-01-12',
+    totalPatients: 98
+  },
+  {
+    id: 'corporate-bonds',
+    name: 'Corporate Bonds',
+    symbol: 'COR',
+    icon: Landmark,
+    currentPrice: 980.75,
+    change24h: 0.85,
+    volume24h: 62000000,
+    marketCap: 4200000000,
+    category: 'Bonds',
+    description: 'Investment-grade corporate debt securities',
     status: 'pending',
-    totalSales: 145
+    approvedBy: undefined,
+    approvedDate: undefined,
+    totalPatients: 0
   },
   {
-    id: 'MH-001',
-    name: 'Mental Health Counseling',
-    category: 'mental_health',
-    price: 1500,
-    priceChange24h: 4.2,
-    volume24h: 78000,
-    description: '5 therapy sessions with licensed counselor',
-    provider: 'MindCare Center',
-    rating: 4.9,
-    reviews: 432,
-    trending: true,
+    id: 'land-development',
+    name: 'Land Development',
+    symbol: 'LND',
+    icon: Building2,
+    currentPrice: 5640.90,
+    change24h: 4.25,
+    volume24h: 21000000,
+    marketCap: 1120000000,
+    category: 'Real Estate',
+    description: 'Undeveloped land and development projects',
     status: 'active',
-    totalSales: 623
+    approvedBy: 'Admin Team',
+    approvedDate: '2024-01-18',
+    totalPatients: 145
+  },
+  {
+    id: 'office-space',
+    name: 'Office Space',
+    symbol: 'OFC',
+    icon: Building2,
+    currentPrice: 6890.40,
+    change24h: 1.67,
+    volume24h: 35000000,
+    marketCap: 2100000000,
+    category: 'Real Estate',
+    description: 'Class A and B office buildings',
+    status: 'active',
+    approvedBy: 'Admin Team',
+    approvedDate: '2024-01-08',
+    totalPatients: 312
   }
 ]
 
+// Generate monitoring trades
+const generateMonitoringTrades = (investmentName: string, basePrice: number): Trade[] => {
+  const trades: Trade[] = []
+  const now = new Date()
+  const patientNames = ['Ahmed Khan', 'Fatima Ali', 'Hassan Raza', 'Ayesha Malik', 'Usman Sheikh']
+  
+  for (let i = 0; i < 50; i++) {
+    const timestamp = new Date(now.getTime() - (49 - i) * 2 * 60 * 60 * 1000)
+    const volatility = basePrice * 0.02
+    const open = basePrice + (Math.random() - 0.5) * volatility
+    const close = open + (Math.random() - 0.5) * volatility
+    const high = Math.max(open, close) + Math.random() * volatility * 0.5
+    const low = Math.min(open, close) - Math.random() * volatility * 0.5
+    const profitLoss = (close - open) * (Math.random() * 1000)
+    
+    trades.push({
+      id: `TRD-${Date.now()}-${i}`,
+      timestamp,
+      type: Math.random() > 0.5 ? 'BUY' : 'SELL',
+      investment: investmentName,
+      location: ['Lahore', 'Karachi', 'Islamabad', 'Rawalpindi', 'Faisalabad'][Math.floor(Math.random() * 5)],
+      open: open * 10,
+      high: high * 10,
+      low: low * 10,
+      close: close * 10,
+      volume: Math.floor(Math.random() * 1000000) + 100000,
+      liquidity: Math.floor(Math.random() * 10000000) + 1000000,
+      profitLoss: profitLoss * 10,
+      status: Math.random() > 0.3 ? 'OPEN' : 'CLOSED',
+      patientId: `PAT-${Math.floor(Math.random() * 1000)}`,
+      patientName: patientNames[Math.floor(Math.random() * patientNames.length)],
+      notes: ''
+    })
+  }
+  
+  return trades
+}
+
+// Generate order book
+const generateOrderBook = (basePrice: number) => {
+  const bids: OrderBookItem[] = []
+  const asks: OrderBookItem[] = []
+  const price = basePrice * 10
+  
+  for (let i = 0; i < 8; i++) {
+    const volume = Math.floor(Math.random() * 100) + 10
+    bids.push({
+      price: price - i * 100 - 50,
+      volume,
+      total: (price - i * 100) * volume,
+      type: 'BID'
+    })
+  }
+  
+  for (let i = 0; i < 8; i++) {
+    const volume = Math.floor(Math.random() * 100)
+    asks.push({
+      price: price + i * 100,
+      volume,
+      total: (price + i * 100) * volume,
+      type: 'ASK'
+    })
+  }
+  
+  return { bids, asks }
+}
+
+// Conversion rate: 1 AT = 10 PKR
+const AT_TO_PKR = 10
+const convertPKRtoAT = (pkr: number) => pkr / AT_TO_PKR
+
 export default function HospitalMarketplace() {
+  const [selectedInvestment, setSelectedInvestment] = useState<InvestmentType | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState('all')
-  const [sortBy, setSortBy] = useState('popular')
-  const [selectedItem, setSelectedItem] = useState<MarketItem | null>(null)
+  const [categoryFilter, setCategoryFilter] = useState<string>('All')
+  const [statusFilter, setStatusFilter] = useState<string>('All')
 
-  const categories = [
-    { value: 'all', label: 'All Services' },
-    { value: 'healthcare', label: 'Healthcare' },
-    { value: 'dental', label: 'Dental' },
-    { value: 'vision', label: 'Vision' },
-    { value: 'pharmacy', label: 'Pharmacy' },
-    { value: 'wellness', label: 'Wellness' },
-    { value: 'mental_health', label: 'Mental Health' }
-  ]
-
-  const filteredItems = mockMarketData.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         item.description.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory
-    return matchesSearch && matchesCategory
+  // Filter investments
+  const filteredInvestments = INVESTMENT_TYPES.filter(inv => {
+    const matchesSearch = inv.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         inv.symbol.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesCategory = categoryFilter === 'All' || inv.category === categoryFilter
+    const matchesStatus = statusFilter === 'All' || inv.status === statusFilter
+    return matchesSearch && matchesCategory && matchesStatus
   })
 
-  const sortedItems = [...filteredItems].sort((a, b) => {
-    switch (sortBy) {
-      case 'price_asc': return a.price - b.price
-      case 'price_desc': return b.price - a.price
-      case 'volume': return b.volume24h - a.volume24h
-      case 'sales': return b.totalSales - a.totalSales
-      case 'gainers': return b.priceChange24h - a.priceChange24h
-      default: return (b.rating * b.reviews) - (a.rating * a.reviews)
-    }
-  })
+  // Get unique categories
+  const categories = ['All', ...Array.from(new Set(INVESTMENT_TYPES.map(inv => inv.category)))]
+  const statuses = ['All', 'active', 'pending', 'suspended']
 
-  const trendingItems = mockMarketData.filter(item => item.trending).slice(0, 3)
-  const newItems = mockMarketData.filter(item => item.new).slice(0, 3)
-  const topGainers = [...mockMarketData].sort((a, b) => b.priceChange24h - a.priceChange24h).slice(0, 3)
-  const activeCount = mockMarketData.filter(item => item.status === 'active').length
-  const pendingCount = mockMarketData.filter(item => item.status === 'pending').length
-  const totalVolume = mockMarketData.reduce((sum, item) => sum + item.volume24h, 0)
+  // Calculate summary stats
+  const activeCount = INVESTMENT_TYPES.filter(inv => inv.status === 'active').length
+  const pendingCount = INVESTMENT_TYPES.filter(inv => inv.status === 'pending').length
+  const totalVolume = INVESTMENT_TYPES.reduce((sum, inv) => sum + inv.volume24h, 0)
+  const totalPatients = INVESTMENT_TYPES.reduce((sum, inv) => sum + inv.totalPatients, 0)
+
+  if (!selectedInvestment) {
+    // INVESTMENT MONITORING VIEW
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">Investment Marketplace - Hospital View</h1>
+            <p className="text-slate-600 mt-1">Monitor patient investments and market activity</p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline">
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Analytics
+            </Button>
+            <Button variant="outline">
+              <ShieldCheck className="h-4 w-4 mr-2" />
+              Audit Log
+            </Button>
+          </div>
+        </div>
+
+        {/* Summary Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-600">Active Investments</p>
+                  <p className="text-2xl font-bold text-slate-900">{activeCount}</p>
+                  <p className="text-xs text-slate-500 mt-1">Approved & Trading</p>
+                </div>
+                <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center">
+                  <TrendingUp className="h-6 w-6 text-emerald-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-600">Pending Approval</p>
+                  <p className="text-2xl font-bold text-slate-900">{pendingCount}</p>
+                  <p className="text-xs text-slate-500 mt-1">Awaiting Review</p>
+                </div>
+                <div className="h-12 w-12 rounded-full bg-orange-100 flex items-center justify-center">
+                  <Clock className="h-6 w-6 text-orange-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-600">Total Volume (24h)</p>
+                  <p className="text-2xl font-bold text-slate-900">₨{(totalVolume / 1000000000).toFixed(2)}B</p>
+                  <p className="text-xs text-slate-500 mt-1">Across All Markets</p>
+                </div>
+                <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
+                  <BarChart3 className="h-6 w-6 text-blue-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-600">Total Patients</p>
+                  <p className="text-2xl font-bold text-slate-900">{totalPatients}</p>
+                  <p className="text-xs text-slate-500 mt-1">Active Investors</p>
+                </div>
+                <div className="h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center">
+                  <Users className="h-6 w-6 text-purple-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Search and Filters */}
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="Search investments..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <div className="flex gap-2 overflow-x-auto">
+            {categories.map((category) => (
+              <Button
+                key={category}
+                variant={categoryFilter === category ? "default" : "outline"}
+                size="sm"
+                onClick={() => setCategoryFilter(category)}
+                className="whitespace-nowrap"
+              >
+                {category}
+              </Button>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            {statuses.map((status) => (
+              <Button
+                key={status}
+                variant={statusFilter === status ? "default" : "outline"}
+                size="sm"
+                onClick={() => setStatusFilter(status)}
+                className="whitespace-nowrap capitalize"
+              >
+                {status}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        {/* Investment Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filteredInvestments.map((investment) => {
+            const Icon = investment.icon
+            const isPositive = investment.change24h >= 0
+            
+            return (
+              <Card
+                key={investment.id}
+                className="hover:shadow-lg transition-shadow cursor-pointer hover:border-blue-300"
+                onClick={() => setSelectedInvestment(investment)}
+              >
+                <CardContent className="pt-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                        <Icon className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-slate-900">{investment.symbol}</h3>
+                        <p className="text-xs text-slate-500">{investment.category}</p>
+                      </div>
+                    </div>
+                    <Badge 
+                      variant={
+                        investment.status === 'active' ? 'default' : 
+                        investment.status === 'pending' ? 'secondary' : 
+                        'destructive'
+                      }
+                    >
+                      {investment.status}
+                    </Badge>
+                  </div>
+
+                  <p className="text-sm text-slate-600 mb-4 line-clamp-2">{investment.name}</p>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-600">Price:</span>
+                      <span className="font-semibold">{investment.currentPrice.toLocaleString()} AT</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-600">24h Change:</span>
+                      <span className={`font-medium flex items-center gap-1 ${isPositive ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                        {isPositive ? '+' : ''}{investment.change24h.toFixed(2)}%
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-600">Patients:</span>
+                      <span className="font-medium">{investment.totalPatients}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-600">Volume (24h):</span>
+                      <span className="font-medium">₨{(investment.volume24h / 1000000).toFixed(1)}M</span>
+                    </div>
+                  </div>
+
+                  <Button className="w-full mt-4 bg-blue-600 hover:bg-blue-700">
+                    <Eye className="h-4 w-4 mr-2" />
+                    Monitor Activity
+                  </Button>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+
+        {filteredInvestments.length === 0 && (
+          <div className="text-center py-12">
+            <Info className="h-12 w-12 mx-auto mb-4 text-slate-400" />
+            <p className="text-slate-600">No investments found matching your criteria</p>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // MONITORING DASHBOARD VIEW
+  return <MonitoringDashboard investment={selectedInvestment} onBack={() => setSelectedInvestment(null)} />
+}
+
+// Monitoring Dashboard Component
+function MonitoringDashboard({ investment, onBack }: { investment: InvestmentType; onBack: () => void }) {
+  const [trades] = useState<Trade[]>(generateMonitoringTrades(investment.name, investment.currentPrice))
+  const [orderBook] = useState(generateOrderBook(investment.currentPrice))
+  
+  // Chart data type
+  interface ChartDataPoint {
+    time: string
+    open: number
+    high: number
+    low: number
+    close: number
+    volume: number
+    liquidity: number
+    profitLoss: number
+    fullData: Trade
+  }
+  
+  const [hoveredCandle, setHoveredCandle] = useState<ChartDataPoint | null>(null)
+  
+  // Calculate market stats
+  const latestTrade = trades[trades.length - 1]
+  const previousTrade = trades[trades.length - 2]
+  const priceChange = latestTrade && previousTrade ? latestTrade.close - previousTrade.close : 0
+  const priceChangePercent = previousTrade ? (priceChange / previousTrade.close) * 100 : 0
+  const totalVolume = trades.reduce((sum, t) => sum + t.volume, 0)
+  const avgLiquidity = trades.reduce((sum, t) => sum + t.liquidity, 0) / trades.length
+  const totalProfitLoss = trades.reduce((sum, t) => sum + t.profitLoss, 0)
+  const openTrades = trades.filter(t => t.status === 'OPEN').length
+
+  // Format chart data
+  const chartData = trades.map(trade => ({
+    time: trade.timestamp.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+    open: trade.open,
+    high: trade.high,
+    low: trade.low,
+    close: trade.close,
+    volume: trade.volume,
+    liquidity: trade.liquidity,
+    profitLoss: trade.profitLoss,
+    fullData: trade
+  }))
+
+  // Custom candlestick rendering
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const CustomCandlestick = (props: Record<string, unknown>) => {
+    const { x, y, width, height, payload } = props as any
+    const trade = (payload as any)?.fullData as Trade
+    
+    if (!trade) return null
+    
+    const isGreen = trade.close >= trade.open
+    const bodyHeight = Math.abs(y - height)
+    const wickTop = Math.min(y, height)
+    
+    const chartDataPoint = chartData.find(d => d.fullData.id === trade.id)
+    
+    return (
+      <g
+        onMouseEnter={() => chartDataPoint && setHoveredCandle(chartDataPoint)}
+        onMouseLeave={() => setHoveredCandle(null)}
+        style={{ cursor: 'pointer' }}
+      >
+        <line
+          x1={x + width / 2}
+          y1={wickTop}
+          x2={x + width / 2}
+          y2={wickTop + bodyHeight}
+          stroke={isGreen ? '#10b981' : '#ef4444'}
+          strokeWidth={1}
+        />
+        <rect
+          x={x + width * 0.25}
+          y={Math.min(y, height)}
+          width={width * 0.5}
+          height={bodyHeight || 1}
+          fill={isGreen ? '#10b981' : '#ef4444'}
+          stroke={isGreen ? '#059669' : '#dc2626'}
+          strokeWidth={1}
+          opacity={hoveredCandle?.fullData.id === trade.id ? 1 : 0.8}
+        />
+      </g>
+    )
+  }
+
+  const Icon = investment.icon
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Marketplace Management</h1>
-          <p className="text-muted-foreground mt-1">Monitor and manage health benefit listings</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline">
-            <BarChart3 className="w-4 h-4 mr-2" />
-            Analytics
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="sm" onClick={onBack}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
           </Button>
-          <Button>
-            <Edit className="w-4 h-4 mr-2" />
-            Add New Listing
+          <div className="flex items-center gap-3">
+            <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
+              <Icon className="h-6 w-6 text-blue-600" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-slate-900">{investment.symbol} - Monitoring Dashboard</h1>
+              <p className="text-slate-600">{investment.name}</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm">
+            <Edit2 className="h-4 w-4 mr-2" />
+            Manage
+          </Button>
+          <Button variant="outline" size="sm">
+            <ShieldCheck className="h-4 w-4 mr-2" />
+            Audit Trail
           </Button>
         </div>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Market Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Active Listings</p>
-                <p className="text-2xl font-bold text-foreground mt-1">{activeCount}</p>
+                <p className="text-sm text-slate-600">Current Price</p>
+                <p className="text-2xl font-bold text-slate-900">
+                  {latestTrade?.close ? convertPKRtoAT(latestTrade.close).toLocaleString(undefined, {maximumFractionDigits: 2}) : '0'} AT
+                </p>
+                <div className="flex items-center gap-1 mt-1">
+                  {priceChange >= 0 ? (
+                    <TrendingUp className="h-4 w-4 text-emerald-600" />
+                  ) : (
+                    <TrendingDown className="h-4 w-4 text-red-600" />
+                  )}
+                  <span className={`text-sm font-medium ${priceChange >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {priceChangePercent.toFixed(2)}%
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">1 AT = {AT_TO_PKR} PKR</p>
               </div>
-              <CheckCircle className="w-8 h-8 text-green-500" />
+              <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center">
+                <TrendingUp className="h-6 w-6 text-emerald-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Pending Review</p>
-                <p className="text-2xl font-bold text-foreground mt-1">{pendingCount}</p>
+                <p className="text-sm text-slate-600">Total Volume</p>
+                <p className="text-2xl font-bold text-slate-900">
+                  {(totalVolume / 1000000).toFixed(2)}M
+                </p>
+                <p className="text-xs text-slate-500 mt-1">{trades.length} trades monitored</p>
               </div>
-              <XCircle className="w-8 h-8 text-orange-500" />
+              <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
+                <BarChart3 className="h-6 w-6 text-blue-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">24h Volume</p>
-                <p className="text-2xl font-bold text-foreground mt-1">{(totalVolume / 1000).toFixed(0)}K HT</p>
+                <p className="text-sm text-slate-600">Active Patients</p>
+                <p className="text-2xl font-bold text-slate-900">
+                  {investment.totalPatients}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">{openTrades} open positions</p>
               </div>
-              <TrendingUp className="w-8 h-8 text-blue-500" />
+              <div className="h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center">
+                <Users className="h-6 w-6 text-purple-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Trending</p>
-                <div className="flex items-center gap-2 mt-1">
-                  {trendingItems.map(item => (
-                    <Badge key={item.id} variant="outline" className="text-xs">
-                      {item.name.split(' ')[0]}
-                    </Badge>
-                  ))}
+                <p className="text-sm text-slate-600">Total P&L</p>
+                <p className={`text-2xl font-bold ${totalProfitLoss >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                  {totalProfitLoss >= 0 ? '+' : ''}{convertPKRtoAT(totalProfitLoss / 1000).toFixed(0)}K AT
+                </p>
+                <p className="text-xs text-slate-500 mt-1">Patient Portfolio</p>
+              </div>
+              <div className={`h-12 w-12 rounded-full flex items-center justify-center ${totalProfitLoss >= 0 ? 'bg-emerald-100' : 'bg-red-100'}`}>
+                <Activity className={`h-6 w-6 ${totalProfitLoss >= 0 ? 'text-emerald-600' : 'text-red-600'}`} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Candlestick Chart */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                Price Chart - {investment.symbol}
+              </CardTitle>
+              <CardDescription>Market activity and price movements</CardDescription>
+            </div>
+            <div className="flex gap-2">
+              {['1H', '4H', '1D', '1W', '1M'].map((timeRange) => (
+                <Button
+                  key={timeRange}
+                  variant="outline"
+                  size="sm"
+                  className={timeRange === '1D' ? 'border-blue-200 bg-blue-50 text-blue-600' : ''}
+                >
+                  {timeRange}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {hoveredCandle && (
+            <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <p className="text-slate-600">Time</p>
+                  <p className="font-semibold text-slate-900">{hoveredCandle.time}</p>
+                </div>
+                <div>
+                  <p className="text-slate-600">Open</p>
+                  <p className="font-semibold text-slate-900">{convertPKRtoAT(hoveredCandle.open).toFixed(2)} AT</p>
+                </div>
+                <div>
+                  <p className="text-slate-600">High</p>
+                  <p className="font-semibold text-slate-900">{convertPKRtoAT(hoveredCandle.high).toFixed(2)} AT</p>
+                </div>
+                <div>
+                  <p className="text-slate-600">Low</p>
+                  <p className="font-semibold text-slate-900">{convertPKRtoAT(hoveredCandle.low).toFixed(2)} AT</p>
+                </div>
+                <div>
+                  <p className="text-slate-600">Close</p>
+                  <p className="font-semibold text-slate-900">{convertPKRtoAT(hoveredCandle.close).toFixed(2)} AT</p>
+                </div>
+                <div>
+                  <p className="text-slate-600">Volume</p>
+                  <p className="font-semibold text-slate-900">{(hoveredCandle.volume / 1000).toFixed(0)}K</p>
+                </div>
+                <div>
+                  <p className="text-slate-600">Patient</p>
+                  <p className="font-semibold text-slate-900">{hoveredCandle.fullData.patientName}</p>
+                </div>
+                <div>
+                  <p className="text-slate-600">P&L</p>
+                  <p className={`font-semibold ${hoveredCandle.profitLoss >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {hoveredCandle.profitLoss >= 0 ? '+' : ''}{convertPKRtoAT(hoveredCandle.profitLoss).toFixed(2)} AT
+                  </p>
                 </div>
               </div>
-              <Sparkles className="w-8 h-8 text-yellow-500" />
             </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters and Search */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search services..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
+          )}
+          <ResponsiveContainer width="100%" height={500}>
+            <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis 
+                dataKey="time" 
+                stroke="#64748b"
+                style={{ fontSize: '12px' }}
               />
-            </div>
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-full md:w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map(cat => (
-                  <SelectItem key={cat.value} value={cat.value}>
-                    {cat.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-full md:w-48">
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="popular">Popular</SelectItem>
-                <SelectItem value="sales">Total Sales</SelectItem>
-                <SelectItem value="price_asc">Price: Low to High</SelectItem>
-                <SelectItem value="price_desc">Price: High to Low</SelectItem>
-                <SelectItem value="volume">24h Volume</SelectItem>
-                <SelectItem value="gainers">Top Gainers</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+              <YAxis 
+                yAxisId="price"
+                stroke="#64748b"
+                style={{ fontSize: '12px' }}
+              />
+              <YAxis 
+                yAxisId="volume"
+                orientation="right"
+                stroke="#cbd5e1"
+                style={{ fontSize: '12px' }}
+              />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend wrapperStyle={{ fontSize: '12px' }} />
+              <Bar 
+                yAxisId="volume"
+                dataKey="volume" 
+                fill="#94a3b8"
+                opacity={0.3}
+                radius={0}
+                isAnimationActive={false}
+                name="Volume"
+              />
+              <Bar 
+                yAxisId="price"
+                dataKey="high" 
+            
+                shape={<CustomCandlestick />}
+                isAnimationActive={false}
+                name="Price"
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
         </CardContent>
       </Card>
 
-      {/* Marketplace Tabs */}
-      <Tabs defaultValue="all" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="all">All Listings</TabsTrigger>
-          <TabsTrigger value="active">Active ({activeCount})</TabsTrigger>
-          <TabsTrigger value="pending">Pending ({pendingCount})</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="all" className="mt-6">
-          <div className="space-y-3">
-            {sortedItems.map(item => (
-              <Card key={item.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4 flex-1">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-foreground">{item.name}</h3>
-                          {item.trending && <Badge variant="outline" className="text-xs bg-yellow-50">Trending</Badge>}
-                          {item.new && <Badge variant="outline" className="text-xs bg-blue-50">New</Badge>}
-                          {item.popular && <Badge variant="outline" className="text-xs bg-green-50">Popular</Badge>}
-                          <Badge 
-                            variant="outline" 
-                            className={`text-xs ${
-                              item.status === 'active' ? 'bg-green-50 text-green-700' : 
-                              item.status === 'pending' ? 'bg-orange-50 text-orange-700' : 
-                              'bg-gray-50 text-gray-700'
-                            }`}
-                          >
-                            {item.status}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
-                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                          <span>{item.provider}</span>
-                          <span className="flex items-center gap-1">
-                            <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                            {item.rating} ({item.reviews})
-                          </span>
-                          <Badge variant="outline" className="text-xs">{item.category.replace('_', ' ')}</Badge>
-                          <span>Sales: {item.totalSales}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-6">
-                      <div className="text-right">
-                        <p className="font-bold text-lg text-foreground">{item.price.toLocaleString()} HT</p>
-                        <div className={`flex items-center gap-1 text-sm ${item.priceChange24h >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {item.priceChange24h >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                          {item.priceChange24h >= 0 ? '+' : ''}{item.priceChange24h.toFixed(2)}%
-                        </div>
-                      </div>
-
-                      <div className="text-right">
-                        <p className="text-sm text-muted-foreground">24h Volume</p>
-                        <p className="font-semibold text-foreground">{(item.volume24h / 1000).toFixed(0)}K HT</p>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setSelectedItem(item)}
-                        >
-                          <Eye className="w-4 h-4 mr-1" />
-                          View Details
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                        >
-                          <Edit className="w-4 h-4 mr-1" />
-                          Edit
-                        </Button>
-                        {item.status === 'pending' && (
-                          <Button size="sm" className="bg-green-600 hover:bg-green-700">
-                            Approve
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="active" className="mt-6">
-          <div className="space-y-3">
-            {sortedItems.filter(item => item.status === 'active').map(item => (
-              <Card key={item.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4 flex-1">
-                      <CheckCircle className="w-5 h-5 text-green-500" />
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-foreground">{item.name}</h3>
-                        <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
-                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                          <span>Sales: {item.totalSales}</span>
-                          <span>Volume: {(item.volume24h / 1000).toFixed(0)}K HT</span>
-                          <span className="flex items-center gap-1">
-                            <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                            {item.rating}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <p className="font-bold text-foreground">{item.price.toLocaleString()} HT</p>
-                        <p className={`text-sm ${item.priceChange24h >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {item.priceChange24h >= 0 ? '+' : ''}{item.priceChange24h.toFixed(2)}%
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setSelectedItem(item)}>
-                          <Eye className="w-4 h-4 mr-1" />
-                          View
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          <Edit className="w-4 h-4 mr-1" />
-                          Edit
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="pending" className="mt-6">
-          {pendingCount === 0 ? (
-            <Card>
-              <CardContent className="p-12 text-center">
-                <CheckCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-muted-foreground">No pending listings. All services are approved!</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-3">
-              {sortedItems.filter(item => item.status === 'pending').map(item => (
-                <Card key={item.id} className="border-orange-200">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4 flex-1">
-                        <XCircle className="w-5 h-5 text-orange-500" />
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-foreground">{item.name}</h3>
-                          <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
-                          <Badge className="mt-2 bg-orange-100 text-orange-800">Awaiting Approval</Badge>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <p className="font-bold text-foreground">{item.price.toLocaleString()} HT</p>
-                          <p className="text-sm text-muted-foreground">{item.provider}</p>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm" onClick={() => setSelectedItem(item)}>
-                            <Eye className="w-4 h-4 mr-1" />
-                            Review
-                          </Button>
-                          <Button size="sm" className="bg-green-600 hover:bg-green-700">
-                            Approve
-                          </Button>
-                          <Button variant="outline" size="sm" className="text-red-600 border-red-600">
-                            Reject
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="analytics" className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Top Performing Services</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {[...mockMarketData].sort((a, b) => b.totalSales - a.totalSales).slice(0, 5).map((item, index) => (
-                    <div key={item.id} className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center font-semibold text-blue-700">
-                          {index + 1}
-                        </div>
-                        <div>
-                          <p className="font-medium text-sm">{item.name}</p>
-                          <p className="text-xs text-muted-foreground">{item.category.replace('_', ' ')}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold">{item.totalSales}</p>
-                        <p className="text-xs text-muted-foreground">sales</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Category Distribution</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {categories.slice(1).map(cat => {
-                    const count = mockMarketData.filter(item => item.category === cat.value).length
-                    const percentage = (count / mockMarketData.length) * 100
-                    return (
-                      <div key={cat.value}>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-medium">{cat.label}</span>
-                          <span className="text-sm text-muted-foreground">{count} listings</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-blue-600 h-2 rounded-full" 
-                            style={{ width: `${percentage}%` }}
-                          />
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Revenue by Category</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {categories.slice(1).map(cat => {
-                    const revenue = mockMarketData
-                      .filter(item => item.category === cat.value)
-                      .reduce((sum, item) => sum + (item.price * item.totalSales), 0)
-                    return (
-                      <div key={cat.value} className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                        <span className="font-medium">{cat.label}</span>
-                        <span className="font-bold text-green-600">{(revenue / 1000).toFixed(1)}K HT</span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Top Rated Services</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {[...mockMarketData].sort((a, b) => b.rating - a.rating).slice(0, 5).map(item => (
-                    <div key={item.id} className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-sm">{item.name}</p>
-                        <p className="text-xs text-muted-foreground">{item.reviews} reviews</p>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                        <span className="font-semibold">{item.rating}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
-
-      {/* Details Dialog */}
-      <Dialog open={!!selectedItem} onOpenChange={() => setSelectedItem(null)}>
-        <DialogContent className="max-w-2xl">
-          {selectedItem && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="text-2xl">{selectedItem.name}</DialogTitle>
-                <DialogDescription>{selectedItem.provider}</DialogDescription>
-              </DialogHeader>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Order Book */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Order Book</CardTitle>
+            <CardDescription>Live bid and ask prices</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="all">
+              <TabsList className="grid w-full grid-cols-3 mb-4">
+                <TabsTrigger value="bids" className="text-xs">Bids</TabsTrigger>
+                <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
+                <TabsTrigger value="asks" className="text-xs">Asks</TabsTrigger>
+              </TabsList>
               
-              <div className="space-y-6">
-                {/* Status and Price */}
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="text-3xl font-bold text-foreground">{selectedItem.price.toLocaleString()} HT</p>
-                    <div className={`flex items-center gap-1 text-sm mt-1 ${selectedItem.priceChange24h >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {selectedItem.priceChange24h >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                      {selectedItem.priceChange24h >= 0 ? '+' : ''}{selectedItem.priceChange24h.toFixed(2)}% (24h)
+              <TabsContent value="all" className="space-y-2">
+                <div className="space-y-1">
+                  {orderBook.asks.slice().reverse().map((ask, idx) => (
+                    <div key={`ask-${idx}`} className="flex justify-between items-center text-xs py-1 px-2 rounded hover:bg-red-50">
+                      <span className="text-red-600 font-medium">{convertPKRtoAT(ask.price).toFixed(2)} AT</span>
+                      <span className="text-slate-600">{ask.volume}</span>
+                      <span className="text-slate-500">{(ask.total / 1000).toFixed(0)}K</span>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <Badge 
-                      className={`text-sm ${
-                        selectedItem.status === 'active' ? 'bg-green-100 text-green-800' : 
-                        selectedItem.status === 'pending' ? 'bg-orange-100 text-orange-800' : 
-                        'bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      {selectedItem.status}
-                    </Badge>
-                    <div className="flex items-center gap-1 mt-2">
-                      <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
-                      <span className="text-2xl font-bold">{selectedItem.rating}</span>
-                      <span className="text-sm text-muted-foreground ml-1">({selectedItem.reviews})</span>
+                  ))}
+                </div>
+                
+                <div className="py-2 px-2 bg-slate-100 rounded text-center">
+                  <span className="text-xs font-semibold text-slate-700">
+                    Spread: {convertPKRtoAT(orderBook.asks[0].price - orderBook.bids[0].price).toFixed(2)} AT
+                  </span>
+                </div>
+                
+                <div className="space-y-1">
+                  {orderBook.bids.map((bid, idx) => (
+                    <div key={`bid-${idx}`} className="flex justify-between items-center text-xs py-1 px-2 rounded hover:bg-emerald-50">
+                      <span className="text-emerald-600 font-medium">{convertPKRtoAT(bid.price).toFixed(2)} AT</span>
+                      <span className="text-slate-600">{bid.volume}</span>
+                      <span className="text-slate-500">{(bid.total / 1000).toFixed(0)}K</span>
                     </div>
-                  </div>
+                  ))}
                 </div>
-
-                {/* Description */}
-                <div>
-                  <h3 className="font-semibold mb-2">Description</h3>
-                  <p className="text-muted-foreground">{selectedItem.description}</p>
+              </TabsContent>
+              
+              <TabsContent value="bids">
+                <div className="space-y-1">
+                  {orderBook.bids.map((bid, idx) => (
+                    <div key={`bid-${idx}`} className="flex justify-between items-center text-xs py-1 px-2 rounded hover:bg-emerald-50">
+                      <span className="text-emerald-600 font-medium">{convertPKRtoAT(bid.price).toFixed(2)} AT</span>
+                      <span className="text-slate-600">{bid.volume}</span>
+                      <span className="text-slate-500">{(bid.total / 1000).toFixed(0)}K</span>
+                    </div>
+                  ))}
                 </div>
-
-                {/* Performance Metrics */}
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="p-4 bg-blue-50 rounded-lg">
-                    <p className="text-sm text-muted-foreground">Total Sales</p>
-                    <p className="text-2xl font-bold text-foreground">{selectedItem.totalSales}</p>
-                  </div>
-                  <div className="p-4 bg-green-50 rounded-lg">
-                    <p className="text-sm text-muted-foreground">24h Volume</p>
-                    <p className="text-2xl font-bold text-foreground">{(selectedItem.volume24h / 1000).toFixed(0)}K</p>
-                  </div>
-                  <div className="p-4 bg-purple-50 rounded-lg">
-                    <p className="text-sm text-muted-foreground">Revenue</p>
-                    <p className="text-2xl font-bold text-foreground">{((selectedItem.price * selectedItem.totalSales) / 1000).toFixed(0)}K</p>
-                  </div>
+              </TabsContent>
+              
+              <TabsContent value="asks">
+                <div className="space-y-1">
+                  {orderBook.asks.map((ask, idx) => (
+                    <div key={`ask-${idx}`} className="flex justify-between items-center text-xs py-1 px-2 rounded hover:bg-red-50">
+                      <span className="text-red-600 font-medium">{convertPKRtoAT(ask.price).toFixed(2)} AT</span>
+                      <span className="text-slate-600">{ask.volume}</span>
+                      <span className="text-slate-500">{(ask.total / 1000).toFixed(0)}K</span>
+                    </div>
+                  ))}
                 </div>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
 
-                {/* Details */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <h3 className="font-semibold mb-2">Category</h3>
-                    <Badge variant="outline">{selectedItem.category.replace('_', ' ')}</Badge>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold mb-2">Provider</h3>
-                    <p className="text-muted-foreground">{selectedItem.provider}</p>
-                  </div>
-                </div>
-
-                {/* Tags */}
-                <div>
-                  <h3 className="font-semibold mb-2">Tags</h3>
-                  <div className="flex gap-2">
-                    {selectedItem.trending && <Badge className="bg-yellow-100 text-yellow-800">Trending</Badge>}
-                    {selectedItem.new && <Badge className="bg-blue-100 text-blue-800">New</Badge>}
-                    {selectedItem.popular && <Badge className="bg-green-100 text-green-800">Popular</Badge>}
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-3 pt-4 border-t">
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => setSelectedItem(null)}
-                  >
-                    <BarChart3 className="w-4 h-4 mr-2" />
-                    View Analytics
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    <Edit className="w-4 h-4 mr-2" />
-                    Edit Listing
-                  </Button>
-                  {selectedItem.status === 'pending' && (
-                    <Button className="flex-1 bg-green-600 hover:bg-green-700" onClick={() => setSelectedItem(null)}>
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Approve
+        {/* Patient Trades Monitoring */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-lg">Patient Trades - Monitoring View</CardTitle>
+            <CardDescription>View patient trading activity for compliance and support</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3 max-h-[600px] overflow-y-auto">
+              {trades.map((trade) => (
+                <div key={trade.id} className="border border-slate-200 rounded-lg p-4 hover:border-blue-300 transition-colors">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge variant={trade.type === 'BUY' ? 'default' : 'destructive'}>
+                          {trade.type}
+                        </Badge>
+                        <span className="font-semibold text-slate-900 text-sm">{trade.id}</span>
+                        <Badge variant="outline" className="text-xs">
+                          {trade.status}
+                        </Badge>
+                        <span className="text-xs text-slate-600">Patient: {trade.patientName}</span>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <div className="flex items-center gap-2 text-slate-600 mb-1">
+                            <MapPin className="h-4 w-4" />
+                            <span>{trade.location}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-slate-600">
+                            <Clock className="h-4 w-4" />
+                            <span className="text-xs">{trade.timestamp.toLocaleString()}</span>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-1">
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Entry:</span>
+                            <span className="font-medium">{convertPKRtoAT(trade.open).toFixed(2)} AT</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Current:</span>
+                            <span className="font-medium">{convertPKRtoAT(trade.close).toFixed(2)} AT</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">P&L:</span>
+                            <span className={`font-medium ${trade.profitLoss >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                              {trade.profitLoss >= 0 ? '+' : ''}{convertPKRtoAT(trade.profitLoss).toFixed(0)} AT
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <Button variant="outline" size="sm">
+                      <Eye className="h-4 w-4 mr-1" />
+                      Details
                     </Button>
-                  )}
+                  </div>
                 </div>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+              ))}
+              
+              {trades.length === 0 && (
+                <div className="text-center py-8 text-slate-500">
+                  <Info className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p>No trades to monitor</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
+}
+
+// Custom Tooltip Component
+const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: { fullData: Trade } }> }) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload.fullData as Trade
+    return (
+      <div className="bg-white p-3 rounded-lg shadow-lg border border-slate-200">
+        <p className="text-xs text-slate-600 mb-2">{data.timestamp.toLocaleString()}</p>
+        <p className="text-xs text-slate-600 mb-2">Patient: {data.patientName}</p>
+        <div className="space-y-1 text-xs">
+          <div className="flex justify-between gap-4">
+            <span className="text-slate-600">Open:</span>
+            <span className="font-medium">{convertPKRtoAT(data.open).toFixed(2)} AT</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-slate-600">High:</span>
+            <span className="font-medium text-emerald-600">{convertPKRtoAT(data.high).toFixed(2)} AT</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-slate-600">Low:</span>
+            <span className="font-medium text-red-600">{convertPKRtoAT(data.low).toFixed(2)} AT</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-slate-600">Close:</span>
+            <span className="font-medium">{convertPKRtoAT(data.close).toFixed(2)} AT</span>
+          </div>
+          <div className="border-t pt-1 mt-1">
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-600">Volume:</span>
+              <span className="font-medium">{data.volume.toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+  return null
 }
