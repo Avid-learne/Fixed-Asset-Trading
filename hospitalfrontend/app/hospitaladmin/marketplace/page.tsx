@@ -1,1134 +1,442 @@
-'use client'
+"use client"
 
-import { useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import React, { useState, useMemo } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { 
-  Building2, 
-  Home, 
-  Landmark, 
-  Factory, 
-  Store, 
-  TrendingUp, 
-  TrendingDown,
-  Search,
-  ArrowLeft,
-  DollarSign,
-  BarChart3,
-  Wallet,
-  Activity,
-  Settings,
-  Plus,
-  Edit,
-  X,
-  Info,
-  MapPin,
-  Clock
-} from 'lucide-react'
-import { ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { TrendingUp, TrendingDown, Search, DollarSign, Users, Building2, Activity, Coins, Shield, Clock, CheckCircle, XCircle, AlertCircle, Landmark, Wallet, Star } from 'lucide-react'
+import { ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ComposedChart, Area, Line, ReferenceArea } from 'recharts'
+import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 
-// Investment types available for trading
-type InvestmentType = {
-  id: string
-  name: string
-  symbol: string
-  icon: any
-  currentPrice: number
-  change24h: number
-  volume24h: number
-  marketCap: number
-  category: string
-  description: string
-}
-
-// Trade data type
-type Trade = {
-  id: string
-  timestamp: Date
-  type: 'BUY' | 'SELL'
-  investment: string
-  location: string
+interface CandleData {
+  time: string
   open: number
   high: number
   low: number
   close: number
   volume: number
-  liquidity: number
-  profitLoss: number
-  status: 'OPEN' | 'CLOSED'
-  notes: string
 }
 
-// Order book type
-type OrderBookItem = {
-  price: number
-  volume: number
-  total: number
-  type: 'BID' | 'ASK'
+interface TradeRectangle {
+  id: string
+  label: string
+  startTime: string
+  endTime: string
+  startAT: number
+  endAT: number
+  pool: 'asset' | 'subscription'
+  investmentType: 'government-bond' | 'etf' | 'healthcare-fund'
+  principalAT: number
+  profitPKR: number
+  profitAT: number
+  apy: number
+  riskLevel: 'low' | 'medium' | 'high'
+  status: 'running' | 'matured' | 'planned'
 }
 
-// Investment categories with real estate and financial instruments
-const INVESTMENT_TYPES: InvestmentType[] = [
+interface MarketPoint {
+  time: string
+  atBalance: number
+}
+
+const mockTrades: TradeRectangle[] = [
   {
-    id: 'commercial-real-estate',
-    name: 'Commercial Real Estate',
-    symbol: 'CRE',
-    icon: Building2,
-    currentPrice: 7850.25,
-    change24h: 2.45,
-    volume24h: 45000000,
-    marketCap: 2800000000,
-    category: 'Real Estate',
-    description: 'Office buildings, retail spaces, and commercial properties'
+    id: "trade-1",
+    label: "Government Bonds - Asset Pool",
+    startTime: "09:00",
+    endTime: "12:00",
+    startAT: 50000,
+    endAT: 50625,
+    pool: "asset",
+    investmentType: "government-bond",
+    principalAT: 50000,
+    profitPKR: 62500,
+    profitAT: 625,
+    apy: 12.5,
+    riskLevel: "low",
+    status: "running"
   },
   {
-    id: 'residential-property',
-    name: 'Residential Property',
-    symbol: 'RES',
-    icon: Home,
-    currentPrice: 4520.80,
-    change24h: -1.23,
-    volume24h: 32000000,
-    marketCap: 1950000000,
-    category: 'Real Estate',
-    description: 'Apartments, houses, and residential units'
+    id: "trade-2",
+    label: "Healthcare ETF - Subscription Pool",
+    startTime: "10:00",
+    endTime: "15:00",
+    startAT: 30000,
+    endAT: 30615,
+    pool: "subscription",
+    investmentType: "etf",
+    principalAT: 30000,
+    profitPKR: 61500,
+    profitAT: 615,
+    apy: 8.2,
+    riskLevel: "medium",
+    status: "running"
   },
   {
-    id: 'government-bonds',
-    name: 'Government Bonds',
-    symbol: 'GOV',
-    icon: Landmark,
-    currentPrice: 1050.00,
-    change24h: 0.15,
-    volume24h: 85000000,
-    marketCap: 5600000000,
-    category: 'Bonds',
-    description: 'Federal and state government securities'
-  },
-  {
-    id: 'industrial-property',
-    name: 'Industrial Property',
-    symbol: 'IND',
-    icon: Factory,
-    currentPrice: 6320.50,
-    change24h: 3.82,
-    volume24h: 28000000,
-    marketCap: 1450000000,
-    category: 'Real Estate',
-    description: 'Warehouses, factories, and industrial facilities'
-  },
-  {
-    id: 'retail-spaces',
-    name: 'Retail Spaces',
-    symbol: 'RET',
-    icon: Store,
-    currentPrice: 3890.30,
-    change24h: -2.10,
-    volume24h: 19000000,
-    marketCap: 980000000,
-    category: 'Real Estate',
-    description: 'Shopping centers, malls, and retail outlets'
-  },
-  {
-    id: 'corporate-bonds',
-    name: 'Corporate Bonds',
-    symbol: 'COR',
-    icon: Landmark,
-    currentPrice: 980.75,
-    change24h: 0.85,
-    volume24h: 62000000,
-    marketCap: 4200000000,
-    category: 'Bonds',
-    description: 'Investment-grade corporate debt securities'
-  },
-  {
-    id: 'land-development',
-    name: 'Land Development',
-    symbol: 'LND',
-    icon: Building2,
-    currentPrice: 5640.90,
-    change24h: 4.25,
-    volume24h: 21000000,
-    marketCap: 1120000000,
-    category: 'Real Estate',
-    description: 'Undeveloped land and development projects'
-  },
-  {
-    id: 'office-space',
-    name: 'Office Space',
-    symbol: 'OFC',
-    icon: Building2,
-    currentPrice: 6890.40,
-    change24h: 1.67,
-    volume24h: 35000000,
-    marketCap: 2100000000,
-    category: 'Real Estate',
-    description: 'Class A and B office buildings'
+    id: "trade-3",
+    label: "Sukuk - Asset Pool",
+    startTime: "11:00",
+    endTime: "18:00",
+    startAT: 20000,
+    endAT: 20230,
+    pool: "asset",
+    investmentType: "government-bond",
+    principalAT: 20000,
+    profitPKR: 23000,
+    profitAT: 230,
+    apy: 11.5,
+    riskLevel: "low",
+    status: "planned"
   }
 ]
 
-// Generate initial trades for selected investment
-const generateInitialTrades = (investmentName: string, basePrice: number): Trade[] => {
-  const trades: Trade[] = []
-  const now = new Date()
-  
-  for (let i = 0; i < 50; i++) {
-    const timestamp = new Date(now.getTime() - (49 - i) * 2 * 60 * 60 * 1000)
-    const volatility = basePrice * 0.02
-    const open = basePrice + (Math.random() - 0.5) * volatility
-    const close = open + (Math.random() - 0.5) * volatility
-    const high = Math.max(open, close) + Math.random() * volatility * 0.5
-    const low = Math.min(open, close) - Math.random() * volatility * 0.5
-    const profitLoss = (close - open) * (Math.random() * 1000)
-    
-    trades.push({
-      id: `TRD-${Date.now()}-${i}`,
-      timestamp,
-      type: Math.random() > 0.5 ? 'BUY' : 'SELL',
-      investment: investmentName,
-      location: ['Lahore', 'Karachi', 'Islamabad', 'Rawalpindi', 'Faisalabad'][Math.floor(Math.random() * 5)],
-      open: open * 10, // Store in PKR
-      high: high * 10,
-      low: low * 10,
-      close: close * 10,
-      volume: Math.floor(Math.random() * 1000000) + 100000,
-      liquidity: Math.floor(Math.random() * 10000000) + 1000000,
-      profitLoss: profitLoss * 10, // Store in PKR
-      status: Math.random() > 0.3 ? 'OPEN' : 'CLOSED',
-      notes: ''
-    })
-  }
-  
-  return trades
-}
-
-// Generate order book
-const generateOrderBook = (basePrice: number) => {
-  const bids: OrderBookItem[] = []
-  const asks: OrderBookItem[] = []
-  const price = basePrice * 10 // Convert to PKR
-  
-  for (let i = 0; i < 8; i++) {
-    const volume = Math.floor(Math.random() * 100) + 10
-    bids.push({
-      price: price - i * 100 - 50,
-      volume,
-      total: (price - i * 100) * volume,
-      type: 'BID'
-    })
-  }
-  
-  for (let i = 0; i < 8; i++) {
-    const volume = Math.floor(Math.random() * 100)
-    asks.push({
-      price: price + i * 100,
-      volume,
-      total: (price + i * 100) * volume,
-      type: 'ASK'
-    })
-  }
-  
-  return { bids, asks }
-}
-
-// Conversion rate: 1 AT = 10 PKR
-const AT_TO_PKR = 10
-const convertPKRtoAT = (pkr: number) => pkr / AT_TO_PKR
-const convertATtoPKR = (at: number) => at * AT_TO_PKR
-
 export default function HospitalAdminMarketplace() {
-  const [selectedInvestment, setSelectedInvestment] = useState<InvestmentType | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState<string>('All')
-
-  // Filter investments
-  const filteredInvestments = INVESTMENT_TYPES.filter(inv => {
-    const matchesSearch = inv.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         inv.symbol.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesCategory = categoryFilter === 'All' || inv.category === categoryFilter
-    return matchesSearch && matchesCategory
-  })
-
-  // Get unique categories
-  const categories = ['All', ...Array.from(new Set(INVESTMENT_TYPES.map(inv => inv.category)))]
-
-  if (!selectedInvestment) {
-    // INVESTMENT SELECTION VIEW
-    return (
-      <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Investment Marketplace</h1>
-          <p className="text-slate-600 mt-1">Select an investment type to start trading</p>
-        </div>
-
-        {/* Search and Filters */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <Input
-              placeholder="Search investments..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <div className="flex gap-2 overflow-x-auto">
-            {categories.map((category) => (
-              <Button
-                key={category}
-                variant={categoryFilter === category ? "default" : "outline"}
-                size="sm"
-                onClick={() => setCategoryFilter(category)}
-                className="whitespace-nowrap"
-              >
-                {category}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* Investment Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredInvestments.map((investment) => {
-            const Icon = investment.icon
-            const isPositive = investment.change24h >= 0
-            
-            return (
-              <Card
-                key={investment.id}
-                className="hover:shadow-lg transition-shadow cursor-pointer hover:border-emerald-300"
-                onClick={() => setSelectedInvestment(investment)}
-              >
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                        <Icon className="h-5 w-5 text-emerald-600" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-slate-900">{investment.symbol}</h3>
-                        <p className="text-xs text-slate-500">{investment.category}</p>
-                      </div>
-                    </div>
-                    <Badge variant={isPositive ? "default" : "destructive"} className="flex items-center gap-1">
-                      {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                      {isPositive ? '+' : ''}{investment.change24h.toFixed(2)}%
-                    </Badge>
-                  </div>
-
-                  <p className="text-sm text-slate-600 mb-4 line-clamp-2">{investment.name}</p>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600">Price:</span>
-                      <span className="font-semibold">{investment.currentPrice.toLocaleString()} AT</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600">Volume (24h):</span>
-                      <span className="font-medium">${(investment.volume24h / 1000000).toFixed(2)}M</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600">Market Cap:</span>
-                      <span className="font-medium">${(investment.marketCap / 1000000000).toFixed(2)}B</span>
-                    </div>
-                  </div>
-
-                  <Button className="w-full mt-4 bg-emerald-600 hover:bg-emerald-700">
-                    Trade Now
-                  </Button>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-
-        {filteredInvestments.length === 0 && (
-          <div className="text-center py-12">
-            <Info className="h-12 w-12 mx-auto mb-4 text-slate-400" />
-            <p className="text-slate-600">No investments found matching your criteria</p>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  // TRADING DASHBOARD VIEW
-  return <TradingDashboard investment={selectedInvestment} onBack={() => setSelectedInvestment(null)} />
-}
-
-// Trading Dashboard Component
-function TradingDashboard({ investment, onBack }: { investment: InvestmentType; onBack: () => void }) {
-  const [trades, setTrades] = useState<Trade[]>(generateInitialTrades(investment.name, investment.currentPrice))
-  const [orderBook, setOrderBook] = useState(generateOrderBook(investment.currentPrice))
-  const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null)
+  const [trades, setTrades] = useState<TradeRectangle[]>(mockTrades)
+  const [timeRange, setTimeRange] = useState<'1D' | '1W' | '1M'>('1D')
   const [isNewTradeOpen, setIsNewTradeOpen] = useState(false)
-  const [isEditTradeOpen, setIsEditTradeOpen] = useState(false)
-  const [hoveredCandle, setHoveredCandle] = useState<Trade | null>(null)
-  
-  const [newTrade, setNewTrade] = useState({
-    type: 'BUY' as 'BUY' | 'SELL',
-    location: '',
-    open: 0,
-    volume: 0,
-    liquidity: 0,
-    notes: ''
+  const [newTrade, setNewTrade] = useState<Omit<TradeRectangle, 'id' | 'endAT' | 'profitAT'>>({
+    label: '',
+    startTime: '09:00',
+    endTime: '12:00',
+    startAT: 0,
+    pool: 'asset',
+    investmentType: 'government-bond',
+    principalAT: 0,
+    profitPKR: 0,
+    apy: 12.5,
+    riskLevel: 'low',
+    status: 'planned'
   })
 
-  // Calculate market stats
-  const latestTrade = trades[trades.length - 1]
-  const previousTrade = trades[trades.length - 2]
-  const priceChange = latestTrade && previousTrade ? latestTrade.close - previousTrade.close : 0
-  const priceChangePercent = previousTrade ? (priceChange / previousTrade.close) * 100 : 0
-  const totalVolume = trades.reduce((sum, t) => sum + t.volume, 0)
-  const avgLiquidity = trades.reduce((sum, t) => sum + t.liquidity, 0) / trades.length
-  const totalProfitLoss = trades.reduce((sum, t) => sum + t.profitLoss, 0)
-  const openTrades = trades.filter(t => t.status === 'OPEN').length
-
-  // Format chart data
-  const chartData = trades.map(trade => ({
-    time: trade.timestamp.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-    open: trade.open,
-    high: trade.high,
-    low: trade.low,
-    close: trade.close,
-    volume: trade.volume,
-    fullData: trade
-  }))
-
-  // Custom candlestick rendering
-  const CustomCandlestick = (props: any) => {
-    const { x, y, width, height, payload } = props
-    const trade = payload.fullData as Trade
-    
-    if (!trade) return null
-    
-    const isGreen = trade.close >= trade.open
-    const bodyHeight = Math.abs(y - height)
-    const wickTop = Math.min(y, height)
-    
-    return (
-      <g
-        onMouseEnter={() => setHoveredCandle(trade)}
-        onMouseLeave={() => setHoveredCandle(null)}
-        style={{ cursor: 'pointer' }}
-      >
-        {/* Wick */}
-        <line
-          x1={x + width / 2}
-          y1={wickTop}
-          x2={x + width / 2}
-          y2={wickTop + bodyHeight}
-          stroke={isGreen ? '#10b981' : '#ef4444'}
-          strokeWidth={1}
-        />
-        
-        {/* Body */}
-        <rect
-          x={x}
-          y={Math.min(y, height)}
-          width={width}
-          height={bodyHeight || 1}
-          fill={isGreen ? '#10b981' : '#ef4444'}
-          stroke={isGreen ? '#059669' : '#dc2626'}
-          strokeWidth={1}
-          opacity={hoveredCandle?.id === trade.id ? 1 : 0.8}
-        />
-      </g>
-    )
-  }
-
-  const handleCreateTrade = () => {
-    const trade: Trade = {
-      id: `TRD-${Date.now()}`,
-      timestamp: new Date(),
-      type: newTrade.type,
-      investment: investment.name,
-      location: newTrade.location,
-      open: newTrade.open * 10, // Convert AT to PKR for storage
-      high: newTrade.open * 10 * 1.02,
-      low: newTrade.open * 10 * 0.98,
-      close: newTrade.open * 10,
-      volume: newTrade.volume,
-      liquidity: newTrade.liquidity * 10, // Convert AT to PKR for storage
-      profitLoss: 0,
-      status: 'OPEN',
-      notes: newTrade.notes
-    }
-    
-    setTrades([...trades, trade])
-    setIsNewTradeOpen(false)
-    setNewTrade({
-      type: 'BUY',
-      location: '',
-      open: 0,
-      volume: 0,
-      liquidity: 0,
-      notes: ''
+  const chartData: MarketPoint[] = useMemo(() => {
+    const baseTimes = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00']
+    return baseTimes.map(time => {
+      const activeTrades = trades.filter(t => t.startTime <= time && t.endTime >= time)
+      const totalAT = activeTrades.reduce((sum, t) => sum + (t.startAT + (t.endAT - t.startAT) * 0.5), 0)
+      return {
+        time,
+        atBalance: totalAT
+      }
     })
-  }
+  }, [trades])
 
-  const handleUpdateTrade = () => {
-    if (selectedTrade) {
-      setTrades(trades.map(t => t.id === selectedTrade.id ? selectedTrade : t))
-      setIsEditTradeOpen(false)
-    }
-  }
-
-  const handleCloseTrade = (tradeId: string) => {
-    setTrades(trades.map(t => 
-      t.id === tradeId ? { ...t, status: 'CLOSED' as const } : t
-    ))
-  }
-
-  const Icon = investment.icon
+  // Calculate stats from trades
+  const totalInvested = trades.reduce((sum, t) => sum + (t.principalAT * 100), 0)
+  const totalProfit = trades.reduce((sum, t) => sum + t.profitPKR, 0)
+  const avgAPY = trades.reduce((sum, t) => sum + t.apy, 0) / trades.length
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" size="sm" onClick={onBack}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center">
-              <Icon className="h-6 w-6 text-emerald-600" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900">{investment.symbol} Trading</h1>
-              <p className="text-slate-600">{investment.name}</p>
-            </div>
-          </div>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">AT Token Investment Marketplace</h1>
+          <p className="text-sm text-gray-600 mt-1">Real-time government bonds, ETFs & healthcare funds trading</p>
         </div>
-        <div className="flex gap-3">
-          <Button variant="outline" size="sm">
-            <Settings className="h-4 w-4 mr-2" />
-            Settings
+        <div className="flex items-center gap-3">
+          <Badge className="bg-emerald-600 text-white px-3 py-1">
+            <Activity className="w-3 h-3 mr-1" />
+            Live Market
+          </Badge>
+          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold" onClick={() => setIsNewTradeOpen(true)}>
+            <Wallet className="w-4 h-4 mr-2" />
+            New Trade
           </Button>
-          <Dialog open={isNewTradeOpen} onOpenChange={setIsNewTradeOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-emerald-600 hover:bg-emerald-700">
-                <Plus className="h-4 w-4 mr-2" />
-                New Trade
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Create New Trade - {investment.symbol}</DialogTitle>
-                <DialogDescription>
-                  Enter the details of your {investment.name} trade
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Trade Type</Label>
-                    <Select 
-                      value={newTrade.type} 
-                      onValueChange={(value: 'BUY' | 'SELL') => setNewTrade({...newTrade, type: value})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="BUY">Buy</SelectItem>
-                        <SelectItem value="SELL">Sell</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Opening Price (AT)</Label>
-                    <Input 
-                      type="number" 
-                      placeholder={investment.currentPrice.toString()}
-                      value={newTrade.open || ''}
-                      onChange={(e) => setNewTrade({...newTrade, open: parseFloat(e.target.value) || 0})}
-                    />
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Location</Label>
-                  <Input 
-                    placeholder="Lahore, Pakistan"
-                    value={newTrade.location}
-                    onChange={(e) => setNewTrade({...newTrade, location: e.target.value})}
-                  />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Volume</Label>
-                    <Input 
-                      type="number" 
-                      placeholder="500000"
-                      value={newTrade.volume || ''}
-                      onChange={(e) => setNewTrade({...newTrade, volume: parseFloat(e.target.value) || 0})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Liquidity (AT)</Label>
-                    <Input 
-                      type="number" 
-                      placeholder="200000"
-                      value={newTrade.liquidity || ''}
-                      onChange={(e) => setNewTrade({...newTrade, liquidity: parseFloat(e.target.value) || 0})}
-                    />
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Notes</Label>
-                  <Textarea 
-                    placeholder="Additional information about this trade..."
-                    value={newTrade.notes}
-                    onChange={(e) => setNewTrade({...newTrade, notes: e.target.value})}
-                    rows={3}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsNewTradeOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleCreateTrade} className="bg-emerald-600 hover:bg-emerald-700">
-                  Create Trade
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
         </div>
       </div>
 
-      {/* Market Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
+      {/* Market Overview Stats */}
+      <div className="grid grid-cols-4 gap-4 mb-6">
+        <Card className="bg-white border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-600">Current Price</p>
-                <p className="text-2xl font-bold text-slate-900">
-                  {latestTrade?.close ? convertPKRtoAT(latestTrade.close).toLocaleString(undefined, {maximumFractionDigits: 2}) : '0'} AT
-                </p>
-                <div className="flex items-center gap-1 mt-1">
-                  {priceChange >= 0 ? (
-                    <TrendingUp className="h-4 w-4 text-emerald-600" />
-                  ) : (
-                    <TrendingDown className="h-4 w-4 text-red-600" />
-                  )}
-                  <span className={`text-sm font-medium ${priceChange >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                    {priceChangePercent.toFixed(2)}%
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 mt-1">1 AT = {AT_TO_PKR} PKR</p>
+                <p className="text-xs text-gray-500">Total Invested</p>
+                <p className="text-xl font-bold text-gray-900">PKR {(totalInvested / 1000000).toFixed(1)}M</p>
               </div>
-              <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center">
-                <DollarSign className="h-6 w-6 text-emerald-600" />
-              </div>
+              <Landmark className="w-8 h-8 text-blue-600" />
             </div>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="bg-white border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-600">Total Volume</p>
-                <p className="text-2xl font-bold text-slate-900">
-                  {(totalVolume / 1000000).toFixed(2)}M
-                </p>
-                <p className="text-xs text-slate-500 mt-1">{trades.length} trades | 1 AT = {AT_TO_PKR} PKR</p>
+                <p className="text-xs text-gray-500">Total Profit</p>
+                <p className="text-xl font-bold text-gray-900">PKR {(totalProfit / 1000000).toFixed(1)}M</p>
               </div>
-              <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
-                <BarChart3 className="h-6 w-6 text-blue-600" />
-              </div>
+              <Activity className="w-8 h-8 text-emerald-600" />
             </div>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="bg-white border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-600">Avg Liquidity</p>
-                <p className="text-2xl font-bold text-slate-900">
-                  {convertPKRtoAT(avgLiquidity / 1000000).toFixed(2)}M AT
-                </p>
-                <p className="text-xs text-slate-500 mt-1">1 AT = {AT_TO_PKR} PKR</p>
+                <p className="text-xs text-gray-500">Avg APY</p>
+                <p className="text-xl font-bold text-emerald-600">{avgAPY.toFixed(1)}%</p>
               </div>
-              <div className="h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center">
-                <Wallet className="h-6 w-6 text-purple-600" />
-              </div>
+              <TrendingUp className="w-8 h-8 text-emerald-600" />
             </div>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="bg-white border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-600">Total P&L</p>
-                <p className={`text-2xl font-bold ${totalProfitLoss >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                  {totalProfitLoss >= 0 ? '+' : ''}{convertPKRtoAT(totalProfitLoss / 1000).toFixed(0)}K AT
-                </p>
-                <p className="text-xs text-slate-500 mt-1">{openTrades} open | 1 AT = {AT_TO_PKR} PKR</p>
+                <p className="text-xs text-gray-500">Active Trades</p>
+                <p className="text-xl font-bold text-gray-900">{trades.filter(t => t.status === 'running').length}</p>
               </div>
-              <div className={`h-12 w-12 rounded-full flex items-center justify-center ${totalProfitLoss >= 0 ? 'bg-emerald-100' : 'bg-red-100'}`}>
-                <Activity className={`h-6 w-6 ${totalProfitLoss >= 0 ? 'text-emerald-600' : 'text-red-600'}`} />
-              </div>
+              <Coins className="w-8 h-8 text-amber-600" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Main Chart */}
-      <Card>
+      {/* Main Chart - AT Token Balance Over Time */}
+      <Card className="bg-white border-gray-200 shadow-sm">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Price Chart - {investment.symbol}</CardTitle>
-              <CardDescription>Candlestick chart with volume and OHLC data</CardDescription>
-            </div>
+            <CardTitle className="text-lg font-semibold text-gray-900">AT Token Balance Over Time</CardTitle>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm">1H</Button>
-              <Button variant="outline" size="sm">4H</Button>
-              <Button variant="outline" size="sm" className="bg-emerald-50 text-emerald-600 border-emerald-200">1D</Button>
-              <Button variant="outline" size="sm">1W</Button>
-              <Button variant="outline" size="sm">1M</Button>
+              <Button
+                variant={timeRange === '1D' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setTimeRange('1D')}
+              >
+                1D
+              </Button>
+              <Button
+                variant={timeRange === '1W' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setTimeRange('1W')}
+              >
+                1W
+              </Button>
+              <Button
+                variant={timeRange === '1M' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setTimeRange('1M')}
+              >
+                1M
+              </Button>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          {/* Hover Info */}
-          {hoveredCandle && (
-            <div className="mb-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                  <p className="text-xs text-slate-600">Time</p>
-                  <p className="text-sm font-semibold">{hoveredCandle.timestamp.toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-600">O: {convertPKRtoAT(hoveredCandle.open).toFixed(2)} AT | H: {convertPKRtoAT(hoveredCandle.high).toFixed(2)} AT</p>
-                  <p className="text-xs text-slate-600">L: {convertPKRtoAT(hoveredCandle.low).toFixed(2)} AT | C: {convertPKRtoAT(hoveredCandle.close).toFixed(2)} AT</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-600">Location</p>
-                  <p className="text-sm font-semibold">{hoveredCandle.location}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-600">Volume</p>
-                  <p className="text-sm font-semibold">{hoveredCandle.volume.toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-600">Liquidity</p>
-                  <p className="text-sm font-semibold">{convertPKRtoAT(hoveredCandle.liquidity / 1000000).toFixed(2)}M AT</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-600">P&L</p>
-                  <p className={`text-sm font-semibold ${hoveredCandle.profitLoss >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                    {hoveredCandle.profitLoss >= 0 ? '+' : ''}{convertPKRtoAT(hoveredCandle.profitLoss).toFixed(0)} AT
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-600">Status</p>
-                  <Badge variant={hoveredCandle.status === 'OPEN' ? 'default' : 'secondary'}>
-                    {hoveredCandle.status}
-                  </Badge>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <ResponsiveContainer width="100%" height={500}>
+          <ResponsiveContainer width="100%" height={400}>
             <ComposedChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis 
-                dataKey="time" 
-                stroke="#64748b"
-                style={{ fontSize: '12px' }}
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis dataKey="time" stroke="#6B7280" tick={{ fontSize: 11 }} />
+              <YAxis stroke="#6B7280" tick={{ fontSize: 11 }} label={{ value: 'AT Tokens', angle: -90, position: 'insideLeft' }} />
+              <Tooltip
+                contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                labelStyle={{ color: '#6b7280', fontWeight: '600' }}
               />
-              <YAxis 
-                yAxisId="price"
-                stroke="#64748b"
-                style={{ fontSize: '12px' }}
-                domain={['auto', 'auto']}
-              />
-              <YAxis 
-                yAxisId="volume"
-                orientation="right"
-                stroke="#64748b"
-                style={{ fontSize: '12px' }}
-              />
-              <Tooltip content={<CustomTooltip />} />
               <Legend />
-              
-              {/* Volume bars */}
-              <Bar 
-                yAxisId="volume"
-                dataKey="volume" 
-                fill="#94a3b8"
-                opacity={0.3}
-                name="Volume"
-              />
-              
-              {/* Custom Candlesticks */}
-              <Bar
-                yAxisId="price"
-                dataKey="high"
-                shape={<CustomCandlestick />}
-                name="Price"
-              />
+              <Area type="monotone" dataKey="atBalance" fill="#10b981" fillOpacity={0.2} stroke="#10b981" strokeWidth={2} name="AT Balance" />
+              <Line type="monotone" dataKey="atBalance" stroke="#059669" strokeWidth={3} dot={{ r: 4 }} name="Current Balance" />
+              {/* Trade Rectangles */}
+              {trades.map((trade, index) => (
+                <ReferenceArea
+                  key={trade.id}
+                  x1={trade.startTime}
+                  x2={trade.endTime}
+                  y1={trade.startAT}
+                  y2={trade.endAT}
+                  stroke={index === 0 ? '#10b981' : index === 1 ? '#f59e0b' : '#8b5cf6'}
+                  strokeWidth={2}
+                  fill={index === 0 ? '#10b981' : index === 1 ? '#f59e0b' : '#8b5cf6'}
+                  fillOpacity={0.2}
+                  label={{
+                    value: trade.label,
+                    position: 'center',
+                    fill: '#000',
+                    fontSize: 11,
+                    fontWeight: 600
+                  }}
+                />
+              ))}
             </ComposedChart>
           </ResponsiveContainer>
         </CardContent>
       </Card>
 
-      {/* Order Book and Trade Details */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Order Book */}
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle className="text-lg">Order Book</CardTitle>
-            <CardDescription>Live bid and ask prices</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="all">
-              <TabsList className="grid w-full grid-cols-3 mb-4">
-                <TabsTrigger value="bids" className="text-xs">Bids</TabsTrigger>
-                <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
-                <TabsTrigger value="asks" className="text-xs">Asks</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="all" className="space-y-2">
-                {/* Asks */}
-                <div className="space-y-1">
-                  {orderBook.asks.slice().reverse().map((ask, idx) => (
-                    <div key={`ask-${idx}`} className="flex justify-between items-center text-xs py-1 px-2 rounded hover:bg-red-50">
-                      <span className="text-red-600 font-medium">{convertPKRtoAT(ask.price).toFixed(2)} AT</span>
-                      <span className="text-slate-600">{ask.volume}</span>
-                      <span className="text-slate-500">{(ask.total / 1000).toFixed(0)}K</span>
-                    </div>
-                  ))}
-                </div>
-                
-                {/* Spread */}
-                <div className="py-2 px-2 bg-slate-100 rounded text-center">
-                  <span className="text-xs font-semibold text-slate-700">
-                    Spread: {convertPKRtoAT(orderBook.asks[0].price - orderBook.bids[0].price).toFixed(2)} AT
-                  </span>
-                </div>
-                
-                {/* Bids */}
-                <div className="space-y-1">
-                  {orderBook.bids.map((bid, idx) => (
-                    <div key={`bid-${idx}`} className="flex justify-between items-center text-xs py-1 px-2 rounded hover:bg-emerald-50">
-                      <span className="text-emerald-600 font-medium">{convertPKRtoAT(bid.price).toFixed(2)} AT</span>
-                      <span className="text-slate-600">{bid.volume}</span>
-                      <span className="text-slate-500">{(bid.total / 1000).toFixed(0)}K</span>
-                    </div>
-                  ))}
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="bids">
-                <div className="space-y-1">
-                  {orderBook.bids.map((bid, idx) => (
-                    <div key={`bid-${idx}`} className="flex justify-between items-center text-xs py-1 px-2 rounded hover:bg-emerald-50">
-                      <span className="text-emerald-600 font-medium">{convertPKRtoAT(bid.price).toFixed(2)} AT</span>
-                      <span className="text-slate-600">{bid.volume}</span>
-                      <span className="text-slate-500">{(bid.total / 1000).toFixed(0)}K</span>
-                    </div>
-                  ))}
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="asks">
-                <div className="space-y-1">
-                  {orderBook.asks.map((ask, idx) => (
-                    <div key={`ask-${idx}`} className="flex justify-between items-center text-xs py-1 px-2 rounded hover:bg-red-50">
-                      <span className="text-red-600 font-medium">{convertPKRtoAT(ask.price).toFixed(2)} AT</span>
-                      <span className="text-slate-600">{ask.volume}</span>
-                      <span className="text-slate-500">{(ask.total / 1000).toFixed(0)}K</span>
-                    </div>
-                  ))}
-                </div>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-
-        {/* Open Trades */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-lg">Active Trades</CardTitle>
-            <CardDescription>Manage your open positions</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3 max-h-[600px] overflow-y-auto">
-              {trades.filter(t => t.status === 'OPEN').map((trade) => (
-                <div key={trade.id} className="border border-slate-200 rounded-lg p-4 hover:border-emerald-300 transition-colors">
+      {/* Active Trades List */}
+      <Card className="bg-white border-gray-200 shadow-sm">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg font-semibold text-gray-900">Active Trades</CardTitle>
+            <Badge className="bg-blue-100 text-blue-700">{trades.length} Total</Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {trades.map((trade) => (
+              <Card key={trade.id} className="border border-gray-200">
+                <CardContent className="p-4">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <Badge variant={trade.type === 'BUY' ? 'default' : 'destructive'}>
-                          {trade.type}
+                        <h3 className="font-semibold text-gray-900">{trade.label}</h3>
+                        <Badge variant={trade.pool === 'asset' ? 'default' : 'secondary'}>
+                          {trade.pool === 'asset' ? 'Asset Pool' : 'Subscription Pool'}
                         </Badge>
-                        <span className="font-semibold text-slate-900">{trade.id}</span>
-                        <Badge variant="outline" className="text-xs">
+                        <Badge variant={trade.status === 'running' ? 'default' : trade.status === 'matured' ? 'secondary' : 'outline'}>
                           {trade.status}
                         </Badge>
                       </div>
-                      
-                      <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div className="grid grid-cols-3 gap-4 text-sm mt-3">
                         <div>
-                          <div className="flex items-center gap-2 text-slate-600 mb-1">
-                            <MapPin className="h-4 w-4" />
-                            <span>{trade.location}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-slate-600">
-                            <Clock className="h-4 w-4" />
-                            <span>{trade.timestamp.toLocaleString()}</span>
-                          </div>
+                          <p className="text-gray-500 text-xs">Principal AT</p>
+                          <p className="font-semibold text-gray-900">{trade.principalAT.toLocaleString()} AT</p>
                         </div>
-                        
-                        <div className="space-y-1">
-                          <div className="flex justify-between">
-                            <span className="text-slate-600">Entry:</span>
-                            <span className="font-medium">{convertPKRtoAT(trade.open).toFixed(2)} AT</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-600">Current:</span>
-                            <span className="font-medium">{convertPKRtoAT(trade.close).toFixed(2)} AT</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-600">P&L:</span>
-                            <span className={`font-medium ${trade.profitLoss >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                              {trade.profitLoss >= 0 ? '+' : ''}{convertPKRtoAT(trade.profitLoss).toFixed(0)} AT
-                            </span>
-                          </div>
+                        <div>
+                          <p className="text-gray-500 text-xs">Profit (PKR)</p>
+                          <p className="font-semibold text-green-600">+{trade.profitPKR.toLocaleString()} PKR</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500 text-xs">Profit (AT)</p>
+                          <p className="font-semibold text-green-600">+{trade.profitAT} AT</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500 text-xs">APY</p>
+                          <p className="font-semibold text-emerald-600">{trade.apy}%</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500 text-xs">Time Range</p>
+                          <p className="font-semibold text-gray-900">{trade.startTime} - {trade.endTime}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500 text-xs">Risk Level</p>
+                          <Badge variant={trade.riskLevel === 'low' ? 'secondary' : trade.riskLevel === 'medium' ? 'default' : 'destructive'}>
+                            {trade.riskLevel.toUpperCase()}
+                          </Badge>
                         </div>
                       </div>
                     </div>
-                    
-                    <div className="flex flex-col gap-2 ml-4">
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => {
-                          setSelectedTrade(trade)
-                          setIsEditTradeOpen(true)
-                        }}
-                      >
-                        <Edit className="h-3 w-3 mr-1" />
-                        Edit
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => handleCloseTrade(trade.id)}
-                      >
-                        <X className="h-3 w-3 mr-1" />
-                        Close
-                      </Button>
-                    </div>
                   </div>
-                </div>
-              ))}
-              
-              {trades.filter(t => t.status === 'OPEN').length === 0 && (
-                <div className="text-center py-8 text-slate-500">
-                  <Info className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>No open trades</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Edit Trade Dialog */}
-      <Dialog open={isEditTradeOpen} onOpenChange={setIsEditTradeOpen}>
+      {/* New Trade Dialog */}
+      <Dialog open={isNewTradeOpen} onOpenChange={setIsNewTradeOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Edit Trade - {selectedTrade?.id}</DialogTitle>
+            <DialogTitle>Create New Trade</DialogTitle>
             <DialogDescription>
-              Update trade details and profit/loss
+              Add a new investment trade to the marketplace
             </DialogDescription>
           </DialogHeader>
-          {selectedTrade && (
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Trade Type</Label>
-                  <Select 
-                    value={selectedTrade.type} 
-                    onValueChange={(value: 'BUY' | 'SELL') => setSelectedTrade({...selectedTrade, type: value})}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="BUY">Buy</SelectItem>
-                      <SelectItem value="SELL">Sell</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Status</Label>
-                  <Select 
-                    value={selectedTrade.status} 
-                    onValueChange={(value: 'OPEN' | 'CLOSED') => setSelectedTrade({...selectedTrade, status: value})}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="OPEN">Open</SelectItem>
-                      <SelectItem value="CLOSED">Closed</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+          <div className="space-y-4">
+            <div>
+              <Label>Trade Label</Label>
+              <Input
+                value={newTrade.label}
+                onChange={(e) => setNewTrade({...newTrade, label: e.target.value})}
+                placeholder="e.g., Government Bonds - Asset Pool"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Pool</Label>
+                <Select value={newTrade.pool} onValueChange={(value: any) => setNewTrade({...newTrade, pool: value})}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="asset">Asset Pool</SelectItem>
+                    <SelectItem value="subscription">Subscription Pool</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-
-              <div className="grid grid-cols-4 gap-4">
-                <div className="space-y-2">
-                  <Label>Open (PKR)</Label>
-                  <Input 
-                    type="number" 
-                    value={selectedTrade.open}
-                    onChange={(e) => setSelectedTrade({...selectedTrade, open: parseFloat(e.target.value)})}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>High (PKR)</Label>
-                  <Input 
-                    type="number" 
-                    value={selectedTrade.high}
-                    onChange={(e) => setSelectedTrade({...selectedTrade, high: parseFloat(e.target.value)})}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Low (PKR)</Label>
-                  <Input 
-                    type="number" 
-                    value={selectedTrade.low}
-                    onChange={(e) => setSelectedTrade({...selectedTrade, low: parseFloat(e.target.value)})}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Close (PKR)</Label>
-                  <Input 
-                    type="number" 
-                    value={selectedTrade.close}
-                    onChange={(e) => setSelectedTrade({...selectedTrade, close: parseFloat(e.target.value)})}
-                  />
-                </div>
+              <div>
+                <Label>Investment Type</Label>
+                <Select value={newTrade.investmentType} onValueChange={(value: any) => setNewTrade({...newTrade, investmentType: value})}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="government-bond">Government Bond</SelectItem>
+                    <SelectItem value="etf">ETF</SelectItem>
+                    <SelectItem value="healthcare-fund">Healthcare Fund</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Location</Label>
-                  <Input 
-                    value={selectedTrade.location}
-                    onChange={(e) => setSelectedTrade({...selectedTrade, location: e.target.value})}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Volume</Label>
-                  <Input 
-                    type="number" 
-                    value={selectedTrade.volume}
-                    onChange={(e) => setSelectedTrade({...selectedTrade, volume: parseFloat(e.target.value)})}
-                  />
-                </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Principal AT Tokens</Label>
+                <Input
+                  type="number"
+                  value={newTrade.principalAT}
+                  onChange={(e) => setNewTrade({...newTrade, principalAT: parseInt(e.target.value) || 0})}
+                />
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Liquidity (PKR)</Label>
-                  <Input 
-                    type="number" 
-                    value={selectedTrade.liquidity}
-                    onChange={(e) => setSelectedTrade({...selectedTrade, liquidity: parseFloat(e.target.value)})}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Profit/Loss (PKR)</Label>
-                  <Input 
-                    type="number" 
-                    value={selectedTrade.profitLoss}
-                    onChange={(e) => setSelectedTrade({...selectedTrade, profitLoss: parseFloat(e.target.value)})}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Notes</Label>
-                <Textarea 
-                  value={selectedTrade.notes}
-                  onChange={(e) => setSelectedTrade({...selectedTrade, notes: e.target.value})}
-                  rows={3}
+              <div>
+                <Label>Expected Profit (PKR)</Label>
+                <Input
+                  type="number"
+                  value={newTrade.profitPKR}
+                  onChange={(e) => setNewTrade({...newTrade, profitPKR: parseInt(e.target.value) || 0})}
                 />
               </div>
             </div>
-          )}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>APY (%)</Label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  value={newTrade.apy}
+                  onChange={(e) => setNewTrade({...newTrade, apy: parseFloat(e.target.value) || 0})}
+                />
+              </div>
+              <div>
+                <Label>Risk Level</Label>
+                <Select value={newTrade.riskLevel} onValueChange={(value: any) => setNewTrade({...newTrade, riskLevel: value})}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditTradeOpen(false)}>
+            <Button variant="outline" onClick={() => setIsNewTradeOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleUpdateTrade} className="bg-emerald-600 hover:bg-emerald-700">
-              Save Changes
+            <Button
+              onClick={() => {
+                const newTradeComplete: TradeRectangle = {
+                  ...newTrade,
+                  id: `trade-${trades.length + 1}`,
+                  endAT: newTrade.startAT + (newTrade.profitPKR / 100),
+                  profitAT: newTrade.profitPKR / 100,
+                }
+                setTrades([...trades, newTradeComplete])
+                setIsNewTradeOpen(false)
+              }}
+            >
+              Create Trade
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   )
-}
-
-// Custom Tooltip Component
-const CustomTooltip = ({ active, payload }: any) => {
-  if (active && payload && payload.length) {
-    const data = payload[0].payload.fullData as Trade
-    return (
-      <div className="bg-white p-3 rounded-lg shadow-lg border border-slate-200">
-        <p className="text-xs text-slate-600 mb-2">{data.timestamp.toLocaleString()}</p>
-        <div className="space-y-1 text-xs">
-          <div className="flex justify-between gap-4">
-            <span className="text-slate-600">Open:</span>
-            <span className="font-medium">{convertPKRtoAT(data.open).toFixed(2)} AT</span>
-          </div>
-          <div className="flex justify-between gap-4">
-            <span className="text-slate-600">High:</span>
-            <span className="font-medium text-emerald-600">{convertPKRtoAT(data.high).toFixed(2)} AT</span>
-          </div>
-          <div className="flex justify-between gap-4">
-            <span className="text-slate-600">Low:</span>
-            <span className="font-medium text-red-600">{convertPKRtoAT(data.low).toFixed(2)} AT</span>
-          </div>
-          <div className="flex justify-between gap-4">
-            <span className="text-slate-600">Close:</span>
-            <span className="font-medium">{convertPKRtoAT(data.close).toFixed(2)} AT</span>
-          </div>
-          <div className="border-t pt-1 mt-1">
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-600">Volume:</span>
-              <span className="font-medium">{data.volume.toLocaleString()}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-  return null
 }

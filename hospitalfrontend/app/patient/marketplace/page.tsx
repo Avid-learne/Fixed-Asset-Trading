@@ -632,7 +632,6 @@ function ReadOnlyTradingDashboard({ investment, onBack }: { investment: Investme
               <Bar 
                 yAxisId="price"
                 dataKey="high" 
-                // @ts-expect-error - Recharts shape prop type mismatch
                 shape={<CustomCandlestick />}
                 isAnimationActive={false}
                 name="Price"
