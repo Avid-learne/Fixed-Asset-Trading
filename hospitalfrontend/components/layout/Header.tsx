@@ -171,7 +171,7 @@ export const Header: React.FC = () => {
                   // Navigate to settings and optionally specify tab via query parameter
                   if (role === 'super_admin') {
                     window.location.href = '/admin/settings?tab=general'
-                  } else if (role === 'adminuser') {
+                  } else if (role === 'hospitaladmin') {
                     window.location.href = '/hospitaladmin/settings?tab=general'
                   } else if (role === 'hospital_staff') {
                     window.location.href = '/hospital/settings?tab=profile'

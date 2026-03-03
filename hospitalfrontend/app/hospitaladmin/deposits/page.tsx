@@ -10,9 +10,11 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CheckCircle, XCircle, Search, Eye, FileText, AlertTriangle, Clock, Filter, Download, Users, Calculator } from 'lucide-react'
-
+import { TabsTrigger } from '@radix-ui/react-tabs'
+import { TabsList } from '@radix-ui/react-tabs'
+import { Tabs } from '@radix-ui/react-tabs'
+import { TabsContent } from '@radix-ui/react-tabs'
 interface Deposit {
   id: string
   patientId: string
@@ -24,7 +26,6 @@ interface Deposit {
   value: number
   expectedTokens: number // AT tokens to be minted
   hospitalName: string
-  source: 'asset' | 'subscription' // NEW: Track source
   status: 'pending_review' | 'pending_bank' | 'approved' | 'rejected'
   submittedDate: string
   documentStatus: 'incomplete' | 'complete'
@@ -40,16 +41,6 @@ interface Deposit {
   }
 }
 
-interface SubscriptionBatch {
-  id: string
-  totalPatients: number
-  totalAmount: number // PKR collected from subscriptions
-  expectedTokens: number // AT tokens to mint
-  status: 'collecting' | 'ready_to_mint' | 'minted'
-  collectionPeriod: string
-  submittedDate: string
-}
-
 const mockDeposits: Deposit[] = [
   {
     id: 'DEP-1001',
@@ -62,7 +53,6 @@ const mockDeposits: Deposit[] = [
     value: 750000,
     expectedTokens: 7500,
     hospitalName: 'Liaquat National Hospital',
-    source: 'asset',
     status: 'pending_review',
     submittedDate: '2024-12-08',
     documentStatus: 'complete',
@@ -83,7 +73,6 @@ const mockDeposits: Deposit[] = [
     value: 50000,
     expectedTokens: 500,
     hospitalName: 'Liaquat National Hospital',
-    source: 'asset',
     status: 'pending_review',
     submittedDate: '2024-12-07',
     documentStatus: 'complete',
@@ -104,7 +93,6 @@ const mockDeposits: Deposit[] = [
     value: 375000,
     expectedTokens: 3750,
     hospitalName: 'Liaquat National Hospital',
-    source: 'asset',
     status: 'approved',
     submittedDate: '2024-12-05',
     documentStatus: 'complete',
@@ -125,7 +113,6 @@ const mockDeposits: Deposit[] = [
     value: 25000,
     expectedTokens: 250,
     hospitalName: 'Liaquat National Hospital',
-    source: 'asset',
     status: 'rejected',
     submittedDate: '2024-12-04',
     documentStatus: 'incomplete',
@@ -137,40 +124,8 @@ const mockDeposits: Deposit[] = [
   },
 ]
 
-const mockSubscriptionBatches: SubscriptionBatch[] = [
-  {
-    id: 'SUB-BATCH-001',
-    totalPatients: 45,
-    totalAmount: 450000, // 45 patients * 10,000 PKR/month
-    expectedTokens: 4500, // 450000 / 100
-    status: 'ready_to_mint',
-    collectionPeriod: 'November 2024',
-    submittedDate: '2024-12-01'
-  },
-  {
-    id: 'SUB-BATCH-002',
-    totalPatients: 38,
-    totalAmount: 380000,
-    expectedTokens: 3800,
-    status: 'minted',
-    collectionPeriod: 'October 2024',
-    submittedDate: '2024-11-01'
-  },
-  {
-    id: 'SUB-BATCH-003',
-    totalPatients: 52,
-    totalAmount: 520000,
-    expectedTokens: 5200,
-    status: 'collecting',
-    collectionPeriod: 'December 2024',
-    submittedDate: '2024-12-08'
-  }
-]
-
 export default function DepositsPage() {
   const [deposits, setDeposits] = useState<Deposit[]>(mockDeposits)
-  const [subscriptionBatches] = useState<SubscriptionBatch[]>(mockSubscriptionBatches)
-  const [activeTab, setActiveTab] = useState('assets')
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [selectedDeposits, setSelectedDeposits] = useState<string[]>([])
@@ -252,24 +207,19 @@ export default function DepositsPage() {
     )
   }
 
-  const pendingCount = deposits.filter(d => d.status === 'pending_review' && d.source === 'asset').length
-  const bankPendingCount = deposits.filter(d => d.status === 'pending_bank' && d.source === 'asset').length
-  const approvedCount = deposits.filter(d => d.status === 'approved' && d.source === 'asset').length
-  const totalValue = deposits.filter(d => d.status === 'approved' && d.source === 'asset').reduce((sum, d) => sum + d.value, 0)
-
-  // Subscription stats
-  const totalSubscriptionTokens = subscriptionBatches.reduce((sum, b) => sum + b.expectedTokens, 0)
-  const mintedSubscriptionTokens = subscriptionBatches.filter(b => b.status === 'minted').reduce((sum, b) => sum + b.expectedTokens, 0)
-  const readyToMintBatches = subscriptionBatches.filter(b => b.status === 'ready_to_mint').length
+  const pendingCount = deposits.filter(d => d.status === 'pending_review').length
+  const bankPendingCount = deposits.filter(d => d.status === 'pending_bank').length
+  const approvedCount = deposits.filter(d => d.status === 'approved').length
+  const totalValue = deposits.filter(d => d.status === 'approved').reduce((sum, d) => sum + d.value, 0)
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Deposit & Minting Management</h1>
-          <p className="text-muted-foreground mt-1">Manage asset deposits and subscription-based AT token minting.</p>
+          <h1 className="text-3xl font-bold text-foreground">Deposit Management</h1>
+          <p className="text-muted-foreground mt-1">Manage asset deposits and AT token minting.</p>
         </div>
-        {selectedDeposits.length > 0 && activeTab === 'assets' && (
+        {selectedDeposits.length > 0 && (
           <Button className="gap-2" onClick={() => setShowBulkApprove(true)}>
             <CheckCircle className="w-4 h-4" />
             Approve Selected ({selectedDeposits.length})
@@ -277,14 +227,8 @@ export default function DepositsPage() {
         )}
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
-          <TabsTrigger value="assets">Asset Deposits</TabsTrigger>
-          <TabsTrigger value="subscriptions">Subscription Minting</TabsTrigger>
-        </TabsList>
-
-        {/* Asset Deposits Tab */}
-        <TabsContent value="assets" className="space-y-6">
+      {/* Asset Deposits */}
+      <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <Card>
               <CardHeader className="pb-3">
@@ -468,143 +412,7 @@ export default function DepositsPage() {
           </Table>
         </CardContent>
       </Card>
-        </TabsContent>
-
-        {/* Subscription Minting Tab */}
-        <TabsContent value="subscriptions" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
-                  Total AT Tokens
-                  <Clock className="w-4 h-4 text-accent" />
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-foreground">{totalSubscriptionTokens.toLocaleString()}</p>
-                <p className="text-sm text-muted-foreground mt-1">From subscriptions</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
-                  Minted Tokens
-                  <CheckCircle className="w-4 h-4 text-green-600" />
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-foreground">{mintedSubscriptionTokens.toLocaleString()}</p>
-                <p className="text-sm text-muted-foreground mt-1">Already minted</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
-                  Ready to Mint
-                  <AlertTriangle className="w-4 h-4 text-warning" />
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-foreground">{readyToMintBatches}</p>
-                <p className="text-sm text-muted-foreground mt-1">Batches ready</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
-                  Collecting
-                  <Users className="w-4 h-4 text-blue-600" />
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-foreground">
-                  {subscriptionBatches.filter(b => b.status === 'collecting').length}
-                </p>
-                <p className="text-sm text-muted-foreground mt-1">In collection</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Subscription Batches for AT Token Minting</CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                Hospital collects subscription payments and mints AT tokens in batches monthly.
-              </p>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Batch ID</TableHead>
-                    <TableHead>Collection Period</TableHead>
-                    <TableHead className="text-right">Patients</TableHead>
-                    <TableHead className="text-right">Total Amount (PKR)</TableHead>
-                    <TableHead className="text-right">AT Tokens</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Submitted</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {subscriptionBatches.map((batch) => (
-                    <TableRow key={batch.id}>
-                      <TableCell className="font-mono text-xs">{batch.id}</TableCell>
-                      <TableCell className="font-medium">{batch.collectionPeriod}</TableCell>
-                      <TableCell className="text-right">{batch.totalPatients}</TableCell>
-                      <TableCell className="text-right font-medium">
-                        {batch.totalAmount.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-right font-bold text-accent">
-                        {batch.expectedTokens.toLocaleString()} AT
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={
-                          batch.status === 'minted'
-                            ? 'bg-green-50 text-green-700 border-green-200'
-                            : batch.status === 'ready_to_mint'
-                            ? 'bg-warning/10 text-warning border-warning/20'
-                            : 'bg-blue-50 text-blue-700 border-blue-200'
-                        }>
-                          {batch.status === 'minted' && <CheckCircle className="w-3 h-3 mr-1" />}
-                          {batch.status === 'ready_to_mint' ? 'Ready to Mint' : batch.status === 'minted' ? 'Minted' : 'Collecting'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{batch.submittedDate}</TableCell>
-                      <TableCell className="text-right">
-                        {batch.status === 'ready_to_mint' && (
-                          <Button size="sm" className="bg-success hover:bg-success/90">
-                            Mint Tokens
-                          </Button>
-                        )}
-                        {batch.status === 'minted' && (
-                          <Button size="sm" variant="outline">
-                            View Details
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-
-              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex gap-3">
-                  <AlertTriangle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-blue-900">Subscription Minting Process</p>
-                    <p className="text-xs text-blue-700 mt-1">
-                      Hospital collects monthly subscription payments from patients (PKR 10,000/month). 
-                      At the end of each month, the total collected amount is converted to AT tokens at 100 PKR = 1 AT ratio. 
-                      These tokens are then distributed to a subscription pool for trading.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      </div>
 
       {/* View Deposit Details Dialog */}
       <Dialog open={!!selectedDeposit && !showRejectDialog} onOpenChange={(open) => !open && setSelectedDeposit(null)}>

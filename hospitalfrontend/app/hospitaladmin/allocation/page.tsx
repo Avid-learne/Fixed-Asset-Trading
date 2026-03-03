@@ -67,7 +67,7 @@ export default function ProfitAllocationPage() {
             <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex justify-between items-center">
                 <div>
                     <p className="text-sm text-green-800 font-medium">Total Profit Available</p>
-                    <p className="text-3xl font-bold text-green-700">${profit.toLocaleString()}</p>
+                    <p className="text-3xl font-bold text-green-700">PKR {profit.toLocaleString()}</p>
                     <p className="text-xs text-green-600 mt-1">From last trading cycle</p>
                 </div>
                 <Button variant="outline" size="sm">Refresh</Button>
@@ -89,13 +89,13 @@ export default function ProfitAllocationPage() {
                     <div className="p-4 border-2 border-primary rounded-lg text-center bg-primary/5">
                         <Users className="w-6 h-6 mx-auto mb-2 text-primary" />
                         <p className="text-sm text-muted-foreground">To Patients</p>
-                        <p className="text-2xl font-bold">${patientAmount.toLocaleString()}</p>
+                        <p className="text-2xl font-bold">PKR {patientAmount.toLocaleString()}</p>
                         <p className="text-xs text-green-600 font-medium mt-1">≈ {totalHT.toFixed(0)} HT</p>
                     </div>
                     <div className="p-4 border rounded-lg text-center">
                         <Gift className="w-6 h-6 mx-auto mb-2 text-secondary" />
                         <p className="text-sm text-muted-foreground">To Hospital</p>
-                        <p className="text-2xl font-bold">${hospitalAmount.toLocaleString()}</p>
+                        <p className="text-2xl font-bold">PKR {hospitalAmount.toLocaleString()}</p>
                         <p className="text-xs text-muted-foreground mt-1">Hospital Revenue</p>
                     </div>
                 </div>
@@ -107,7 +107,7 @@ export default function ProfitAllocationPage() {
                 <p className="text-sm font-medium text-emerald-900">Distribution Formula</p>
                 <p className="text-xs text-emerald-700 mt-1">
                   HT is distributed proportionally based on each patient's AT holdings. 
-                  Conversion rate: ${htConversionRate} = 1 HT
+                  Conversion rate: PKR {htConversionRate} = 1 HT
                 </p>
               </div>
             </div>
@@ -163,7 +163,7 @@ export default function ProfitAllocationPage() {
                 <TableHead className="text-right">AT Holdings</TableHead>
                 <TableHead className="text-right">Share %</TableHead>
                 <TableHead className="text-right">HT Amount</TableHead>
-                <TableHead className="text-right">USD Value</TableHead>
+                <TableHead className="text-right">PKR Value</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -177,7 +177,7 @@ export default function ProfitAllocationPage() {
                     {patient.htAmount.toFixed(2)} HT
                   </TableCell>
                   <TableCell className="text-right">
-                    ${(patient.htAmount * htConversionRate).toFixed(2)}
+                    PKR {(patient.htAmount * htConversionRate).toFixed(2)}
                   </TableCell>
                 </TableRow>
               ))}
@@ -186,7 +186,7 @@ export default function ProfitAllocationPage() {
                 <TableCell className="text-right">{totalATHolding.toLocaleString()}</TableCell>
                 <TableCell className="text-right">100%</TableCell>
                 <TableCell className="text-right text-green-600">{totalHT.toFixed(2)} HT</TableCell>
-                <TableCell className="text-right">${patientAmount.toLocaleString()}</TableCell>
+                <TableCell className="text-right">PKR {patientAmount.toLocaleString()}</TableCell>
               </TableRow>
             </TableBody>
           </Table>
@@ -206,7 +206,7 @@ export default function ProfitAllocationPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="p-4 bg-muted rounded-lg">
                 <p className="text-sm text-muted-foreground">Total Profit</p>
-                <p className="text-2xl font-bold">${profit.toLocaleString()}</p>
+                <p className="text-2xl font-bold">PKR {profit.toLocaleString()}</p>
               </div>
               <div className="p-4 bg-muted rounded-lg">
                 <p className="text-sm text-muted-foreground">Total Recipients</p>
@@ -219,7 +219,7 @@ export default function ProfitAllocationPage() {
                 <p className="text-sm font-medium text-green-900">Patient Allocation</p>
                 <Badge variant="default">{patientShare}%</Badge>
               </div>
-              <p className="text-3xl font-bold text-green-700">${patientAmount.toLocaleString()}</p>
+              <p className="text-3xl font-bold text-green-700">PKR {patientAmount.toLocaleString()}</p>
               <p className="text-sm text-green-600 mt-1">Converting to {totalHT.toFixed(2)} HT</p>
             </div>
 
@@ -228,7 +228,7 @@ export default function ProfitAllocationPage() {
                 <p className="text-sm font-medium">Hospital Revenue</p>
                 <Badge variant="outline">{hospitalShare}%</Badge>
               </div>
-              <p className="text-2xl font-bold">${hospitalAmount.toLocaleString()}</p>
+              <p className="text-2xl font-bold">PKR {hospitalAmount.toLocaleString()}</p>
             </div>
 
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex gap-2">

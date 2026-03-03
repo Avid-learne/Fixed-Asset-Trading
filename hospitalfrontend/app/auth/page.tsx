@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { signIn, getSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,32 +17,42 @@ import {
   ArrowLeft,
   Loader2,
 } from "lucide-react";
-import { UserRole } from "@/types";
-import { roleToPath } from "@/lib/roleToPath";
+import { authService } from "@/lib/authService";
 
 interface DemoAccount {
-  role: UserRole;
+  role: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   email: string;
+  password: string;
   description: string;
 }
 
 const demoAccounts: DemoAccount[] = [
-  { role: UserRole.PATIENT, label: "Patient", icon: User, email: "ahmed.patient@lnh.com", description: "View deposits, tokens, and health benefits" },
-  { role: UserRole.HOSPITAL_STAFF, label: "Hospital Staff", icon: Building2, email: "staff@lnh.com", description: "Manage deposits and patient records" },
-  { role: UserRole.HOSPITAL_ADMIN, label: "Hospital Admin", icon: Building2, email: "admin@lnh.com", description: "Full hospital system control" },
-  { role: UserRole.BANK_OFFICER, label: "Bank Officer", icon: CreditCard, email: "officer@nbp.com", description: "Approve assets and manage policies" },
-  { role: UserRole.SUPER_ADMIN, label: "Super Admin", icon: Shield, email: "superadmin@lnh.com", description: "System-wide administration" },
+  { role: "PATIENT", label: "Patient", icon: User, email: "demo.patient@hospital.com", password: "Demo@123", description: "View deposits, tokens, and health benefits" },
+  { role: "HOSPITAL_STAFF", label: "Hospital Staff", icon: Building2, email: "demo.staff@hospital.com", password: "Demo@123", description: "Manage deposits and patient records" },
+  { role: "HOSPITAL_ADMIN", label: "Hospital Admin", icon: Building2, email: "demo.admin@hospital.com", password: "Demo@123", description: "Full hospital system control" },
+  { role: "BANK_STAFF", label: "Bank Officer", icon: CreditCard, email: "demo.officer@bank.com", password: "Demo@123", description: "Approve assets and manage policies" },
+  { role: "ADMIN", label: "Super Admin", icon: Shield, email: "demo.superadmin@admin.com", password: "Demo@123", description: "System-wide administration" },
+];
+
+const AVAILABLE_ROLES = [
+  { value: "PATIENT", label: "Patient" },
+  { value: "HOSPITAL_STAFF", label: "Hospital Staff" },
+  { value: "HOSPITAL_ADMIN", label: "Hospital Admin" },
+  { value: "BANK_STAFF", label: "Bank Officer" },
+  { value: "ADMIN", label: "Admin" },
 ];
 
 export default function Auth() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingRole, setLoadingRole] = useState<UserRole | null>(null);
+  const [loadingRole, setLoadingRole] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [wallet, setWallet] = useState("");
+  const [role, setRole] = useState("PATIENT");
   const [error, setError] = useState("");
 
   const handleDemoSignIn = async (account: DemoAccount) => {
@@ -51,22 +60,20 @@ export default function Auth() {
     setLoadingRole(account.role);
     setError("");
 
-    const result = await signIn('credentials', {
-      email: account.email,
-      password: 'password', // All demo accounts use 'password'
-      redirect: false,
-    });
+    try {
+      const response = await authService.login({
+        email: account.email,
+        password: account.password,
+      });
 
-    if (result?.ok) {
-      const session = await getSession();
-      if (session?.user?.role) {
-        const redirectPath = roleToPath(session.user.role as UserRole);
-        router.push(redirectPath);
+      if (response.success) {
+        const path = authService.getRoleRedirectPath(response.role);
+        router.push(path);
       } else {
-        router.push('/patient'); // Fallback
+        setError(response.message || "Login failed. Please try again.");
       }
-    } else {
-      setError("Demo sign-in failed. Please try again.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred during login");
       setIsLoading(false);
       setLoadingRole(null);
     }
@@ -77,36 +84,71 @@ export default function Auth() {
     setIsLoading(true);
     setError("");
 
-    const result = await signIn('credentials', {
-      email,
-      password,
-      redirect: false,
-    });
+    try {
+      const response = await authService.login({
+        email,
+        password,
+      });
 
-    if (result?.ok) {
-      const session = await getSession();
-      if (session?.user?.role) {
-        const redirectPath = roleToPath(session.user.role as UserRole);
-        router.push(redirectPath);
+      if (response.success) {
+        const path = authService.getRoleRedirectPath(response.role);
+        router.push(path);
       } else {
-        router.push('/patient'); // Fallback
+        setError(response.message || "Invalid email or password");
       }
-    } else {
-      setError("Invalid email or password.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred during login");
+    } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSignUp = (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
-    // Implement your actual sign-up logic here
-    setTimeout(() => {
+
+    // Validate
+    if (!name || !email || !password) {
+      setError("Please fill in all required fields");
       setIsLoading(false);
-      // For now, just show an alert
-      alert("Sign-up functionality is not implemented in this demo.");
-    }, 1000);
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const response = await authService.signup({
+        email,
+        password,
+        name,
+        role,
+        walletAddress: wallet || undefined,
+      });
+
+      if (response.success) {
+        // Clear form
+        setEmail("");
+        setPassword("");
+        setName("");
+        setWallet("");
+        setRole("PATIENT");
+        
+        // Show success and redirect
+        alert("Account created successfully! Redirecting...");
+        router.push('/patient');
+      } else {
+        setError(response.message || "Sign-up failed. Please try again");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred during signup");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -200,15 +242,40 @@ export default function Auth() {
                   <form onSubmit={handleSignUp} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="signup-name">Full Name</Label>
-                      <Input id="signup-name" type="text" value={name} onChange={(e) => setName(e.target.value)} required />
+                      <Input id="signup-name" type="text" placeholder="John Doe" value={name} onChange={(e) => setName(e.target.value)} required />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="signup-email">Email</Label>
-                      <Input id="signup-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                      <Input id="signup-email" type="email" placeholder="john@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="signup-password">Password</Label>
-                      <Input id="signup-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                      <Input id="signup-password" type="password" placeholder="Min 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-role">Role</Label>
+                      <select
+                        id="signup-role"
+                        value={role}
+                        onChange={(e) => setRole(e.target.value)}
+                        className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      >
+                        {AVAILABLE_ROLES.map((r) => (
+                          <option key={r.value} value={r.value}>
+                            {r.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-wallet">Wallet Address (Optional)</Label>
+                      <Input 
+                        id="signup-wallet" 
+                        type="text" 
+                        placeholder="0x..." 
+                        value={wallet} 
+                        onChange={(e) => setWallet(e.target.value)} 
+                      />
                     </div>
                     <Button type="submit" className="w-full" disabled={isLoading}>
                       {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Create Account"}

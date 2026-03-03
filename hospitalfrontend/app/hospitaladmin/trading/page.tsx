@@ -18,7 +18,6 @@ interface AvailableToken {
   assetType: 'Gold' | 'Silver'
   weight: number
   atTokens: number
-  source: 'asset' | 'subscription'
   mintedDate: string
   currentlyInTrading: boolean
 }
@@ -26,7 +25,6 @@ interface AvailableToken {
 interface TradePosition {
   id: string
   tokenId: string
-  pool: 'asset-pool' | 'subscription-pool'
   atAmount: number
   investedValue: number
   currentValue: number
@@ -44,7 +42,6 @@ const mockAvailableTokens: AvailableToken[] = [
     assetType: 'Gold',
     weight: 50,
     atTokens: 7500,
-    source: 'asset',
     mintedDate: '2024-12-05',
     currentlyInTrading: false
   },
@@ -55,48 +52,12 @@ const mockAvailableTokens: AvailableToken[] = [
     assetType: 'Silver',
     weight: 200,
     atTokens: 500,
-    source: 'asset',
     mintedDate: '2024-12-06',
-    currentlyInTrading: false
-  },
-  {
-    id: 'AT-003',
-    depositId: 'SUB-1001',
-    patientName: 'Michael Brown',
-    assetType: 'Gold',
-    weight: 25,
-    atTokens: 3750,
-    source: 'subscription',
-    mintedDate: '2024-12-04',
-    currentlyInTrading: true
-  },
-  {
-    id: 'AT-004',
-    depositId: 'SUB-1002',
-    patientName: 'Emily Davis',
-    assetType: 'Silver',
-    weight: 100,
-    atTokens: 250,
-    source: 'subscription',
-    mintedDate: '2024-12-03',
     currentlyInTrading: false
   }
 ]
 
-const mockActivePositions: TradePosition[] = [
-  {
-    id: 'POS-001',
-    tokenId: 'AT-003',
-    pool: 'subscription-pool',
-    atAmount: 3750,
-    investedValue: 375000,
-    currentValue: 412500,
-    profitLoss: 37500,
-    profitLossPercent: 10,
-    entryDate: '2024-12-04',
-    status: 'active'
-  }
-]
+const mockActivePositions: TradePosition[] = []
 
 const assetPoolData = [
   { month: 'Jul', value: 100 },
@@ -107,31 +68,15 @@ const assetPoolData = [
   { month: 'Dec', value: 118 },
 ]
 
-const subscriptionPoolData = [
-  { month: 'Jul', value: 100 },
-  { month: 'Aug', value: 102 },
-  { month: 'Sep', value: 105 },
-  { month: 'Oct', value: 108 },
-  { month: 'Nov', value: 106 },
-  { month: 'Dec', value: 110 },
-]
-
-const poolAllocationData = [
-  { name: 'Asset Pool', value: 65, color: '#F59E0B' },
-  { name: 'Subscription Pool', value: 35, color: '#38ADA9' }
-]
-
 export default function TradingPage() {
   const [availableTokens] = useState<AvailableToken[]>(mockAvailableTokens)
   const [activePositions] = useState<TradePosition[]>(mockActivePositions)
   const [selectedToken, setSelectedToken] = useState<AvailableToken | null>(null)
-  const [selectedPool, setSelectedPool] = useState<'asset-pool' | 'subscription-pool'>('asset-pool')
   const [showTradeDialog, setShowTradeDialog] = useState(false)
   const [activeTab, setActiveTab] = useState('available')
 
   const handleOpenTrade = (token: AvailableToken) => {
     setSelectedToken(token)
-    setSelectedPool(token.source === 'asset' ? 'asset-pool' : 'subscription-pool')
     setShowTradeDialog(true)
   }
 
@@ -146,11 +91,9 @@ export default function TradingPage() {
   const totalProfitLoss = totalCurrentValue - totalInvestedValue
   const totalProfitLossPercent = totalInvestedValue > 0 ? ((totalProfitLoss / totalInvestedValue) * 100).toFixed(2) : '0.00'
 
-  // Breakdown by source
-  const assetTokensInTrading = availableTokens.filter(t => t.source === 'asset' && t.currentlyInTrading).reduce((sum, t) => sum + t.atTokens, 0)
-  const subscriptionTokensInTrading = availableTokens.filter(t => t.source === 'subscription' && t.currentlyInTrading).reduce((sum, t) => sum + t.atTokens, 0)
-  const assetTokensAvailable = availableTokens.filter(t => t.source === 'asset' && !t.currentlyInTrading).reduce((sum, t) => sum + t.atTokens, 0)
-  const subscriptionTokensAvailable = availableTokens.filter(t => t.source === 'subscription' && !t.currentlyInTrading).reduce((sum, t) => sum + t.atTokens, 0)
+  // Token breakdown
+  const assetTokensInTrading = availableTokens.filter(t => t.currentlyInTrading).reduce((sum, t) => sum + t.atTokens, 0)
+  const assetTokensAvailable = availableTokens.filter(t => !t.currentlyInTrading).reduce((sum, t) => sum + t.atTokens, 0)
 
   return (
     <div className="space-y-6">
@@ -247,34 +190,6 @@ export default function TradingPage() {
             </p>
           </CardContent>
         </Card>
-
-        <Card className="border-accent/20 bg-accent/5">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <span className="text-accent">●</span>
-              AT Tokens from Subscriptions
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">In Trading:</span>
-              <span className="text-2xl font-bold text-accent">{subscriptionTokensInTrading.toLocaleString()} AT</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Available:</span>
-              <span className="text-xl font-semibold">{subscriptionTokensAvailable.toLocaleString()} AT</span>
-            </div>
-            <div className="pt-3 border-t">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Total:</span>
-                <span className="text-lg font-bold">{(subscriptionTokensInTrading + subscriptionTokensAvailable).toLocaleString()} AT</span>
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              From monthly subscriptions. Currently in Subscription Pool (8.2% APY)
-            </p>
-          </CardContent>
-        </Card>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -297,10 +212,9 @@ export default function TradingPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Token ID</TableHead>
-                    <TableHead>Patient</TableHead>
-                    <TableHead>Source</TableHead>
-                    <TableHead>Asset Type</TableHead>
+                      <TableHead>Token ID</TableHead>
+                      <TableHead>Patient</TableHead>
+                      <TableHead>Asset Type</TableHead>
                     <TableHead>Weight</TableHead>
                     <TableHead className="text-right">AT Tokens</TableHead>
                     <TableHead>Status</TableHead>
@@ -316,15 +230,6 @@ export default function TradingPage() {
                           <p className="font-medium">{token.patientName}</p>
                           <p className="text-xs text-muted-foreground">{token.depositId}</p>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={
-                          token.source === 'asset' 
-                            ? 'bg-amber-50 text-amber-700 border-amber-200'
-                            : 'bg-blue-50 text-blue-700 border-blue-200'
-                        }>
-                          {token.source === 'asset' ? 'Asset Deposit' : 'Subscription'}
-                        </Badge>
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className={
@@ -385,7 +290,6 @@ export default function TradingPage() {
                     <TableRow>
                       <TableHead>Position ID</TableHead>
                       <TableHead>Token ID</TableHead>
-                      <TableHead>Pool</TableHead>
                       <TableHead className="text-right">AT Amount</TableHead>
                       <TableHead className="text-right">Invested (PKR)</TableHead>
                       <TableHead className="text-right">Current (PKR)</TableHead>
@@ -399,15 +303,6 @@ export default function TradingPage() {
                       <TableRow key={position.id}>
                         <TableCell className="font-mono text-xs">{position.id}</TableCell>
                         <TableCell className="font-mono text-xs">{position.tokenId}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={
-                            position.pool === 'asset-pool'
-                              ? 'bg-amber-50 text-amber-700 border-amber-200'
-                              : 'bg-blue-50 text-blue-700 border-blue-200'
-                          }>
-                            {position.pool === 'asset-pool' ? 'Asset Pool' : 'Subscription Pool'}
-                          </Badge>
-                        </TableCell>
                         <TableCell className="text-right font-bold text-accent">
                           {position.atAmount.toLocaleString()} AT
                         </TableCell>
@@ -496,116 +391,7 @@ export default function TradingPage() {
                 </div>
               </CardContent>
             </Card>
-
-            {/* Subscription Pool */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>Subscription Pool Performance</span>
-                  <Badge className="bg-accent">Subscriptions</Badge>
-                </CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  AT tokens from subscription plans
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-accent/10 rounded-lg">
-                    <p className="text-sm text-muted-foreground">Current APY</p>
-                    <p className="text-2xl font-bold text-accent">8.2%</p>
-                  </div>
-                  <div className="p-4 bg-muted rounded-lg">
-                    <p className="text-sm text-muted-foreground">Pool Size</p>
-                    <p className="text-2xl font-bold">PKR 450K</p>
-                  </div>
-                </div>
-
-                <div className="h-[200px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={subscriptionPoolData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <Tooltip />
-                      <Line type="monotone" dataKey="value" stroke="#38ADA9" strokeWidth={2} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Risk Level:</span>
-                    <span className="font-medium">Low-Medium</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Active Positions:</span>
-                    <span className="font-medium">1</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Avg. Hold Time:</span>
-                    <span className="font-medium">38 days</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </div>
-
-          {/* Pool Allocation */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Current Pool Allocation</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="h-[300px] flex items-center justify-center">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={poolAllocationData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, value }) => `${name}: ${value}%`}
-                        outerRadius={100}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {poolAllocationData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-
-                <div className="space-y-4">
-                  <h4 className="font-semibold">Allocation Strategy</h4>
-                  <div className="space-y-3">
-                    <div className="p-4 bg-warning/10 border border-warning/20 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium">Asset Pool</span>
-                        <span className="text-2xl font-bold text-warning">65%</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Higher returns with moderate risk. Backed by physical gold/silver.
-                      </p>
-                    </div>
-
-                    <div className="p-4 bg-accent/10 border border-accent/20 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium">Subscription Pool</span>
-                        <span className="text-2xl font-bold text-accent">35%</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Steady returns with lower risk. Subscription-based revenue model.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </TabsContent>
       </Tabs>
 
@@ -657,44 +443,20 @@ export default function TradingPage() {
                 </div>
               </div>
 
-              {/* Pool Selection */}
-              <div className="space-y-3">
-                <label className="text-sm font-medium">Select Trading Pool</label>
-                <Select value={selectedPool} onValueChange={(value: any) => setSelectedPool(value)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="asset-pool">
-                      <div className="flex items-center gap-2">
-                        <span>Asset Pool</span>
-                        <Badge className="bg-warning">12.5% APY</Badge>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="subscription-pool">
-                      <div className="flex items-center gap-2">
-                        <span>Subscription Pool</span>
-                        <Badge className="bg-accent">8.2% APY</Badge>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
               {/* Pool Details */}
               <div className="p-4 border rounded-lg space-y-3">
-                <h4 className="font-semibold">Pool Details</h4>
+                <h4 className="font-semibold">Asset Pool Details</h4>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Expected APY:</span>
                     <span className="font-bold text-success">
-                      {selectedPool === 'asset-pool' ? '12.5%' : '8.2%'}
+                      12.5%
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Risk Level:</span>
                     <span className="font-medium">
-                      {selectedPool === 'asset-pool' ? 'Medium-High' : 'Low-Medium'}
+                      Medium-High
                     </span>
                   </div>
                   <div className="flex justify-between">

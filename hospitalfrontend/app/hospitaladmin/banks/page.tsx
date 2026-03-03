@@ -4,9 +4,12 @@ import React, { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Building, CheckCircle, Globe, Phone, Mail, MapPin, Plus } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Building, CheckCircle, Globe, Phone, Mail, MapPin, Plus, AlertCircle } from 'lucide-react'
 
 const linkedBanks = [
   {
@@ -89,6 +92,44 @@ const linkedBanks = [
 
 export default function BankIntegrationsPage() {
   const [selectedBank, setSelectedBank] = useState<typeof linkedBanks[0] | null>(null)
+  const [showLinkDialog, setShowLinkDialog] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [formData, setFormData] = useState({
+    name: '',
+    contact: '',
+    email: '',
+    website: '',
+    address: '',
+    accountManager: '',
+    supportedAssets: '',
+  })
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    })
+  }
+
+  const handleLinkBank = () => {
+    setIsSubmitting(true)
+    // Simulate API call
+    setTimeout(() => {
+      setIsSubmitting(false)
+      setShowLinkDialog(false)
+      // Reset form
+      setFormData({
+        name: '',
+        contact: '',
+        email: '',
+        website: '',
+        address: '',
+        accountManager: '',
+        supportedAssets: '',
+      })
+      // Success notification would go here
+    }, 2000)
+  }
 
   return (
     <div className="space-y-6">
@@ -97,7 +138,7 @@ export default function BankIntegrationsPage() {
           <h1 className="text-3xl font-bold text-foreground">Bank Integrations</h1>
           <p className="text-muted-foreground mt-1">Manage connections with custodian banks.</p>
         </div>
-        <Button><Plus className="w-4 h-4 mr-2" /> Link New Bank</Button>
+        <Button onClick={() => setShowLinkDialog(true)}><Plus className="w-4 h-4 mr-2" /> Link New Bank</Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -318,6 +359,149 @@ export default function BankIntegrationsPage() {
               <Button variant="outline" className="w-full">Disconnect Bank</Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Link New Bank Dialog */}
+      <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Building className="w-5 h-5" />
+              Link New Bank
+            </DialogTitle>
+            <DialogDescription>
+              Add a new custodian bank to integrate with the hospital system
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {/* Bank Information */}
+            <div className="space-y-4">
+              <h3 className="font-semibold text-sm">Bank Information</h3>
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <Label htmlFor="name">Bank Name *</Label>
+                  <Input
+                    id="name"
+                    name="name"
+                    placeholder="Enter bank name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="website">Website URL</Label>
+                  <Input
+                    id="website"
+                    name="website"
+                    placeholder="www.example.com"
+                    value={formData.website}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="address">Address *</Label>
+                  <Textarea
+                    id="address"
+                    name="address"
+                    placeholder="Enter bank address"
+                    value={formData.address}
+                    onChange={handleInputChange}
+                    rows={2}
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Contact Information */}
+            <div className="space-y-4 border-t pt-4">
+              <h3 className="font-semibold text-sm">Contact Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="contact">Phone Number *</Label>
+                  <Input
+                    id="contact"
+                    name="contact"
+                    placeholder="+92-21-1234-5678"
+                    value={formData.contact}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="email">Email Address *</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="contact@bank.com"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label htmlFor="accountManager">Account Manager Name</Label>
+                  <Input
+                    id="accountManager"
+                    name="accountManager"
+                    placeholder="Enter account manager name"
+                    value={formData.accountManager}
+                    onChange={handleInputChange}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Asset Types */}
+            <div className="space-y-4 border-t pt-4">
+              <h3 className="font-semibold text-sm">Supported Asset Types</h3>
+              <div>
+                <Label htmlFor="supportedAssets">Asset Types (comma-separated)</Label>
+                <Input
+                  id="supportedAssets"
+                  name="supportedAssets"
+                  placeholder="Real Estate, Medical Equipment, Vehicles"
+                  value={formData.supportedAssets}
+                  onChange={handleInputChange}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Enter asset types separated by commas
+                </p>
+              </div>
+            </div>
+
+            {/* Information Notice */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex gap-3">
+              <AlertCircle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-blue-900">Integration Setup Required</p>
+                <p className="text-xs text-blue-700 mt-1">
+                  After submission, the bank will be added with "Pending Approval" status. 
+                  API credentials and technical integration must be configured separately.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowLinkDialog(false)}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleLinkBank}
+              disabled={isSubmitting || !formData.name || !formData.contact || !formData.email || !formData.address}
+            >
+              {isSubmitting ? 'Submitting...' : 'Link Bank'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
