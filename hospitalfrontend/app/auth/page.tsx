@@ -67,6 +67,7 @@ export default function Auth() {
       });
 
       if (response.success) {
+        alert("Login successful! Redirecting...");
         const path = authService.getRoleRedirectPath(response.role);
         router.push(path);
       } else {
@@ -91,6 +92,7 @@ export default function Auth() {
       });
 
       if (response.success) {
+        alert("Login successful! Redirecting...");
         const path = authService.getRoleRedirectPath(response.role);
         router.push(path);
       } else {
@@ -140,7 +142,8 @@ export default function Auth() {
         
         // Show success and redirect
         alert("Account created successfully! Redirecting...");
-        router.push('/patient');
+        const path = authService.getRoleRedirectPath(response.role);
+        router.push(path);
       } else {
         setError(response.message || "Sign-up failed. Please try again");
       }

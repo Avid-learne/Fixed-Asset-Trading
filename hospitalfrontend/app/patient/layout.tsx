@@ -8,8 +8,10 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { Header } from '@/components/layout/Header'
 import { useAuthStore } from '@/store/authStore'
+import { usePatientProfileStore } from '@/store/patientProfileStore'
 import { UserRole } from '@/types'
 import { roleToPath } from '@/lib/roleToPath'
+import { authService } from '@/lib/authService'
 
 export default function PatientLayout({
   children,
@@ -20,28 +22,45 @@ export default function PatientLayout({
   const router = useRouter()
   const pathname = usePathname()
   const { setUser, user } = useAuthStore()
+  const hydrateFromAuthUser = usePatientProfileStore(state => state.hydrateFromAuthUser)
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    const hydrateUser = async () => {
+      const refreshedUser = await authService.fetchCurrentUser()
+      if (refreshedUser?.success) {
+        const localUser = authService.getUser()
+        hydrateFromAuthUser(localUser)
+      } else {
+        hydrateFromAuthUser(authService.getUser())
+      }
+    }
+
+    const localToken = authService.getToken()
+    const localUser = authService.getUser()
+    const activeUser = session?.user || localUser
+
+    if (status === 'unauthenticated' && !localToken) {
       router.push('/auth')
       return
     }
-    
-    if (session?.user) {
+
+    if (activeUser) {
       // Only set user if not already set or if user has changed
-      if (!user || user.id !== session.user.id) {
-        setUser(session.user as any)
+      if (!user || user.id !== activeUser.id) {
+        setUser(activeUser as any)
       }
       
       // Only redirect if user has wrong role AND not already on correct path
-      if (session.user.role !== UserRole.PATIENT) {
-        const correctPath = roleToPath(session.user.role)
+      if (activeUser.role !== UserRole.PATIENT && String(activeUser.role).toUpperCase() !== 'PATIENT') {
+        const correctPath = roleToPath(activeUser.role)
         if (!pathname.startsWith(correctPath)) {
           router.push(correctPath)
         }
       }
+
+      hydrateUser()
     }
-  }, [session?.user?.id, status, pathname])
+  }, [session?.user?.id, status, pathname, hydrateFromAuthUser])
 
   if (status === 'loading' || !user) {
     return (

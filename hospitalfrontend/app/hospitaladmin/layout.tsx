@@ -10,28 +10,33 @@ import { Header } from '@/components/layout/Header'
 import { useAuthStore } from '@/store/authStore'
 import { UserRole } from '@/types'
 import { roleToPath } from '@/lib/roleToPath'
+import { authService } from '@/lib/authService'
 
 export default function HospitalAdminLayout({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession()
   const router = useRouter()
   const pathname = usePathname()
-  const { setUser, user, hasRole } = useAuthStore()
+  const { setUser, user } = useAuthStore()
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    const localToken = authService.getToken()
+    const localUser = authService.getUser()
+    const activeUser = session?.user || localUser
+
+    if (status === 'unauthenticated' && !localToken) {
       router.push('/auth')
       return
     }
-    
-    if (session?.user) {
+
+    if (activeUser) {
       // Only set user if not already set or if user has changed
-      if (!user || user.id !== session.user.id) {
-        setUser(session.user as any)
+      if (!user || user.id !== activeUser.id) {
+        setUser(activeUser as any)
       }
       
       // Only redirect if user doesn't have the correct role AND is not already on a valid path
-      if (!hasRole([UserRole.HOSPITAL_ADMIN])) {
-        const correctPath = roleToPath(session.user.role)
+      if (activeUser.role !== UserRole.HOSPITAL_ADMIN && String(activeUser.role).toUpperCase() !== 'HOSPITAL_ADMIN') {
+        const correctPath = roleToPath(activeUser.role)
         // Only redirect if not already on the correct path
         if (!pathname.startsWith(correctPath)) {
           router.push(correctPath)

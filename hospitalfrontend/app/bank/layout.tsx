@@ -9,6 +9,7 @@ import { Header } from '@/components/layout/Header'
 import { useAuthStore } from '@/store/authStore'
 import { UserRole } from '@/types'
 import { roleToPath } from '@/lib/roleToPath'
+import { authService } from '@/lib/authService'
 
 export default function BankLayout({
   children,
@@ -21,20 +22,24 @@ export default function BankLayout({
   const { setUser, user } = useAuthStore()
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    const localToken = authService.getToken()
+    const localUser = authService.getUser()
+    const activeUser = session?.user || localUser
+
+    if (status === 'unauthenticated' && !localToken) {
       router.push('/auth')
       return
     }
-    
-    if (session?.user) {
+
+    if (activeUser) {
       // Only set user if not already set or if user has changed
-      if (!user || user.id !== session.user.id) {
-        setUser(session.user as any)
+      if (!user || user.id !== activeUser.id) {
+        setUser(activeUser as any)
       }
       
       // Only redirect if user has wrong role AND not already on correct path
-      if (session.user.role !== UserRole.BANK_OFFICER) {
-        const correctPath = roleToPath(session.user.role)
+      if (activeUser.role !== UserRole.BANK_OFFICER && String(activeUser.role).toUpperCase() !== 'BANK_STAFF' && String(activeUser.role).toUpperCase() !== 'BANK_OFFICER') {
+        const correctPath = roleToPath(activeUser.role)
         if (!pathname.startsWith(correctPath)) {
           router.push(correctPath)
         }

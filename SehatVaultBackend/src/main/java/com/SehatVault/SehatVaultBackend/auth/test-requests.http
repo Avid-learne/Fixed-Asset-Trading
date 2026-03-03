@@ -1,0 +1,264 @@
+### Auth API Test Requests
+# Use this file with REST Client extension in VS Code
+
+@baseUrl = http://localhost:8080
+@contentType = application/json
+
+### ========================================
+### 1. PATIENT SIGNUP
+### ========================================
+
+### Signup - Patient 1
+POST {{baseUrl}}/api/auth/signup
+Content-Type: {{contentType}}
+
+{
+  "name": "Ahmed Hassan",
+  "email": "ahmed@example.com",
+  "password": "password123",
+  "phoneNum": "+923001234567",
+  "address": "123 Main Street",
+  "city": "Karachi",
+  "bloodGroup": "O+",
+  "dateOfBirth": "1990-01-15",
+  "role": "patient"
+}
+
+### Signup - Patient 2
+POST {{baseUrl}}/api/auth/signup
+Content-Type: {{contentType}}
+
+{
+  "name": "Fatima Khan",
+  "email": "fatima@example.com",
+  "password": "password456",
+  "phoneNum": "+923009876543",
+  "address": "456 Oak Avenue",
+  "city": "Lahore",
+  "bloodGroup": "A+",
+  "dateOfBirth": "1988-05-20",
+  "role": "patient"
+}
+
+### ========================================
+### 2. HOSPITAL ADMIN SIGNUP
+### ========================================
+
+### Signup - Hospital Admin
+POST {{baseUrl}}/api/auth/signup
+Content-Type: {{contentType}}
+
+{
+  "name": "Dr. Ali Khan",
+  "email": "admin@hospital.com",
+  "password": "adminpass123",
+  "phoneNum": "+923211234567",
+  "address": "Medical Complex Building",
+  "city": "Islamabad",
+  "bloodGroup": "B+",
+  "dateOfBirth": "1985-03-10",
+  "role": "hospital_admin"
+}
+
+### ========================================
+### 3. HOSPITAL STAFF SIGNUP
+### ========================================
+
+### Signup - Hospital Staff
+POST {{baseUrl}}/api/auth/signup
+Content-Type: {{contentType}}
+
+{
+  "name": "Nurse Sara",
+  "email": "staff@hospital.com",
+  "password": "staffpass123",
+  "phoneNum": "+923051234567",
+  "address": "Staff Quarters",
+  "city": "Karachi",
+  "role": "hospital_staff"
+}
+
+### ========================================
+### 4. BANK STAFF SIGNUP
+### ========================================
+
+### Signup - Bank Staff
+POST {{baseUrl}}/api/auth/signup
+Content-Type: {{contentType}}
+
+{
+  "name": "Muhammad Usman",
+  "email": "staff@bank.com",
+  "password": "bankpass123",
+  "phoneNum": "+923301234567",
+  "address": "Bank Head Office",
+  "city": "Lahore",
+  "bloodGroup": "AB+",
+  "dateOfBirth": "1992-07-22",
+  "role": "bank_staff"
+}
+
+### ========================================
+### 5. ADMIN SIGNUP
+### ========================================
+
+### Signup - System Admin
+POST {{baseUrl}}/api/auth/signup
+Content-Type: {{contentType}}
+
+{
+  "name": "System Administrator",
+  "email": "admin@sehadvault.com",
+  "password": "adminpass2026",
+  "phoneNum": "+923421234567",
+  "address": "Admin Center",
+  "city": "Islamabad",
+  "role": "admin"
+}
+
+### ========================================
+### 6. ERROR CASES - SIGNUP
+### ========================================
+
+### Error: Duplicate Email
+POST {{baseUrl}}/api/auth/signup
+Content-Type: {{contentType}}
+
+{
+  "name": "Another User",
+  "email": "ahmed@example.com",
+  "password": "password123",
+  "role": "patient"
+}
+
+### Error: Weak Password (less than 6 characters)
+POST {{baseUrl}}/api/auth/signup
+Content-Type: {{contentType}}
+
+{
+  "name": "Weak Password User",
+  "email": "weak@example.com",
+  "password": "123",
+  "role": "patient"
+}
+
+### Error: Invalid Role
+POST {{baseUrl}}/api/auth/signup
+Content-Type: {{contentType}}
+
+{
+  "name": "Invalid Role User",
+  "email": "invalid@example.com",
+  "password": "password123",
+  "role": "super_admin"
+}
+
+### Error: Missing Required Fields
+POST {{baseUrl}}/api/auth/signup
+Content-Type: {{contentType}}
+
+{
+  "name": "John Doe"
+}
+
+### ========================================
+### 7. SIGNIN TESTS
+### ========================================
+
+### Signin - Patient Success
+POST {{baseUrl}}/api/auth/signin
+Content-Type: {{contentType}}
+
+{
+  "email": "ahmed@example.com",
+  "password": "password123"
+}
+
+### Signin - Hospital Admin Success
+POST {{baseUrl}}/api/auth/signin
+Content-Type: {{contentType}}
+
+{
+  "email": "admin@hospital.com",
+  "password": "adminpass123"
+}
+
+### Signin - Bank Staff Success
+POST {{baseUrl}}/api/auth/signin
+Content-Type: {{contentType}}
+
+{
+  "email": "staff@bank.com",
+  "password": "bankpass123"
+}
+
+### ========================================
+### 8. SIGNIN ERROR CASES
+### ========================================
+
+### Error: User Not Found
+POST {{baseUrl}}/api/auth/signin
+Content-Type: {{contentType}}
+
+{
+  "email": "nonexistent@example.com",
+  "password": "password123"
+}
+
+### Error: Invalid Password
+POST {{baseUrl}}/api/auth/signin
+Content-Type: {{contentType}}
+
+{
+  "email": "ahmed@example.com",
+  "password": "wrongpassword"
+}
+
+### Error: Missing Email
+POST {{baseUrl}}/api/auth/signin
+Content-Type: {{contentType}}
+
+{
+  "password": "password123"
+}
+
+### Error: Missing Password
+POST {{baseUrl}}/api/auth/signin
+Content-Type: {{contentType}}
+
+{
+  "email": "ahmed@example.com"
+}
+
+### ========================================
+### 9. TOKEN VERIFICATION
+### ========================================
+
+### Verify Valid Token
+# Replace TOKEN_HERE with actual token from signin response
+POST {{baseUrl}}/api/auth/verify
+Content-Type: {{contentType}}
+Authorization: Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiI1NTBlODQwMC1lMjliLTQxZDQtYTcxNi00NDY2NTU0NDAwMDAiLCJlbWFpbCI6ImFobWVkQGV4YW1wbGUuY29tIiwicm9sZSI6InBhdGllbnQiLCJpYXQiOjE3NzExNTA2OTcsImV4cCI6MjA4NjcyNjY5N30.TOKEN_SIGNATURE
+
+### Error: Invalid Token Format
+POST {{baseUrl}}/api/auth/verify
+Content-Type: {{contentType}}
+Authorization: Bearer invalid.token.format
+
+### Error: Missing Authorization Header
+POST {{baseUrl}}/api/auth/verify
+Content-Type: {{contentType}}
+
+### Error: Wrong Authorization Format (missing Bearer)
+POST {{baseUrl}}/api/auth/verify
+Content-Type: {{contentType}}
+Authorization: eyJhbGciOiJIUzUxMiJ9.TOKEN_WITHOUT_BEARER
+
+### ========================================
+### 10. SAMPLE TOKENS (for testing reference)
+### ========================================
+
+### Valid Token Structure:
+# Authorization: Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJ1c2VyLWlkIiwiZW1haWwiOiJ1c2VyQGV4YW1wbGUuY29tIiwicm9sZSI6InBhdGllbnQiLCJpYXQiOjE3NzExNTA2OTcsImV4cCI6MjA4NjcyNjY5N30.SIGNATURE
+
+### Decode JWT at: https://jwt.io

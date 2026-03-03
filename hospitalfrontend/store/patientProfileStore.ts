@@ -1,5 +1,6 @@
 // src/store/patientProfileStore.ts
 import { create } from 'zustand'
+import { StoredAuthUser } from '@/lib/authService'
 
 export type PatientProfile = {
   fullName: string
@@ -18,20 +19,21 @@ export type PatientProfile = {
 type PatientProfileState = {
   profile: PatientProfile
   updateProfile: (updates: Partial<PatientProfile>) => void
+  hydrateFromAuthUser: (user: StoredAuthUser | null) => void
 }
 
 const initialProfile: PatientProfile = {
-  fullName: 'Ahmed Patient',
-  email: 'ahmed.patient@lnh.com',
-  phone: '+92 300 1234567',
-  location: 'Karachi, Pakistan',
-  bio: 'Patient interested in asset-backed health coverage.',
+  fullName: '',
+  email: '',
+  phone: '',
+  location: '',
+  bio: '',
   avatar: '/images/patient-placeholder.png',
-  walletAddress: '0x84bF...9A34',
-  dateOfBirth: 'June 16, 1993',
-  bloodGroup: 'B+',
+  walletAddress: '',
+  dateOfBirth: '',
+  bloodGroup: '',
   status: 'Verified Patient',
-  profileCompletion: 82,
+  profileCompletion: 0,
 }
 
 const calculateCompletion = (profile: PatientProfile): number => {
@@ -53,6 +55,30 @@ export const usePatientProfileStore = create<PatientProfileState>(set => ({
   updateProfile: updates =>
     set(state => {
       const merged = { ...state.profile, ...updates }
+      return {
+        profile: {
+          ...merged,
+          profileCompletion: calculateCompletion(merged),
+        },
+      }
+    }),
+  hydrateFromAuthUser: user =>
+    set(state => {
+      if (!user) {
+        return state
+      }
+
+      const merged: PatientProfile = {
+        ...state.profile,
+        fullName: user.name || state.profile.fullName,
+        email: user.email || state.profile.email,
+        phone: user.phoneNum || state.profile.phone,
+        location: [user.city, user.address].filter(Boolean).join(', ') || state.profile.location,
+        bloodGroup: user.bloodGroup || state.profile.bloodGroup,
+        dateOfBirth: user.dateOfBirth || state.profile.dateOfBirth,
+        status: state.profile.status || 'Verified Patient',
+      }
+
       return {
         profile: {
           ...merged,

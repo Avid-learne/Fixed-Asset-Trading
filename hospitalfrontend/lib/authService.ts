@@ -1,14 +1,44 @@
 // lib/authService.ts
-const API_URL = 'http://localhost:8080/api/auth';
+const API_URL = process.env.NEXT_PUBLIC_AUTH_API_URL || 'http://localhost:8080/api/auth';
+
+const normalizeRoleForBackend = (role?: string): string => {
+  const normalized = (role || 'PATIENT').trim().toUpperCase();
+  const roleMap: Record<string, string> = {
+    PATIENT: 'patient',
+    HOSPITAL_STAFF: 'hospital_staff',
+    HOSPITAL_ADMIN: 'hospital_admin',
+    BANK_STAFF: 'bank_staff',
+    ADMIN: 'admin',
+  };
+  return roleMap[normalized] || 'patient';
+};
 
 export interface AuthResponse {
+  userId?: string;
   id: string;
   email: string;
   name: string;
   role: string;
   token: string;
+  phoneNum?: string;
+  address?: string;
+  city?: string;
+  bloodGroup?: string;
+  dateOfBirth?: string;
   success: boolean;
   message: string;
+}
+
+export interface StoredAuthUser {
+  id?: string;
+  email?: string;
+  name?: string;
+  role?: string;
+  phoneNum?: string;
+  address?: string;
+  city?: string;
+  bloodGroup?: string;
+  dateOfBirth?: string;
 }
 
 export interface LoginRequest {
@@ -48,8 +78,7 @@ export const authService = {
           email: request.email.trim().toLowerCase(),
           password: request.password.trim(),
           name: request.name.trim(),
-          role: request.role || 'PATIENT',
-          walletAddress: request.walletAddress?.trim() || null,
+          role: normalizeRoleForBackend(request.role),
         }),
       });
 
@@ -82,7 +111,7 @@ export const authService = {
         throw new Error('Email and password are required');
       }
 
-      const response = await fetch(`${API_URL}/login`, {
+      const response = await fetch(`${API_URL}/signin`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -136,6 +165,26 @@ export const authService = {
     }
   },
 
+  async fetchCurrentUser(): Promise<AuthResponse | null> {
+    try {
+      const token = this.getToken();
+      if (!token) {
+        return null;
+      }
+
+      const response = await this.verifyToken(token);
+      if (response.success) {
+        this.setUser(response);
+        return response;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Fetch current user error:', error);
+      return null;
+    }
+  },
+
   /**
    * Store JWT token in localStorage
    */
@@ -160,13 +209,19 @@ export const authService = {
    */
   setUser(user: Partial<AuthResponse>): void {
     if (typeof window !== 'undefined') {
+      const resolvedRole = user.role ? user.role.toUpperCase() : 'PATIENT';
       localStorage.setItem(
         'user',
         JSON.stringify({
-          id: user.id,
+          id: user.userId || user.id,
           email: user.email,
           name: user.name,
-          role: user.role || 'PATIENT',
+          role: resolvedRole,
+          phoneNum: user.phoneNum || '',
+          address: user.address || '',
+          city: user.city || '',
+          bloodGroup: user.bloodGroup || '',
+          dateOfBirth: user.dateOfBirth || '',
         })
       );
     }
@@ -175,7 +230,7 @@ export const authService = {
   /**
    * Get user data from localStorage
    */
-  getUser() {
+  getUser(): StoredAuthUser | null {
     if (typeof window !== 'undefined') {
       const userStr = localStorage.getItem('user');
       if (userStr) {

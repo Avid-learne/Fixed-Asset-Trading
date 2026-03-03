@@ -28,9 +28,9 @@ export default withAuth(
   },
   {
     callbacks: {
-      authorized: ({ token }) => {
-        // Token exists means user is authenticated
-        return !!token
+      authorized: () => {
+        // Allow route handling in layouts where backend JWT/localStorage auth is evaluated.
+        return true
       },
     },
   }
