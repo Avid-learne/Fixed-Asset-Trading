@@ -1,3 +1,13 @@
 {
-    "java.configuration.updateBuildConfiguration": "automatic"
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "java.import.maven.enabled": true,
+    "java.project.sourcePaths": [
+        "SehatVaultBackend/src/main/java",
+        "SehatVaultBackend/src/test/java"
+    ],
+    "java.import.exclusions": [
+        "**/node_modules/**",
+        "**/.metadata/**",
+        "SehatVaultBackend/SehatVaultBackend/**"
+    ]
 }

@@ -4,9 +4,11 @@ import com.SehatVault.SehatVaultBackend.auth.dto.AuthResponse;
 import com.SehatVault.SehatVaultBackend.auth.dto.SigninRequest;
 import com.SehatVault.SehatVaultBackend.auth.dto.SignupRequest;
 import com.SehatVault.SehatVaultBackend.auth.service.AuthService;
+import com.SehatVault.SehatVaultBackend.auth.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
     
     private final AuthService authService;
+    private final JwtUtil jwtUtil;
     
     /**
      * User Sign Up endpoint
@@ -75,6 +78,42 @@ public class AuthController {
             return ResponseEntity.ok(response);
         } else {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+        }
+    }
+
+    /**
+     * Get Current User Profile (Protected Endpoint)
+     * GET /api/auth/me
+     * Requires: Authorization header with Bearer token
+     * @param authHeader Authorization header
+     * @return User profile data
+     */
+    @GetMapping("/me")
+    public ResponseEntity<?> getCurrentUser(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new AuthResponse(false, "Missing or invalid authorization header"));
+        }
+
+        String token = authHeader.substring(7);
+
+        try {
+            if (!jwtUtil.validateToken(token)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(new AuthResponse(false, "Invalid or expired token"));
+            }
+
+            String email = jwtUtil.getEmailFromToken(token);
+            AuthResponse response = authService.getUserByEmail(email);
+
+            if (response.isSuccess()) {
+                return ResponseEntity.ok(response);
+            } else {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new AuthResponse(false, "Token validation error: " + e.getMessage()));
         }
     }
 }

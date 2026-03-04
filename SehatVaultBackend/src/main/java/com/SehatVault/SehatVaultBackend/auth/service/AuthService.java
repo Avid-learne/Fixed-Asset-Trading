@@ -62,8 +62,12 @@ public class AuthService {
         // Normalize email
         String email = request.getEmail().trim().toLowerCase();
         
+        System.out.println("Attempting signup for email: " + email);
+        System.out.println("Requested role: " + request.getRole());
+        
         // Check if email already exists
         if (userRepository.existsByEmail(email)) {
+            System.out.println("Email already exists: " + email);
             return new AuthResponse(false, "Email already registered");
         }
         
@@ -75,13 +79,18 @@ public class AuthService {
         try {
             // Get role
             Role.RoleType roleType = Role.RoleType.valueOf(request.getRole().toLowerCase());
+            System.out.println("Looking for role type: " + roleType);
+            System.out.println("Total roles in database: " + roleRepository.count());
+            
             Optional<Role> roleOpt = roleRepository.findByRoleName(roleType);
             
             if (roleOpt.isEmpty()) {
+                System.out.println("Role not found: " + roleType);
                 return new AuthResponse(false, "Invalid role provided");
             }
             
             Role role = roleOpt.get();
+            System.out.println("Role found: " + role.getRoleName());
             
             // Create new user
             User newUser = new User();
@@ -109,6 +118,8 @@ public class AuthService {
             
             // Save user
             User savedUser = userRepository.save(newUser);
+            System.out.println("User saved successfully with ID: " + savedUser.getUserId());
+            System.out.println("User email in DB: " + savedUser.getEmail());
             
             // Create default settings for user
             Settings settings = new Settings();
@@ -125,11 +136,16 @@ public class AuthService {
                     savedUser.getRole().getRoleName().toString()
             );
             
-                return buildAuthResponse(savedUser, role.getRoleName().toString(), token);
+            System.out.println("Token generated successfully");
+            
+            return buildAuthResponse(savedUser, role.getRoleName().toString(), token);
             
         } catch (IllegalArgumentException e) {
+            System.out.println("Invalid role error: " + e.getMessage());
             return new AuthResponse(false, "Invalid role: " + request.getRole());
         } catch (Exception e) {
+            System.out.println("Error creating user: " + e.getMessage());
+            e.printStackTrace();
             return new AuthResponse(false, "Error creating user: " + e.getMessage());
         }
     }
@@ -148,14 +164,19 @@ public class AuthService {
         // Normalize email
         String email = request.getEmail().trim().toLowerCase();
         
+        System.out.println("Attempting signin for email: " + email);
+        System.out.println("Total users in database: " + userRepository.count());
+        
         // Find user by email
         Optional<User> userOpt = userRepository.findByEmail(email);
         
         if (userOpt.isEmpty()) {
+            System.out.println("User not found in database for email: " + email);
             return new AuthResponse(false, "User not found");
         }
         
         User user = userOpt.get();
+        System.out.println("User found: " + user.getEmail() + ", Status: " + user.getStatus());
         
         // Check if user is active
         if (user.getStatus() != User.UserStatus.ACTIVE) {
@@ -164,8 +185,11 @@ public class AuthService {
         
         // Verify password
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+            System.out.println("Password mismatch for user: " + email);
             return new AuthResponse(false, "Invalid password");
         }
+        
+        System.out.println("Password verified, generating token");
         
         // Generate JWT token
         String token = jwtUtil.generateToken(
@@ -177,6 +201,22 @@ public class AuthService {
         return buildAuthResponse(user, user.getRole().getRoleName().toString(), token);
     }
     
+    /**
+     * Get user by email
+     * @param email User email
+     * @return AuthResponse with user data
+     */
+    public AuthResponse getUserByEmail(String email) {
+        Optional<User> userOpt = userRepository.findByEmail(email);
+
+        if (userOpt.isEmpty()) {
+            return new AuthResponse(false, "User not found");
+        }
+
+        User user = userOpt.get();
+        return buildAuthResponse(user, user.getRole().getRoleName().toString(), "");
+    }
+
     /**
      * Verify JWT token
      * @param token JWT token to verify
@@ -198,10 +238,11 @@ public class AuthService {
             }
             
             User user = userOpt.get();
-                return buildAuthResponse(user, role, token);
+            return buildAuthResponse(user, role, token);
             
         } catch (Exception e) {
             return new AuthResponse(false, "Token verification failed: " + e.getMessage());
         }
     }
 }
+
