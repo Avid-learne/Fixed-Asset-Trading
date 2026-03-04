@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { AuthUser, Permission, ROLE_PERMISSIONS, AccessControlContext } from '@/types/auth'
 import { UserRole } from '@/types'
+import { authService } from '@/lib/authService'
 
 const AuthContext = createContext<AccessControlContext | undefined>(undefined)
 
@@ -15,25 +16,58 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // TODO: Replace with actual authentication logic
-    // For now, simulate loading user from localStorage or API
+    // Load user from backend on mount
     const loadUser = async () => {
       try {
-        // Simulated user - replace with actual auth
-        const mockUser: AuthUser = {
-          id: '1',
-          email: 'admin@sehatvault.com',
-          name: 'System Administrator',
-          role: UserRole.SUPER_ADMIN,
-          permissions: ROLE_PERMISSIONS[UserRole.SUPER_ADMIN],
-          createdAt: new Date().toISOString(),
-          mfaEnabled: true,
-          isActive: true,
-        }
+        const storedUser = authService.getUser()
+        const token = authService.getToken()
         
-        setUser(mockUser)
+        if (!storedUser || !token) {
+          console.log('No stored user or token found')
+          setUser(null)
+          setIsLoading(false)
+          return
+        }
+
+        // Create timeout for verification
+        const timeoutId = setTimeout(() => {
+          console.warn('User verification timed out, clearing auth state')
+          authService.logout()
+          setUser(null)
+          setIsLoading(false)
+        }, 8000); // 8 second timeout
+
+        // Verify token with backend
+        const response = await authService.fetchCurrentUser()
+        clearTimeout(timeoutId)
+        
+        if (response && response.success) {
+          // Map backend response to AuthUser
+          const authUser: AuthUser = {
+            id: response.userId || storedUser.id,
+            email: response.email || storedUser.email,
+            name: response.name || storedUser.name,
+            role: (storedUser.role?.toUpperCase() || 'PATIENT') as UserRole,
+            permissions: ROLE_PERMISSIONS[(storedUser.role?.toUpperCase() || 'PATIENT') as UserRole] || [],
+            createdAt: new Date().toISOString(),
+            mfaEnabled: false,
+            isActive: true,
+            hospitalId: storedUser.hospitalId,
+            bankId: storedUser.bankId,
+          }
+          
+          console.log('User loaded successfully:', authUser.email)
+          setUser(authUser)
+        } else {
+          // Token invalid, clear auth
+          console.warn('Token verification failed, clearing auth state')
+          authService.logout()
+          setUser(null)
+        }
       } catch (error) {
         console.error('Failed to load user:', error)
+        // Clear invalid auth state
+        authService.logout()
         setUser(null)
       } finally {
         setIsLoading(false)
@@ -122,6 +156,75 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return false
   }
 
+  const login = async (email: string, password: string): Promise<void> => {
+    try {
+      const response = await authService.login({ email, password })
+      
+      if (response.success && response.userId) {
+        const storedUser = authService.getUser()
+        if (storedUser) {
+          const authUser: AuthUser = {
+            id: response.userId || storedUser.id,
+            email: response.email || storedUser.email,
+            name: response.name || storedUser.name,
+            role: (storedUser.role?.toUpperCase() || 'PATIENT') as UserRole,
+            permissions: ROLE_PERMISSIONS[(storedUser.role?.toUpperCase() || 'PATIENT') as UserRole] || [],
+            createdAt: new Date().toISOString(),
+            mfaEnabled: false,
+            isActive: true,
+            hospitalId: storedUser.hospitalId,
+            bankId: storedUser.bankId,
+          }
+          
+          setUser(authUser)
+        }
+      } else {
+        throw new Error(response.message || 'Login failed')
+      }
+    } catch (error) {
+      console.error('Login error:', error)
+      throw error
+    }
+  }
+
+  const logout = (): void => {
+    authService.logout()
+    setUser(null)
+  }
+
+  const refreshUser = async (): Promise<void> => {
+    try {
+      const response = await authService.fetchCurrentUser()
+      
+      if (response && response.success) {
+        const storedUser = authService.getUser()
+        if (storedUser) {
+          const authUser: AuthUser = {
+            id: response.userId || storedUser.id,
+            email: response.email || storedUser.email,
+            name: response.name || storedUser.name,
+            role: (storedUser.role?.toUpperCase() || 'PATIENT') as UserRole,
+            permissions: ROLE_PERMISSIONS[(storedUser.role?.toUpperCase() || 'PATIENT') as UserRole] || [],
+            createdAt: new Date().toISOString(),
+            mfaEnabled: false,
+            isActive: true,
+            hospitalId: storedUser.hospitalId,
+            bankId: storedUser.bankId,
+          }
+          
+          setUser(authUser)
+        }
+      } else {
+        authService.logout()
+        setUser(null)
+      }
+    } catch (error) {
+      console.error('Refresh user error:', error)
+      authService.logout()
+      setUser(null)
+    }
+  }
+
   const value: AccessControlContext = {
     user,
     hasPermission,
@@ -131,6 +234,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     canAccessBank,
     canAccessPatient,
     isLoading,
+    login,
+    logout,
+    refreshUser,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

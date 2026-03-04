@@ -211,4 +211,7 @@ export interface AccessControlContext {
   canAccessBank: (bankId: string) => boolean
   canAccessPatient: (patientId: string) => boolean
   isLoading: boolean
+  login: (email: string, password: string) => Promise<void>
+  logout: () => void
+  refreshUser: () => Promise<void>
 }

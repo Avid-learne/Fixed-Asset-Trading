@@ -4,10 +4,19 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { CreditCard, Wallet, Calendar, User, Hash, Shield } from 'lucide-react'
+import { CreditCard, Wallet, Calendar, User, Hash, Shield, Loader2, AlertCircle } from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
+import { healthCardService, HealthCard } from '@/services/healthCardService'
 
 export default function HealthCardPage() {
+  const { user } = useAuth()
   const [activeTab, setActiveTab] = useState('subscription')
+  
+  // Card data state
+  const [subscriptionCard, setSubscriptionCard] = useState<HealthCard | null>(null)
+  const [assetCard, setAssetCard] = useState<HealthCard | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   
   // Subscription card state - start with locked and hidden
   const [subLocked, setSubLocked] = useState(true)
@@ -20,6 +29,38 @@ export default function HealthCardPage() {
   const [assetFlipped, setAssetFlipped] = useState(false)
   const [assetRevealed, setAssetRevealed] = useState(false)
   const assetTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Fetch health cards on mount
+  useEffect(() => {
+    const fetchHealthCards = async () => {
+      if (!user?.userId) {
+        setError('User not authenticated')
+        setLoading(false)
+        return
+      }
+
+      try {
+        setLoading(true)
+        setError(null)
+        
+        // Fetch subscription and asset cards in parallel
+        const [subCard, astCard] = await Promise.all([
+          healthCardService.getSubscriptionCard(user.userId),
+          healthCardService.getAssetCard(user.userId)
+        ])
+
+        setSubscriptionCard(subCard)
+        setAssetCard(astCard)
+      } catch (err) {
+        console.error('Error fetching health cards:', err)
+        setError(err instanceof Error ? err.message : 'Failed to load health cards')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchHealthCards()
+  }, [user?.userId])
 
   // Auto-hide subscription info after 15 seconds
   useEffect(() => {
@@ -71,32 +112,6 @@ export default function HealthCardPage() {
     setAssetLocked(false)
   }
 
-  // Mock data for subscription-based card
-  const subscriptionCard = {
-    cardNumber: 'SUB-2025-001234',
-    holderName: 'Ahmed Patient',
-    plan: 'Premium Health Plan',
-    htBalance: 250,
-    validUntil: '2026-12-31',
-    issueDate: '2025-01-01',
-    status: 'Active',
-    cvv: '456',
-    securityKey: 'SK789012'
-  }
-
-  // Mock data for asset-based card
-  const assetCard = {
-    cardNumber: 'AST-2025-005678',
-    holderName: 'Ahmed Patient',
-    assetValue: 1000,
-    htBalance: 850,
-    validUntil: 'As long as assets held',
-    issueDate: '2025-06-15',
-    status: 'Active',
-    cvv: '789',
-    securityKey: 'SK345678'
-  }
-
   const maskCardNumber = (num: string, revealed: boolean) => {
     if (revealed) return num
     const parts = num.split('-')
@@ -143,14 +158,50 @@ export default function HealthCardPage() {
         <p className="text-muted-foreground">Manage your subscription and asset-based health cards</p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="subscription">Subscription Card</TabsTrigger>
-          <TabsTrigger value="asset">Asset-Based Card</TabsTrigger>
-        </TabsList>
+      {/* Loading State */}
+      {loading && (
+        <Card className="p-6">
+          <div className="flex items-center justify-center gap-3">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            <p>Loading health cards...</p>
+          </div>
+        </Card>
+      )}
+
+      {/* Error State */}
+      {error && !loading && (
+        <Card className="p-6 border-destructive">
+          <div className="flex items-center gap-3 text-destructive">
+            <AlertCircle className="h-6 w-6" />
+            <div>
+              <p className="font-semibold">Error loading health cards</p>
+              <p className="text-sm">{error}</p>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Cards Display */}
+      {!loading && !error && (
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="subscription">Subscription Card</TabsTrigger>
+            <TabsTrigger value="asset">Asset-Based Card</TabsTrigger>
+          </TabsList>
 
         {/* Subscription-Based Health Card */}
         <TabsContent value="subscription" className="space-y-6">
+          {!subscriptionCard ? (
+            <Card className="p-6">
+              <div className="flex flex-col items-center justify-center gap-3 text-center py-8">
+                <CreditCard className="h-12 w-12 text-muted-foreground" />
+                <div>
+                  <p className="font-semibold text-lg">No Subscription Card</p>
+                  <p className="text-sm text-muted-foreground">You don't have an active subscription card yet</p>
+                </div>
+              </div>
+            </Card>
+          ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Virtual Card with Flip */}
             <Card className="overflow-hidden">
@@ -162,7 +213,7 @@ export default function HealthCardPage() {
                       <div className="flex justify-between items-start">
                         <div>
                           <p className="text-xs opacity-80 uppercase tracking-wide">Subscription Health Card</p>
-                          <p className="text-lg font-bold mt-1">{subscriptionCard.plan}</p>
+                          <p className="text-lg font-bold mt-1">{subscriptionCard.planName}</p>
                         </div>
                         <CreditCard className="w-8 h-8 opacity-80" />
                       </div>
@@ -210,7 +261,7 @@ export default function HealthCardPage() {
                       </div>
                       <div className="ml-4 text-right">
                         <p className="text-xs opacity-80">Issued</p>
-                        <p className="text-sm">{new Date(subscriptionCard.issueDate).getFullYear()}</p>
+                        <p className="text-sm">{new Date().getFullYear()}</p>
                       </div>
                     </div>
 
@@ -301,7 +352,7 @@ export default function HealthCardPage() {
                     <Calendar className="w-5 h-5 text-muted-foreground mt-0.5" />
                     <div className="flex-1">
                       <p className="text-sm text-muted-foreground">Issue Date</p>
-                      <p className="font-semibold">{new Date(subscriptionCard.issueDate).toLocaleDateString()}</p>
+                      <p className="font-semibold">N/A</p>
                     </div>
                   </div>
 
@@ -318,10 +369,22 @@ export default function HealthCardPage() {
               </CardContent>
             </Card>
           </div>
+          )}
         </TabsContent>
 
         {/* Asset-Based Health Card */}
         <TabsContent value="asset" className="space-y-6">
+          {!assetCard ? (
+            <Card className="p-6">
+              <div className="flex flex-col items-center justify-center gap-3 text-center py-8">
+                <Wallet className="h-12 w-12 text-muted-foreground" />
+                <div>
+                  <p className="font-semibold text-lg">No Asset Card</p>
+                  <p className="text-sm text-muted-foreground">You don't have an active asset-based card yet</p>
+                </div>
+              </div>
+            </Card>
+          ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Virtual Card with Flip */}
             <Card className="overflow-hidden">
@@ -381,7 +444,7 @@ export default function HealthCardPage() {
                       </div>
                       <div className="ml-4 text-right">
                         <p className="text-xs opacity-80">Issued</p>
-                        <p className="text-sm">{new Date(assetCard.issueDate).getFullYear()}</p>
+                        <p className="text-sm">{new Date().getFullYear()}</p>
                       </div>
                     </div>
 
@@ -472,7 +535,7 @@ export default function HealthCardPage() {
                     <Calendar className="w-5 h-5 text-muted-foreground mt-0.5" />
                     <div className="flex-1">
                       <p className="text-sm text-muted-foreground">Issue Date</p>
-                      <p className="font-semibold">{new Date(assetCard.issueDate).toLocaleDateString()}</p>
+                      <p className="font-semibold">N/A</p>
                     </div>
                   </div>
 
@@ -489,7 +552,9 @@ export default function HealthCardPage() {
               </CardContent>
             </Card>
           </div>
+          )}
         </TabsContent>
+        )}
       </Tabs>
     </div>
   )

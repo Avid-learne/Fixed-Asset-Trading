@@ -69,6 +69,10 @@ export const authService = {
         throw new Error('Password must be at least 6 characters');
       }
 
+      // Create timeout
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
       const response = await fetch(`${API_URL}/signup`, {
         method: 'POST',
         headers: {
@@ -80,8 +84,10 @@ export const authService = {
           name: request.name.trim(),
           role: normalizeRoleForBackend(request.role),
         }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeout);
       const data = await response.json();
 
       if (!response.ok) {
@@ -96,6 +102,10 @@ export const authService = {
 
       return data;
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error('Signup request timed out');
+        throw new Error('Signup request timed out. Please check your connection.');
+      }
       console.error('Signup error:', error);
       throw error;
     }
@@ -111,6 +121,10 @@ export const authService = {
         throw new Error('Email and password are required');
       }
 
+      // Create timeout
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
       const response = await fetch(`${API_URL}/signin`, {
         method: 'POST',
         headers: {
@@ -120,22 +134,34 @@ export const authService = {
           email: request.email.trim().toLowerCase(),
           password: request.password.trim(),
         }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeout);
       const data = await response.json();
+      
+      console.log('Login response:', data); // Debug log
 
       if (!response.ok) {
         throw new Error(data.message || 'Login failed');
       }
 
       if (data.success && data.token) {
+        console.log('Storing token:', data.token); // Debug log
         // Store token and user data
         authService.setToken(data.token);
         authService.setUser(data);
+        console.log('Token stored in localStorage:', localStorage.getItem('authToken')); // Debug log
+      } else {
+        console.warn('No token in response or success=false:', data); // Debug warning
       }
 
       return data;
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error('Login request timed out');
+        throw new Error('Login request timed out. Please check your connection.');
+      }
       console.error('Login error:', error);
       throw error;
     }
@@ -146,13 +172,20 @@ export const authService = {
    */
   async verifyToken(token: string): Promise<AuthResponse> {
     try {
+      // Create timeout
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
       const response = await fetch(`${API_URL}/verify`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        signal: controller.signal,
       });
+
+      clearTimeout(timeout);
 
       if (!response.ok) {
         throw new Error('Token verification failed');
@@ -160,6 +193,10 @@ export const authService = {
 
       return await response.json();
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error('Token verification timed out');
+        throw new Error('Token verification timed out');
+      }
       console.error('Token verification error:', error);
       throw error;
     }

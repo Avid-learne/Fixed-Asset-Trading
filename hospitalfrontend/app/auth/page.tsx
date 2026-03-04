@@ -18,6 +18,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { authService } from "@/lib/authService";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface DemoAccount {
   role: string;
@@ -46,6 +47,7 @@ const AVAILABLE_ROLES = [
 
 export default function Auth() {
   const router = useRouter();
+  const { login: contextLogin } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [loadingRole, setLoadingRole] = useState<string | null>(null);
   const [email, setEmail] = useState("");
@@ -61,18 +63,11 @@ export default function Auth() {
     setError("");
 
     try {
-      const response = await authService.login({
-        email: account.email,
-        password: account.password,
-      });
-
-      if (response.success) {
-        alert("Login successful! Redirecting...");
-        const path = authService.getRoleRedirectPath(response.role);
-        router.push(path);
-      } else {
-        setError(response.message || "Login failed. Please try again.");
-      }
+      await contextLogin(account.email, account.password);
+      
+      alert("Login successful! Redirecting...");
+      const path = authService.getRoleRedirectPath(account.role);
+      router.push(path);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred during login");
       setIsLoading(false);
@@ -86,20 +81,17 @@ export default function Auth() {
     setError("");
 
     try {
-      const response = await authService.login({
-        email,
-        password,
-      });
-
-      if (response.success) {
-        alert("Login successful! Redirecting...");
-        const path = authService.getRoleRedirectPath(response.role);
-        router.push(path);
-      } else {
-        setError(response.message || "Invalid email or password");
-      }
+      await contextLogin(email, password);
+      
+      // Get user role from stored data
+      const storedUser = authService.getUser();
+      const userRole = storedUser?.role || 'PATIENT';
+      
+      alert("Login successful! Redirecting...");
+      const path = authService.getRoleRedirectPath(userRole);
+      router.push(path);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred during login");
+      setError(err instanceof Error ? err.message : "Invalid email or password");
     } finally {
       setIsLoading(false);
     }
