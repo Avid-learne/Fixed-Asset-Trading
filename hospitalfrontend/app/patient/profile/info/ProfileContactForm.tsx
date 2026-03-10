@@ -8,6 +8,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { usePatientProfileStore } from '@/store/patientProfileStore'
+import { profileService } from '@/services/profileService'
+import { authService } from '@/lib/authService'
 
 type FormState = {
   fullName: string
@@ -122,18 +124,43 @@ export function ProfileContactForm({
     setSubmitting(true)
     setSavedMessage('')
 
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    try {
+      // Get current user
+      const user = authService.getUser()
+      if (!user || !user.id) {
+        throw new Error('User not authenticated')
+      }
 
-    updateProfile({
-      fullName: form.fullName,
-      email: form.email,
-      phone: form.phone,
-      location: form.location,
-      bio: form.bio,
-    })
+      // Parse location into city and address
+      const [city, ...addressParts] = form.location.split(',').map(s => s.trim())
+      const address = addressParts.join(', ')
 
-    setSubmitting(false)
-    setSavedMessage(successMessage)
+      // Call backend API to update profile
+      const updatedProfile = await profileService.updateProfile(user.id, {
+        name: form.fullName,
+        phoneNum: form.phone,
+        city: city || '',
+        address: address || '',
+        bio: form.bio,
+      })
+
+      // Update local store
+      updateProfile({
+        fullName: updatedProfile.name,
+        email: updatedProfile.email,
+        phone: updatedProfile.phoneNum,
+        location: [updatedProfile.city, updatedProfile.address].filter(Boolean).join(', '),
+        bio: updatedProfile.bio || '',
+      })
+
+      setSubmitting(false)
+      setSavedMessage(successMessage)
+    } catch (error) {
+      setSubmitting(false)
+      setSavedMessage('')
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update profile'
+      setErrors({ fullName: errorMessage })
+    }
   }
 
   return (

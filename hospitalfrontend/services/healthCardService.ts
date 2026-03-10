@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:8080/api/health-cards';
+const API_URL = 'http://localhost:8000/api/health-cards';
 
 export interface HealthCard {
   id: string;

@@ -1,5 +1,5 @@
 // lib/authService.ts
-const API_URL = process.env.NEXT_PUBLIC_AUTH_API_URL || 'http://localhost:8080/api/auth';
+const API_URL = process.env.NEXT_PUBLIC_AUTH_API_URL || 'http://localhost:8000/api/auth';
 
 const normalizeRoleForBackend = (role?: string): string => {
   const normalized = (role || 'PATIENT').trim().toUpperCase();

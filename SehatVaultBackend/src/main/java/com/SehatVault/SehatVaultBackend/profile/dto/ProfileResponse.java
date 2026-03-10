@@ -1,0 +1,40 @@
+package com.SehatVault.SehatVaultBackend.profile.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDate;
+import java.util.UUID;
+
+/**
+ * Profile Response DTO
+ * Returns user profile information
+ */
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class ProfileResponse {
+    
+    private UUID userId;
+    private String name;
+    private String email;
+    private String phoneNum;
+    private String address;
+    private String city;
+    private String bloodGroup;
+    private LocalDate dateOfBirth;
+    private String role;
+    private String status;
+    private String bio;
+    
+    // Patient-specific fields
+    private UUID patientId;
+    private String walletAddress;
+    private Boolean hasAsset;
+    private Boolean hasSubscription;
+    private String kycStatus;
+    private String registrationId;
+}

@@ -35,6 +35,9 @@ public class Patient {
     @Column(name = "wallet_address")
     private String walletAddress;
 
+    @Column(name = "bio", columnDefinition = "TEXT")
+    private String bio;
+
     @Column(name = "has_asset")
     private Boolean hasAsset = false;
 

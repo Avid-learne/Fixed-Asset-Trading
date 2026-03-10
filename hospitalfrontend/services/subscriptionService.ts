@@ -1,6 +1,6 @@
 import { authService } from '@/lib/authService';
 
-const API_URL = 'http://localhost:8080/api/subscriptions';
+const API_URL = 'http://localhost:8000/api/subscriptions';
 
 export interface SubscriptionPlan {
   subsId: string;
