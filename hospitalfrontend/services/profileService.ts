@@ -67,7 +67,9 @@ class ProfileService {
       throw new Error('No authentication token found');
     }
 
-    const response = await fetch(`${API_URL}/${userId}`, {
+    // Use auth endpoint which logs UPDATE activity
+    const authApiUrl = process.env.NEXT_PUBLIC_AUTH_API_URL || 'http://localhost:8000/api/auth';
+    const response = await fetch(`${authApiUrl}/profile/${userId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -82,7 +84,21 @@ class ProfileService {
     }
 
     const result = await response.json();
-    return result.data;
+    // Auth endpoint returns user data directly in the response
+    const userData = result.data || result;
+    return {
+      userId: userData.userId,
+      name: userData.name,
+      email: userData.email,
+      phoneNum: userData.phoneNum || '',
+      address: userData.address || '',
+      city: userData.city || '',
+      bloodGroup: userData.bloodGroup || '',
+      dateOfBirth: userData.dateOfBirth || '',
+      role: userData.role || 'PATIENT',
+      status: userData.status || 'ACTIVE',
+      walletAddress: userData.walletAddress || '',
+    };
   }
 
   /**

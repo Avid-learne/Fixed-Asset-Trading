@@ -11,6 +11,7 @@ import com.SehatVault.SehatVaultBackend.auth.repository.SettingsRepository;
 import com.SehatVault.SehatVaultBackend.auth.repository.UserRepository;
 import com.SehatVault.SehatVaultBackend.auth.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -30,7 +31,25 @@ public class AuthService {
     private final RoleRepository roleRepository;
     private final SettingsRepository settingsRepository;
     private final JwtUtil jwtUtil;
+    private final JdbcTemplate jdbcTemplate;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    
+    /**
+     * Call stored procedure to log user activity
+     * @param procedureName Name of the stored procedure (usp_log_login, usp_log_logout, usp_log_profile_update)
+     * @param userId User ID
+     * @param description Activity description
+     */
+    private void callActivityProcedure(String procedureName, java.util.UUID userId, String description) {
+        try {
+            String sql = String.format("CALL public.%s(?, ?)", procedureName);
+            jdbcTemplate.update(sql, userId, description);
+            System.out.println("Activity logged via procedure: " + procedureName);
+        } catch (Exception e) {
+            System.err.println("Failed to log activity via procedure: " + e.getMessage());
+            // Don't throw exception, just log error to prevent interrupting auth flow
+        }
+    }
 
     private AuthResponse buildAuthResponse(User user, String role, String token) {
         AuthResponse response = new AuthResponse(
@@ -198,6 +217,9 @@ public class AuthService {
                 user.getRole().getRoleName().toString()
         );
         
+        // Log LOGIN activity via stored procedure
+        callActivityProcedure("usp_log_login", user.getUserId(), "User successfully logged in");
+        
         return buildAuthResponse(user, user.getRole().getRoleName().toString(), token);
     }
     
@@ -244,5 +266,65 @@ public class AuthService {
             return new AuthResponse(false, "Token verification failed: " + e.getMessage());
         }
     }
+    
+    /**
+     * User Logout - Calls stored procedure to log logout activity
+     * @param email User email
+     */
+    public void logoutUser(String email) {
+        try {
+            Optional<User> userOpt = userRepository.findByEmail(email.trim().toLowerCase());
+            
+            if (userOpt.isPresent()) {
+                User user = userOpt.get();
+                callActivityProcedure("usp_log_logout", user.getUserId(), "User successfully logged out");
+                System.out.println("User logged out: " + email);
+            }
+        } catch (Exception e) {
+            System.err.println("Error logging out user: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Update user profile - Calls stored procedure to update user table AND log activity
+     * @param userId User ID
+     * @param updates Map of fields to update
+     * @return AuthResponse with updated user data
+     */
+    public AuthResponse updateProfile(java.util.UUID userId, java.util.Map<String, String> updates) {
+        try {
+            Optional<User> userOpt = userRepository.findById(userId);
+            
+            if (userOpt.isEmpty()) {
+                return new AuthResponse(false, "User not found");
+            }
+            
+            // Extract update values (null if not provided)
+            String name = updates.get("name");
+            String phoneNum = updates.get("phoneNum");
+            String address = updates.get("address");
+            String city = updates.get("city");
+            String bloodGroup = updates.get("bloodGroup");
+            
+            // Check if at least one field is being updated
+            if (name == null && phoneNum == null && address == null && city == null && bloodGroup == null) {
+                return new AuthResponse(false, "No fields to update");
+            }
+            
+            // Call stored procedure to update user table AND log activity
+            String sql = "CALL public.usp_log_profile_update(?, ?, ?, ?, ?, ?)";
+            jdbcTemplate.update(sql, userId, name, phoneNum, address, city, bloodGroup);
+            
+            System.out.println("User profile updated via stored procedure: " + userId);
+            
+            // Fetch updated user from database
+            User updatedUser = userRepository.findById(userId).orElseThrow();
+            return buildAuthResponse(updatedUser, updatedUser.getRole().getRoleName().toString(), "");
+            
+        } catch (Exception e) {
+            System.err.println("Error updating user profile: " + e.getMessage());
+            e.printStackTrace();
+            return new AuthResponse(false, "Update failed: " + e.getMessage());
+        }
+    }
 }
-

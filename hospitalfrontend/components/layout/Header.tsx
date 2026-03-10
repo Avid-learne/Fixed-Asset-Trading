@@ -6,6 +6,7 @@ import { Bell, ChevronDown, LogOut, User as UserIcon, X } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { usePatientProfileStore } from '@/store/patientProfileStore'
 import { useNotificationStore } from '@/store/notificationStore'
+import { authService } from '@/lib/authService'
 import { signOut } from 'next-auth/react'
 import { Badge } from '@/components/ui/badge'
 import { SidebarTrigger } from '@/components/ui/sidebar'
@@ -23,7 +24,6 @@ export const Header: React.FC = () => {
   // For patient role, use profile store; otherwise fall back to auth user
   const displayName = user?.role?.toLowerCase() === 'patient' ? profile.fullName : (user?.name || 'User')
   const displayEmail = user?.role?.toLowerCase() === 'patient' ? profile.email : (user?.email || 'No email')
-  console.log(displayName)
 
   // Close dropdowns when clicking outside
   
@@ -42,6 +42,15 @@ export const Header: React.FC = () => {
   }, [])
 
   const handleSignOut = async () => {
+    const token = authService.getToken()
+
+    // Hit backend logout endpoint so logout activity is saved via stored procedure.
+    if (token) {
+      await authService.logout(token)
+    } else {
+      await authService.logout()
+    }
+
     await signOut({ callbackUrl: '/auth' })
   }
 

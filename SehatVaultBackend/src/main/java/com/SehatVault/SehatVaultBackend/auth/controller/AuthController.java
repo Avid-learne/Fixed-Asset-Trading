@@ -116,4 +116,74 @@ public class AuthController {
                     .body(new AuthResponse(false, "Token validation error: " + e.getMessage()));
         }
     }
+
+    /**
+     * User Logout endpoint - logs logout activity via stored procedure
+     * POST /api/auth/logout
+     * Requires: Authorization header with Bearer token
+     * @param authHeader Authorization header
+     * @return Success message
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new AuthResponse(false, "Missing or invalid authorization header"));
+        }
+
+        String token = authHeader.substring(7);
+
+        try {
+            if (!jwtUtil.validateToken(token)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(new AuthResponse(false, "Invalid or expired token"));
+            }
+
+            String email = jwtUtil.getEmailFromToken(token);
+            authService.logoutUser(email);  // Call service to handle logout via stored procedure
+            return ResponseEntity.ok(new AuthResponse(true, "Logged out successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new AuthResponse(false, "Logout failed: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Update user profile endpoint - logs update activity via stored procedure
+     * PUT /api/auth/profile/{userId}
+     * Requires: Authorization header with Bearer token
+     * @param userId User ID to update
+     * @param updates Map of fields to update
+     * @param authHeader Authorization header
+     * @return Updated user data
+     */
+    @PutMapping("/profile/{userId}")
+    public ResponseEntity<?> updateProfile(
+            @PathVariable java.util.UUID userId,
+            @RequestBody java.util.Map<String, String> updates,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new AuthResponse(false, "Missing or invalid authorization header"));
+        }
+
+        String token = authHeader.substring(7);
+
+        try {
+            if (!jwtUtil.validateToken(token)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(new AuthResponse(false, "Invalid or expired token"));
+            }
+
+            AuthResponse response = authService.updateProfile(userId, updates);  // Call service to handle update via stored procedure
+            if (response.isSuccess()) {
+                return ResponseEntity.ok(response);
+            } else {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new AuthResponse(false, "Update failed: " + e.getMessage()));
+        }
+    }
 }

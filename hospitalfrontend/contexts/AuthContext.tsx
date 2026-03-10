@@ -188,7 +188,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   const logout = (): void => {
-    authService.logout()
+    const token = authService.getToken()
+    authService.logout(token || undefined)
     setUser(null)
   }
 

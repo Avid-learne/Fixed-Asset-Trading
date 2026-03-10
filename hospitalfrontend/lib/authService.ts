@@ -283,12 +283,28 @@ export const authService = {
   },
 
   /**
-   * Logout - Clear stored data
+   * Logout - Call backend logout endpoint then clear stored data
    */
-  logout(): void {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('user');
+  async logout(token?: string): Promise<void> {
+    try {
+      if (token) {
+        // Call backend logout endpoint to log the activity
+        await fetch(`${API_URL}/logout`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }).catch(err => console.log('Backend logout call failed (but continuing):', err));
+      }
+    } catch (error) {
+      console.error('Error during logout:', error);
+    } finally {
+      // Always clear local storage regardless of backend response
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
+      }
     }
   },
 
@@ -319,5 +335,42 @@ export const authService = {
       'ADMIN': '/admin',
     };
     return roleRedirects[role?.toUpperCase()] || '/patient';
+  },
+
+  /**
+   * Update user profile - calls backend to update and log activity
+   */
+  async updateProfile(userId: string, updates: Record<string, string>, token?: string): Promise<any> {
+    try {
+      const response = await fetch(`${API_URL}/profile/${userId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token || this.getToken() || ''}`
+        },
+        body: JSON.stringify(updates)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Update failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      // Update local storage with new user data
+      if (data && data.success) {
+        const currentUser = this.getUser();
+        const updatedUser = {
+          ...currentUser,
+          ...updates
+        };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Profile update error:', error);
+      throw error;
+    }
   },
 };

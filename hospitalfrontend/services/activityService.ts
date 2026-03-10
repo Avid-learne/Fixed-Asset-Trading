@@ -1,7 +1,9 @@
 import { authService } from '@/lib/authService'
 import type { ActivityLogItem, NotificationItem, Tx } from '@/types/activity'
 
-const API_URL = 'http://localhost:8000/api/activity'
+const API_URL = (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) 
+  ? `${process.env.NEXT_PUBLIC_API_URL}/activity`.replace('/api/api', '/api')
+  : 'http://localhost:8080/api/activity'
 
 type ApiResponse<T> = {
   success: boolean
