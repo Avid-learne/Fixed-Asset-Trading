@@ -4,16 +4,16 @@
 import React from 'react'
 import { Button } from '@/components/ui/button'
 import { Modal, ModalTrigger, ModalContent, ModalHeader, ModalTitle, ModalFooter, ModalClose } from '@/components/ui/Modal'
-import { StatementItem } from '@/types/activity'
+import { StatementItem, Tx } from '@/types/activity'
 import { Download, FileText, Calendar } from 'lucide-react'
-import { getTransactions } from './activityData'
 
-type Props = { statements: StatementItem[] }
+type StatementsListProps = {
+  statements: StatementItem[]
+  transactions: Tx[]
+}
 
-const generateStatementPDF = (statement: StatementItem) => {
-  // Get all transactions for this month
-  const allTransactions = getTransactions()
-  const monthTransactions = allTransactions.filter(tx => {
+const generateStatementPDF = (statement: StatementItem, transactions: Tx[]) => {
+  const monthTransactions = transactions.filter(tx => {
     const txDate = new Date(tx.created_at)
     return txDate.getMonth() === new Date(`${statement.month} 1, ${statement.year}`).getMonth() &&
            txDate.getFullYear() === statement.year
@@ -76,7 +76,7 @@ For inquiries, please contact support@sehatvault.com
   window.URL.revokeObjectURL(url)
 }
 
-export default function StatementsList({ statements }: Props) {
+export default function StatementsList({ statements, transactions }: StatementsListProps) {
   return (
     <div>
       <div className="space-y-3">
@@ -111,7 +111,7 @@ export default function StatementsList({ statements }: Props) {
               <Button 
                 variant="outline" 
                 size="sm"
-                onClick={() => generateStatementPDF(s)}
+                onClick={() => generateStatementPDF(s, transactions)}
                 className="flex items-center gap-2"
               >
                 <Download className="w-4 h-4" />
@@ -164,7 +164,7 @@ export default function StatementsList({ statements }: Props) {
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => generateStatementPDF(s)}
+                        onClick={() => generateStatementPDF(s, transactions)}
                         className="flex items-center gap-2"
                       >
                         <Download className="w-4 h-4" />

@@ -13,18 +13,12 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class HealthCardDto {
-    private String cardId;
+    private String patientCardId;
     private String patientId;
-    private String cardNumber;
-    private String cardType; // SUBSCRIPTION or ASSET
-    private String holderName;
-    private String planName;
-    private BigDecimal assetValue;
+    private String cardId;
+    private String cardName;
+    private String cardNum;
     private BigDecimal htBalance;
-    private String validUntil;
-    private String issueDate;
-    private String status; // ACTIVE, EXPIRED, SUSPENDED, CANCELLED
+    private String expiryDate;
     private String cvv;
-    private String securityKey;
-    private String subscriptionId;
 }

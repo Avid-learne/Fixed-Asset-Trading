@@ -14,7 +14,7 @@ export interface SubscriptionPlan {
 }
 
 export interface PatientSubscription {
-  subsId: string;
+  subsReqId: string;
   subscriptionId: string;
   subscriptionName: string;
   amount: number;
@@ -56,6 +56,14 @@ export interface ApiResponse<T> {
  * Handles all subscription-related API calls
  */
 export const subscriptionService = {
+  getAuthHeaders(): HeadersInit {
+    const token = authService.getToken();
+    return {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+  },
+
   /**
    * Get all active subscription plans
    */
@@ -66,9 +74,7 @@ export const subscriptionService = {
 
       const response = await fetch(`${API_URL}/plans`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.getAuthHeaders(),
         signal: controller.signal,
       });
 
@@ -100,9 +106,7 @@ export const subscriptionService = {
 
       const response = await fetch(`${API_URL}/patient/${userId}`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.getAuthHeaders(),
         signal: controller.signal,
       });
 
@@ -134,9 +138,7 @@ export const subscriptionService = {
 
       const response = await fetch(`${API_URL}/subscribe`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.getAuthHeaders(),
         body: JSON.stringify(request),
         signal: controller.signal,
       });
@@ -169,9 +171,7 @@ export const subscriptionService = {
 
       const response = await fetch(`${API_URL}/payment-history/${userId}`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.getAuthHeaders(),
         signal: controller.signal,
       });
 
@@ -203,9 +203,7 @@ export const subscriptionService = {
 
       const response = await fetch(`${API_URL}/cancel/${userId}`, {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.getAuthHeaders(),
         signal: controller.signal,
       });
 

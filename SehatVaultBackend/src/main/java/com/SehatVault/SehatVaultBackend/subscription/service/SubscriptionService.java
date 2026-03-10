@@ -115,7 +115,7 @@ public class SubscriptionService {
             subscription.setSubscriptionId(request.getSubscriptionId());
             subscription.setPatientId(patient.getId());
             subscription.setStartDate(LocalDate.now());
-            subscription.setEndDate(LocalDate.now().plusYears(1)); // 1 year subscription
+            subscription.setEndDate(LocalDate.now().plusMonths(1));
             subscription.setStatus(PatientSubscription.SubscriptionStatus.ACTIVE);
 
             subscription = patientSubscriptionRepository.save(subscription);

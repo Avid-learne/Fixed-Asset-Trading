@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { CardContent, CardFooter } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { usePatientProfileStore } from '@/store/patientProfileStore'
@@ -15,8 +14,11 @@ type FormState = {
   fullName: string
   email: string
   phone: string
-  location: string
-  bio: string
+  city: string
+  address: string
+  bloodGroup: string
+  dateOfBirth: string
+  walletAddress: string
 }
 
 type FormErrors = Partial<Record<keyof FormState, string>>
@@ -51,10 +53,22 @@ export function ProfileContactForm({
       fullName: profile.fullName,
       email: profile.email,
       phone: profile.phone,
-      location: profile.location,
-      bio: profile.bio,
+      city: profile.city,
+      address: profile.address,
+      bloodGroup: profile.bloodGroup,
+      dateOfBirth: profile.dateOfBirth,
+      walletAddress: profile.walletAddress,
     }),
-    [profile.fullName, profile.email, profile.phone, profile.location, profile.bio],
+    [
+      profile.fullName,
+      profile.email,
+      profile.phone,
+      profile.city,
+      profile.address,
+      profile.bloodGroup,
+      profile.dateOfBirth,
+      profile.walletAddress,
+    ],
   )
 
   const [form, setForm] = useState<FormState>(initialFormState)
@@ -80,8 +94,14 @@ export function ProfileContactForm({
     if (!state.phone.trim()) {
       nextErrors.phone = 'Phone number is required.'
     }
-    if (!state.location.trim()) {
-      nextErrors.location = 'Tell us where you are based.'
+    if (!state.city.trim()) {
+      nextErrors.city = 'City is required.'
+    }
+    if (!state.address.trim()) {
+      nextErrors.address = 'Address is required.'
+    }
+    if (state.dateOfBirth.trim() && Number.isNaN(Date.parse(state.dateOfBirth))) {
+      nextErrors.dateOfBirth = 'Use a valid date.'
     }
 
     return nextErrors
@@ -131,26 +151,30 @@ export function ProfileContactForm({
         throw new Error('User not authenticated')
       }
 
-      // Parse location into city and address
-      const [city, ...addressParts] = form.location.split(',').map(s => s.trim())
-      const address = addressParts.join(', ')
-
       // Call backend API to update profile
       const updatedProfile = await profileService.updateProfile(user.id, {
         name: form.fullName,
         phoneNum: form.phone,
-        city: city || '',
-        address: address || '',
-        bio: form.bio,
+        city: form.city,
+        address: form.address,
+        bloodGroup: form.bloodGroup,
+        dateOfBirth: form.dateOfBirth,
       })
+
+      if (form.walletAddress.trim() && form.walletAddress.trim() !== profile.walletAddress) {
+        await profileService.updateWalletAddress(user.id, form.walletAddress.trim())
+      }
 
       // Update local store
       updateProfile({
         fullName: updatedProfile.name,
         email: updatedProfile.email,
         phone: updatedProfile.phoneNum,
-        location: [updatedProfile.city, updatedProfile.address].filter(Boolean).join(', '),
-        bio: updatedProfile.bio || '',
+        city: updatedProfile.city || '',
+        address: updatedProfile.address || '',
+        bloodGroup: updatedProfile.bloodGroup || '',
+        dateOfBirth: updatedProfile.dateOfBirth || '',
+        walletAddress: form.walletAddress.trim() || updatedProfile.walletAddress || '',
       })
 
       setSubmitting(false)
@@ -184,7 +208,8 @@ export function ProfileContactForm({
               id="email"
               type="email"
               value={form.email}
-              onChange={handleChange('email')}
+              readOnly
+              disabled
               placeholder="name@example.com"
               aria-invalid={Boolean(errors.email)}
             />
@@ -202,27 +227,60 @@ export function ProfileContactForm({
             {errors.phone && <p className="text-sm text-error">{errors.phone}</p>}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="location">City &amp; country</Label>
+            <Label htmlFor="city">City</Label>
             <Input
-              id="location"
-              value={form.location}
-              onChange={handleChange('location')}
-              placeholder="Where are you based?"
-              aria-invalid={Boolean(errors.location)}
+              id="city"
+              value={form.city}
+              onChange={handleChange('city')}
+              placeholder="e.g. Karachi"
+              aria-invalid={Boolean(errors.city)}
             />
-            {errors.location && <p className="text-sm text-error">{errors.location}</p>}
+            {errors.city && <p className="text-sm text-error">{errors.city}</p>}
           </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="bio">Bio (optional)</Label>
-          <Textarea
-            id="bio"
-            rows={4}
-            value={form.bio}
-            onChange={handleChange('bio')}
-            placeholder="Share a short note to help hospitals understand your goals."
-          />
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="address">Address</Label>
+            <Input
+              id="address"
+              value={form.address}
+              onChange={handleChange('address')}
+              placeholder="Street, area, city"
+              aria-invalid={Boolean(errors.address)}
+            />
+            {errors.address && <p className="text-sm text-error">{errors.address}</p>}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="bloodGroup">Blood Group</Label>
+            <Input
+              id="bloodGroup"
+              value={form.bloodGroup}
+              onChange={handleChange('bloodGroup')}
+              placeholder="e.g. B+"
+              aria-invalid={Boolean(errors.bloodGroup)}
+            />
+            {errors.bloodGroup && <p className="text-sm text-error">{errors.bloodGroup}</p>}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="dateOfBirth">Date of Birth</Label>
+            <Input
+              id="dateOfBirth"
+              type="date"
+              value={form.dateOfBirth}
+              onChange={handleChange('dateOfBirth')}
+              aria-invalid={Boolean(errors.dateOfBirth)}
+            />
+            {errors.dateOfBirth && <p className="text-sm text-error">{errors.dateOfBirth}</p>}
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="walletAddress">Wallet Address</Label>
+            <Input
+              id="walletAddress"
+              value={form.walletAddress}
+              onChange={handleChange('walletAddress')}
+              placeholder="0x..."
+              aria-invalid={Boolean(errors.walletAddress)}
+            />
+            {errors.walletAddress && <p className="text-sm text-error">{errors.walletAddress}</p>}
+          </div>
         </div>
       </CardContent>
       <CardFooter className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

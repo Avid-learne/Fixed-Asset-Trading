@@ -17,7 +17,8 @@ public class ProfileUpdateRequest {
     private String phoneNum;
     private String address;
     private String city;
-    private String bio;  // Additional field for patient bio/description
+    private String bloodGroup;
+    private String dateOfBirth;
     
     public boolean hasValidName() {
         return name != null && !name.trim().isEmpty();

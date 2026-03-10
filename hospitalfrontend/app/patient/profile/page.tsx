@@ -35,10 +35,10 @@ export default function PatientProfilePage() {
           fullName: profileData.name,
           email: profileData.email,
           phone: profileData.phoneNum || '',
-          location: [profileData.city, profileData.address].filter(Boolean).join(', '),
+          city: profileData.city || '',
+          address: profileData.address || '',
           bloodGroup: profileData.bloodGroup || '',
           dateOfBirth: formattedDob,
-          bio: profileData.bio || '',
           walletAddress: profileData.walletAddress || '',
         })
       } catch (error) {

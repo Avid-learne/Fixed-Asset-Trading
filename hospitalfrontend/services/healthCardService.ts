@@ -1,19 +1,14 @@
 const API_URL = 'http://localhost:8000/api/health-cards';
 
 export interface HealthCard {
-  id: string;
+  patientCardId: string;
   patientId: string;
-  subscriptionId?: string;
-  cardNumber: string;
-  cardType: 'SUBSCRIPTION' | 'ASSET';
-  holderName: string;
-  planName: string;
-  assetValue: string;
-  htBalance: string;
-  validUntil: string;
-  status: 'ACTIVE' | 'EXPIRED' | 'SUSPENDED' | 'CANCELLED';
+  cardId: string;
+  cardName: string;
+  cardNum: string;
+  htBalance: string | number;
+  expiryDate: string;
   cvv: string;
-  securityKey: string;
 }
 
 export interface ApiResponse<T> {
@@ -27,6 +22,14 @@ export interface ApiResponse<T> {
  * Handles all health card related API calls
  */
 export const healthCardService = {
+  getAuthHeaders(): HeadersInit {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+    return {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+  },
+
   /**
    * Get all health cards for a patient
    */
@@ -37,9 +40,7 @@ export const healthCardService = {
 
       const response = await fetch(`${API_URL}/patient/${userId}`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.getAuthHeaders(),
         signal: controller.signal,
       });
 
@@ -71,9 +72,7 @@ export const healthCardService = {
 
       const response = await fetch(`${API_URL}/patient/${userId}/type/${cardType}`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.getAuthHeaders(),
         signal: controller.signal,
       });
 
@@ -105,9 +104,7 @@ export const healthCardService = {
 
       const response = await fetch(`${API_URL}/patient/${userId}/active`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.getAuthHeaders(),
         signal: controller.signal,
       });
 

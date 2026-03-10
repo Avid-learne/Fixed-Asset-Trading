@@ -17,12 +17,14 @@ import {
 
 export default function SubscriptionPage() {
   const { user } = useAuth()
+  const userId = user?.id || (user as any)?.userId
   const [plans, setPlans] = useState<ApiSubscriptionPlan[]>([])
   const [currentSubscription, setCurrentSubscription] = useState<PatientSubscription | null>(null)
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [subscribing, setSubscribing] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
   const loadingRef = useRef(false)
   
   const [paymentOpen, setPaymentOpen] = useState(false)
@@ -33,7 +35,7 @@ export default function SubscriptionPage() {
 
   // Load data on mount
   useEffect(() => {
-    if (!user?.id) {
+    if (!userId) {
       setLoading(false)
       return
     }
@@ -46,7 +48,7 @@ export default function SubscriptionPage() {
     return () => {
       loadingRef.current = false
     }
-  }, [user?.id])
+  }, [userId])
 
   const loadData = async () => {
     setLoading(true)
@@ -63,15 +65,15 @@ export default function SubscriptionPage() {
         return [] // Return empty array on error
       })
 
-      const subscriptionPromise = user?.id 
-        ? subscriptionService.getPatientSubscription(user.id).catch((err) => {
+      const subscriptionPromise = userId
+        ? subscriptionService.getPatientSubscription(userId).catch((err) => {
             console.error('Error fetching subscription:', err)
             return null
           })
         : Promise.resolve(null)
 
-      const historyPromise = user?.id
-        ? subscriptionService.getPaymentHistory(user.id).catch((err) => {
+      const historyPromise = userId
+        ? subscriptionService.getPaymentHistory(userId).catch((err) => {
             console.error('Error fetching payment history:', err)
             return [] // Return empty array on error
           })
@@ -102,17 +104,39 @@ export default function SubscriptionPage() {
   }
 
   const handleSubscribe = (plan: ApiSubscriptionPlan) => {
+    if (currentSubscription?.status === 'ACTIVE') {
+      alert('Please cancel your current active subscription before selecting another plan.')
+      return
+    }
     setSelectedPlan(plan)
     setPaymentOpen(true)
   }
 
+  const handleCancelSubscription = async () => {
+    if (!userId) return
+    setCancelling(true)
+    try {
+      const response = await subscriptionService.cancelSubscription(userId)
+      if (!response.success) {
+        alert(response.message || 'Failed to cancel subscription')
+        return
+      }
+      alert('Subscription cancelled successfully')
+      await loadData()
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to cancel subscription')
+    } finally {
+      setCancelling(false)
+    }
+  }
+
   const handlePayment = async () => {
-    if (!user?.id || !selectedPlan) return
+    if (!userId || !selectedPlan) return
     
     setSubscribing(true)
     try {
       const response = await subscriptionService.subscribe({
-        userId: user.id,
+        userId,
         subscriptionId: selectedPlan.subsId,
         paymentMethod: 'Credit Card',
         cardNumber: cardNumber,
@@ -151,7 +175,7 @@ export default function SubscriptionPage() {
     )
   }
 
-  if (!user?.id) {
+  if (!userId) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
@@ -166,7 +190,7 @@ export default function SubscriptionPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Health Subscription Plans</h1>
-        <p className="text-muted-foreground">Choose a yearly plan to access health benefits without asset ownership</p>
+        <p className="text-muted-foreground">Choose a monthly plan to access health benefits without asset ownership</p>
       </div>
 
       {/* Error Alert */}
@@ -195,7 +219,7 @@ export default function SubscriptionPage() {
           <CardHeader>
             <CardTitle className="text-warning">No Active Subscription</CardTitle>
             <CardDescription>
-              You currently don't have an active subscription. Subscribe to a plan below to access health benefits and receive annual HT tokens.
+              You currently don't have an active subscription. Subscribe to a plan below to access health benefits and receive monthly HT allocation.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -217,9 +241,14 @@ export default function SubscriptionPage() {
                 <p className="font-semibold">{new Date(currentSubscription.endDate).toLocaleDateString()}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Annual HT allocation</p>
+                <p className="text-sm text-muted-foreground">Monthly HT allocation</p>
                 <p className="font-semibold text-primary">{currentSubscription.htTokens} HT</p>
               </div>
+            </div>
+            <div className="mt-4">
+              <Button variant="outline" onClick={handleCancelSubscription} disabled={cancelling}>
+                {cancelling ? 'Cancelling...' : 'Cancel Subscription'}
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -233,13 +262,13 @@ export default function SubscriptionPage() {
               <CardTitle className="text-lg">{plan.subscriptionName}</CardTitle>
               <CardDescription>
                 <span className="text-2xl font-bold">Rs. {plan.amountPerMonth.toLocaleString()}</span>
-                <span className="text-sm text-muted-foreground">/year</span>
+                <span className="text-sm text-muted-foreground">/month</span>
               </CardDescription>
             </CardHeader>
             <CardContent className="flex-grow">
               <div className="space-y-2">
                 <div className="p-2 bg-primary/10 rounded-md">
-                  <p className="text-xs text-muted-foreground">Annual HT Tokens</p>
+                  <p className="text-xs text-muted-foreground">Monthly HT Tokens</p>
                   <p className="text-lg font-bold text-primary">{plan.htTokens} HT</p>
                 </div>
                 <div className="space-y-2">
@@ -259,7 +288,7 @@ export default function SubscriptionPage() {
                 </Button>
               ) : (
                 <Button size="sm" className="w-full" onClick={() => handleSubscribe(plan)}>
-                  {currentSubscription?.status === 'ACTIVE' ? 'Switch Plan' : 'Subscribe Now'}
+                  Subscribe Now
                 </Button>
               )}
             </CardFooter>
@@ -334,8 +363,8 @@ export default function SubscriptionPage() {
               <div className="p-4 bg-muted rounded-md">
                 <p className="text-sm text-muted-foreground">Selected Plan</p>
                 <p className="font-semibold">{selectedPlan.subscriptionName}</p>
-                <p className="text-xl font-bold mt-2">Rs. {selectedPlan.amountPerMonth.toLocaleString()}/year</p>
-                <p className="text-sm text-primary mt-1">Includes {selectedPlan.htTokens} HT annually</p>
+                <p className="text-xl font-bold mt-2">Rs. {selectedPlan.amountPerMonth.toLocaleString()}/month</p>
+                <p className="text-sm text-primary mt-1">Includes {selectedPlan.htTokens} HT monthly</p>
               </div>
 
               <div className="space-y-3">
@@ -378,7 +407,7 @@ export default function SubscriptionPage() {
               </div>
 
               <div className="text-xs text-muted-foreground">
-                Your subscription will auto-renew yearly. You can cancel anytime.
+                Your subscription renews monthly. You can cancel anytime.
               </div>
             </div>
           )}

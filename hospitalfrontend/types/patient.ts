@@ -21,7 +21,6 @@ export interface PatientProfile {
   address?: string
   location?: string
   avatar?: string
-  bio?: string
   
   // Account Status
   status: PatientStatus

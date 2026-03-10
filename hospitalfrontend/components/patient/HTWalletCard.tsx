@@ -8,24 +8,18 @@ import { Input } from "@/components/ui/input"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { Modal, ModalTrigger, ModalContent, ModalHeader, ModalTitle, ModalFooter, ModalClose } from '@/components/ui/Modal'
 import { ArrowUpRight, Activity, Gift } from 'lucide-react'
-import { HealthTokenTransaction } from '@/types'
-
-const MOCK_HT_TXS: HealthTokenTransaction[] = [
-  { id: '1', patient_id: 'PAT001', patient_address: '0x123patient', type: 'REDEEMED', amount: -50, source: 'Dental checkup benefit', tx_hash: '0xabc123', block_number: 12345, created_at: '2025-12-05' },
-  { id: '2', patient_id: 'PAT001', patient_address: '0x123patient', type: 'TRADING_PROFIT', amount: 100, source: 'Asset trading profit', tx_hash: '0xdef456', block_number: 12346, created_at: '2025-12-04' },
-  { id: '3', patient_id: 'PAT001', patient_address: '0x123patient', type: 'ISSUED', amount: 150, source: 'Initial issuance', tx_hash: '0x789abc', block_number: 12347, created_at: '2025-12-03' },
-  { id: '4', patient_id: 'PAT001', patient_address: '0x123patient', type: 'ALLOCATED', amount: 25, source: 'Hospital allocation', tx_hash: "0x789abc", block_number: 0, created_at: '2025-12-02' },
-]
+import { WalletTransaction } from '@/services/walletService'
 
 type Props = {
   balance: number
+  transactions: WalletTransaction[]
   totalRedeemed?: number
   upcomingBenefits?: number
 }
 
-export default function HTWalletCard({ balance, totalRedeemed = 0, upcomingBenefits = 0 }: Props) {
+export default function HTWalletCard({ balance, transactions, totalRedeemed = 0, upcomingBenefits = 0 }: Props) {
   const [transferOpen, setTransferOpen] = useState(false)
-  const [selectedTx, setSelectedTx] = useState<HealthTokenTransaction | null>(null)
+  const [selectedTx, setSelectedTx] = useState<WalletTransaction | null>(null)
   const [toAddress, setToAddress] = useState('')
   const [transferAmount, setTransferAmount] = useState(0)
 
@@ -112,21 +106,26 @@ export default function HTWalletCard({ balance, totalRedeemed = 0, upcomingBenef
               </TableRow>
             </TableHeader>
             <TableBody>
-              {MOCK_HT_TXS.filter(tx => tx.type === 'REDEEMED').map((tx) => (
-                <TableRow key={tx.id}>
-                  <TableCell>{new Date(tx.created_at).toLocaleDateString()}</TableCell>
-                  <TableCell>{tx.source}</TableCell>
+              {transactions.filter(tx => tx.transactionType === 'DEBIT').map((tx) => (
+                <TableRow key={tx.transactionId}>
+                  <TableCell>{tx.timestamp ? new Date(tx.timestamp).toLocaleDateString() : 'N/A'}</TableCell>
+                  <TableCell>{tx.description || 'HT redemption'}</TableCell>
                   <TableCell className="text-red-600">
                     -{Math.abs(tx.amount)} HT
                   </TableCell>
                   <TableCell className="font-mono text-xs">
-                    {tx.tx_hash ? `${tx.tx_hash.slice(0, 10)}...` : 'N/A'}
+                    {tx.transactionHash ? `${tx.transactionHash.slice(0, 10)}...` : 'N/A'}
                   </TableCell>
                   <TableCell>
                     <Button variant="ghost" size="sm" onClick={() => setSelectedTx(tx)}>View</Button>
                   </TableCell>
                 </TableRow>
               ))}
+              {transactions.filter(tx => tx.transactionType === 'DEBIT').length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground">No HT redemption transactions found.</TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -141,16 +140,16 @@ export default function HTWalletCard({ balance, totalRedeemed = 0, upcomingBenef
             <div className="space-y-4 p-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-muted-foreground">Patient ID</p>
-                  <p className="font-mono text-sm mt-1">{selectedTx.patient_id}</p>
+                  <p className="text-sm text-muted-foreground">Transaction Type</p>
+                  <p className="font-mono text-sm mt-1">{selectedTx.transactionType}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Patient Address</p>
-                  <p className="font-mono text-sm break-all mt-1">{selectedTx.patient_address}</p>
+                  <p className="text-sm text-muted-foreground">Sender Wallet</p>
+                  <p className="font-mono text-sm break-all mt-1">{selectedTx.senderWalletAddress || 'N/A'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Benefit</p>
-                  <p className="text-sm mt-1">{selectedTx.source}</p>
+                  <p className="text-sm mt-1">{selectedTx.description || 'HT redemption'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Amount</p>
@@ -158,15 +157,15 @@ export default function HTWalletCard({ balance, totalRedeemed = 0, upcomingBenef
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Transaction Hash</p>
-                  <p className="font-mono text-sm break-all mt-1">{selectedTx.tx_hash || 'N/A'}</p>
+                  <p className="font-mono text-sm break-all mt-1">{selectedTx.transactionHash || 'N/A'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Block Number</p>
-                  <p className="text-sm mt-1">{selectedTx.block_number || 'N/A'}</p>
+                  <p className="text-sm mt-1">{selectedTx.blockNumber || 'N/A'}</p>
                 </div>
                 <div className="col-span-2">
                   <p className="text-sm text-muted-foreground">Date</p>
-                  <p className="text-sm mt-1">{new Date(selectedTx.created_at).toLocaleString()}</p>
+                  <p className="text-sm mt-1">{selectedTx.timestamp ? new Date(selectedTx.timestamp).toLocaleString() : 'N/A'}</p>
                 </div>
               </div>
             </div>

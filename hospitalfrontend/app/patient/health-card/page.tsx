@@ -1,39 +1,28 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
+import React, { useEffect, useState } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { CreditCard, Wallet, Calendar, User, Hash, Shield, Loader2, AlertCircle } from 'lucide-react'
+import { AlertCircle, Copy, CreditCard, Loader2, Wallet } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { healthCardService, HealthCard } from '@/services/healthCardService'
 
 export default function HealthCardPage() {
   const { user } = useAuth()
+  const userId = user?.id || (user as any)?.userId
   const [activeTab, setActiveTab] = useState('subscription')
-  
-  // Card data state
+
   const [subscriptionCard, setSubscriptionCard] = useState<HealthCard | null>(null)
   const [assetCard, setAssetCard] = useState<HealthCard | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  
-  // Subscription card state - start with locked and hidden
-  const [subLocked, setSubLocked] = useState(true)
-  const [subFlipped, setSubFlipped] = useState(false)
-  const [subRevealed, setSubRevealed] = useState(false)
-  const subTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const [revealSubscription, setRevealSubscription] = useState(false)
+  const [revealAsset, setRevealAsset] = useState(false)
 
-  // Asset card state - start with locked and hidden
-  const [assetLocked, setAssetLocked] = useState(true)
-  const [assetFlipped, setAssetFlipped] = useState(false)
-  const [assetRevealed, setAssetRevealed] = useState(false)
-  const assetTimerRef = useRef<NodeJS.Timeout | null>(null)
-
-  // Fetch health cards on mount
   useEffect(() => {
     const fetchHealthCards = async () => {
-      if (!user?.userId) {
+      if (!userId) {
         setError('User not authenticated')
         setLoading(false)
         return
@@ -43,10 +32,9 @@ export default function HealthCardPage() {
         setLoading(true)
         setError(null)
         
-        // Fetch subscription and asset cards in parallel
         const [subCard, astCard] = await Promise.all([
-          healthCardService.getSubscriptionCard(user.userId),
-          healthCardService.getAssetCard(user.userId)
+          healthCardService.getSubscriptionCard(userId),
+          healthCardService.getAssetCard(userId),
         ])
 
         setSubscriptionCard(subCard)
@@ -60,102 +48,85 @@ export default function HealthCardPage() {
     }
 
     fetchHealthCards()
-  }, [user?.userId])
+  }, [userId])
 
-  // Auto-hide subscription info after 15 seconds
-  useEffect(() => {
-    if (subRevealed) {
-      // Clear any existing timer
-      if (subTimerRef.current) {
-        clearTimeout(subTimerRef.current)
-      }
-      // Set new timer for 15 seconds
-      subTimerRef.current = setTimeout(() => {
-        setSubRevealed(false)
-        setSubLocked(true)
-      }, 15000)
-    }
-    return () => {
-      if (subTimerRef.current) {
-        clearTimeout(subTimerRef.current)
-      }
-    }
-  }, [subRevealed])
-
-  // Auto-hide asset info after 15 seconds
-  useEffect(() => {
-    if (assetRevealed) {
-      // Clear any existing timer
-      if (assetTimerRef.current) {
-        clearTimeout(assetTimerRef.current)
-      }
-      // Set new timer for 15 seconds
-      assetTimerRef.current = setTimeout(() => {
-        setAssetRevealed(false)
-        setAssetLocked(true)
-      }, 15000)
-    }
-    return () => {
-      if (assetTimerRef.current) {
-        clearTimeout(assetTimerRef.current)
-      }
-    }
-  }, [assetRevealed])
-
-  const handleSubShow = () => {
-    setSubRevealed(true)
-    setSubLocked(false)
+  const mask = (value?: string, visible?: boolean) => {
+    if (!value) return 'N/A'
+    if (visible) return value
+    return '*'.repeat(Math.max(value.length, 4))
   }
 
-  const handleAssetShow = () => {
-    setAssetRevealed(true)
-    setAssetLocked(false)
+  const copy = async (value?: string) => {
+    if (!value) return
+    await navigator.clipboard.writeText(value)
   }
 
-  const maskCardNumber = (num: string, revealed: boolean) => {
-    if (revealed) return num
-    const parts = num.split('-')
-    return parts.map((p, i) => (i < parts.length - 1 ? '••••' : p)).join('-')
-  }
+  const renderCard = (card: HealthCard, reveal: boolean, onToggleReveal: () => void) => (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <CreditCard className="h-5 w-5" />
+          {card.cardName}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="rounded-lg bg-gradient-to-br from-slate-900 to-slate-700 p-5 text-white">
+          <div className="text-xs uppercase tracking-wide opacity-80">Card Number</div>
+          <div className="mt-1 font-mono text-lg">{mask(card.cardNum, reveal)}</div>
+          <div className="mt-4 flex items-center justify-between">
+            <div>
+              <div className="text-xs opacity-80">Expiry</div>
+              <div className="font-medium">
+                {card.expiryDate ? new Date(card.expiryDate).toLocaleDateString() : 'N/A'}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs opacity-80">CVV</div>
+              <div className="font-mono font-medium">{mask(card.cvv, reveal)}</div>
+            </div>
+            <div className="text-right">
+              <div className="text-xs opacity-80">HT Balance</div>
+              <div className="font-semibold">{card.htBalance} HT</div>
+            </div>
+          </div>
+        </div>
 
-  const copyToClipboard = async (text: string, label: string, revealed: boolean) => {
-    if (!revealed) {
-      alert('Please reveal sensitive info first')
-      return
-    }
-    try {
-      await navigator.clipboard.writeText(text)
-      alert(`${label} copied to clipboard`)
-    } catch (e) {
-      alert('Copy failed')
-    }
-  }
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={onToggleReveal}>
+            {reveal ? 'Hide Sensitive Data' : 'Reveal Sensitive Data'}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => copy(card.cardNum)}>
+            <Copy className="mr-2 h-4 w-4" />
+            Copy Number
+          </Button>
+        </div>
 
-  const cardStyle = {
-    perspective: '1000px',
-  }
-
-  const frontStyle = (flipped: boolean): React.CSSProperties => ({
-    transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
-    backfaceVisibility: 'hidden',
-    transformStyle: 'preserve-3d',
-    transition: 'transform 0.6s',
-  })
-
-  const backStyle = (flipped: boolean): React.CSSProperties => ({
-    transform: flipped ? 'rotateY(0deg)' : 'rotateY(-180deg)',
-    backfaceVisibility: 'hidden',
-    transformStyle: 'preserve-3d',
-    position: 'absolute',
-    inset: 0,
-    transition: 'transform 0.6s',
-  })
+        <div className="grid gap-3 text-sm md:grid-cols-2">
+          <div className="rounded-md border p-3">
+            <p className="text-muted-foreground">Card Name</p>
+            <p className="font-medium">{card.cardName}</p>
+          </div>
+          <div className="rounded-md border p-3">
+            <p className="text-muted-foreground">Patient Card ID</p>
+            <p className="font-mono text-xs">{card.patientCardId}</p>
+          </div>
+          <div className="rounded-md border p-3">
+            <p className="text-muted-foreground">Expiry Date</p>
+            <p className="font-medium">{card.expiryDate ? new Date(card.expiryDate).toLocaleDateString() : 'N/A'}</p>
+          </div>
+          <div className="rounded-md border p-3">
+            <p className="text-muted-foreground">HT Balance</p>
+            <p className="font-medium">{card.htBalance} HT</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Health Cards</h1>
-        <p className="text-muted-foreground">Manage your subscription and asset-based health cards</p>
       </div>
 
       {/* Loading State */}
@@ -181,7 +152,6 @@ export default function HealthCardPage() {
         </Card>
       )}
 
-      {/* Cards Display */}
       {!loading && !error && (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full max-w-md grid-cols-2">
@@ -189,8 +159,7 @@ export default function HealthCardPage() {
             <TabsTrigger value="asset">Asset-Based Card</TabsTrigger>
           </TabsList>
 
-        {/* Subscription-Based Health Card */}
-        <TabsContent value="subscription" className="space-y-6">
+          <TabsContent value="subscription" className="space-y-6">
           {!subscriptionCard ? (
             <Card className="p-6">
               <div className="flex flex-col items-center justify-center gap-3 text-center py-8">
@@ -202,178 +171,11 @@ export default function HealthCardPage() {
               </div>
             </Card>
           ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Virtual Card with Flip */}
-            <Card className="overflow-hidden">
-              <CardContent className="p-4">
-                <div style={cardStyle} className="relative w-full h-64">
-                  {/* Front of Card */}
-                  <div style={frontStyle(subFlipped) as any} className="absolute inset-0 rounded-lg p-6 bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-900 text-white shadow-lg">
-                    <div className="flex flex-col h-full justify-between">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="text-xs opacity-80 uppercase tracking-wide">Subscription Health Card</p>
-                          <p className="text-lg font-bold mt-1">{subscriptionCard.planName}</p>
-                        </div>
-                        <CreditCard className="w-8 h-8 opacity-80" />
-                      </div>
-
-                      <div className="bg-white/10 p-3 rounded-md">
-                        <p className="text-xs opacity-80 mb-1">Card Number</p>
-                        <p className="text-base font-mono tracking-wider">
-                          {subLocked ? '•••• •••• ••••' : maskCardNumber(subscriptionCard.cardNumber, subRevealed)}
-                        </p>
-                        <div className="flex justify-between items-center mt-2">
-                          <span className="text-sm">{subscriptionCard.holderName}</span>
-                          <span className="text-xs">CVV: {subRevealed && !subLocked ? subscriptionCard.cvv : '•••'}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex justify-between items-end">
-                        <div>
-                          <p className="text-xs opacity-80">HT Balance</p>
-                          <p className="text-2xl font-bold">{subscriptionCard.htBalance} HT</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xs opacity-80">Valid Until</p>
-                          <p className="text-sm">{new Date(subscriptionCard.validUntil).toLocaleDateString()}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Back of Card */}
-                  <div style={backStyle(subFlipped) as any} className="rounded-lg p-6 bg-gray-800 text-white shadow-lg">
-                    <div className="h-10 bg-black/70 rounded-sm mb-4" />
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="bg-white h-8 rounded-sm px-3 flex items-center justify-between text-gray-800">
-                          <span className="text-xs">Signature</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs">CVV</span>
-                            <span className="font-mono text-sm">{subLocked ? '•••' : subscriptionCard.cvv}</span>
-                          </div>
-                        </div>
-                        <div className="mt-4">
-                          <p className="text-xs opacity-80">Security Key</p>
-                          <p className="font-mono text-sm">{subRevealed ? subscriptionCard.securityKey : '••••••••'}</p>
-                        </div>
-                      </div>
-                      <div className="ml-4 text-right">
-                        <p className="text-xs opacity-80">Issued</p>
-                        <p className="text-sm">{new Date().getFullYear()}</p>
-                      </div>
-                    </div>
-
-                    <div className="mt-6 flex justify-between items-center">
-                      <div>
-                        <p className="text-xs opacity-80">Cardholder</p>
-                        <p className="font-semibold">{subscriptionCard.holderName}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Buttons below card */}
-                <div className="flex flex-wrap gap-2 mt-4">
-                  <Button size="sm" variant="outline" onClick={() => setSubLocked(!subLocked)} disabled={subRevealed}>
-                    {subLocked ? 'Unlock' : 'Lock'}
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={handleSubShow}>
-                    Show Info 
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => copyToClipboard(subscriptionCard.cardNumber, 'Card number', subRevealed)}>
-                    Copy Number
-                  </Button>
-                  {subFlipped ? (
-                    <Button size="sm" variant="outline" onClick={() => setSubFlipped(false)}>
-                      Flip to Front
-                    </Button>
-                  ) : (
-                    <Button size="sm" variant="outline" onClick={() => setSubFlipped(true)}>
-                      Flip to Back
-                    </Button>
-                  )}
-                  {subFlipped && (
-                    <Button size="sm" variant="outline" onClick={() => copyToClipboard(subscriptionCard.securityKey, 'Security key', subRevealed)}>
-                      Copy Security Key
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Card Details */}
-            <Card>
-              <CardContent className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Card Information</h3>
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <User className="w-5 h-5 text-muted-foreground mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm text-muted-foreground">Cardholder Name</p>
-                      <p className="font-semibold">{subscriptionCard.holderName}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <Hash className="w-5 h-5 text-muted-foreground mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm text-muted-foreground">Card Number</p>
-                      <p className="font-mono text-sm">{subscriptionCard.cardNumber}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <Wallet className="w-5 h-5 text-muted-foreground mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm text-muted-foreground">Subscription Plan</p>
-                      <p className="font-semibold">{subscriptionCard.plan}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <CreditCard className="w-5 h-5 text-muted-foreground mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm text-muted-foreground">HT Token Balance</p>
-                      <p className="font-semibold text-primary">{subscriptionCard.htBalance} HT</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <Calendar className="w-5 h-5 text-muted-foreground mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm text-muted-foreground">Valid Until</p>
-                      <p className="font-semibold">{new Date(subscriptionCard.validUntil).toLocaleDateString()}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <Calendar className="w-5 h-5 text-muted-foreground mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm text-muted-foreground">Issue Date</p>
-                      <p className="font-semibold">N/A</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <Shield className="w-5 h-5 text-muted-foreground mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm text-muted-foreground">Status</p>
-                      <span className="inline-block px-2 py-1 rounded-full text-xs bg-success/10 text-success">
-                        {subscriptionCard.status}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+            renderCard(subscriptionCard, revealSubscription, () => setRevealSubscription(prev => !prev))
           )}
-        </TabsContent>
+          </TabsContent>
 
-        {/* Asset-Based Health Card */}
-        <TabsContent value="asset" className="space-y-6">
+          <TabsContent value="asset" className="space-y-6">
           {!assetCard ? (
             <Card className="p-6">
               <div className="flex flex-col items-center justify-center gap-3 text-center py-8">
@@ -385,177 +187,11 @@ export default function HealthCardPage() {
               </div>
             </Card>
           ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Virtual Card with Flip */}
-            <Card className="overflow-hidden">
-              <CardContent className="p-4">
-                <div style={cardStyle} className="relative w-full h-64">
-                  {/* Front of Card */}
-                  <div style={frontStyle(assetFlipped) as any} className="absolute inset-0 rounded-lg p-6 bg-gradient-to-br from-emerald-600 via-emerald-700 to-emerald-900 text-white shadow-lg">
-                    <div className="flex flex-col h-full justify-between">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="text-xs opacity-80 uppercase tracking-wide">Asset-Based Health Card</p>
-                          <p className="text-lg font-bold mt-1">Premium Asset Holder</p>
-                        </div>
-                        <Wallet className="w-8 h-8 opacity-80" />
-                      </div>
-
-                      <div className="bg-white/10 p-3 rounded-md">
-                        <p className="text-xs opacity-80 mb-1">Card Number</p>
-                        <p className="text-base font-mono tracking-wider">
-                          {assetLocked ? '•••• •••• ••••' : maskCardNumber(assetCard.cardNumber, assetRevealed)}
-                        </p>
-                        <div className="flex justify-between items-center mt-2">
-                          <span className="text-sm">{assetCard.holderName}</span>
-                          <span className="text-xs">CVV: {assetRevealed && !assetLocked ? assetCard.cvv : '•••'}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex justify-between items-end">
-                        <div>
-                          <p className="text-xs opacity-80">HT Balance</p>
-                          <p className="text-2xl font-bold">{assetCard.htBalance} HT</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xs opacity-80">Asset Value</p>
-                          <p className="text-sm font-semibold">{assetCard.assetValue} AT</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Back of Card */}
-                  <div style={backStyle(assetFlipped) as any} className="rounded-lg p-6 bg-gray-800 text-white shadow-lg">
-                    <div className="h-10 bg-black/70 rounded-sm mb-4" />
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="bg-white h-8 rounded-sm px-3 flex items-center justify-between text-gray-800">
-                          <span className="text-xs">Signature</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs">CVV</span>
-                            <span className="font-mono text-sm">{assetLocked ? '•••' : assetCard.cvv}</span>
-                          </div>
-                        </div>
-                        <div className="mt-4">
-                          <p className="text-xs opacity-80">Security Key</p>
-                          <p className="font-mono text-sm">{assetRevealed ? assetCard.securityKey : '••••••••'}</p>
-                        </div>
-                      </div>
-                      <div className="ml-4 text-right">
-                        <p className="text-xs opacity-80">Issued</p>
-                        <p className="text-sm">{new Date().getFullYear()}</p>
-                      </div>
-                    </div>
-
-                    <div className="mt-6 flex justify-between items-center">
-                      <div>
-                        <p className="text-xs opacity-80">Cardholder</p>
-                        <p className="font-semibold">{assetCard.holderName}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Buttons below card */}
-                <div className="flex flex-wrap gap-2 mt-4">
-                  <Button size="sm" variant="outline" onClick={() => setAssetLocked(!assetLocked)} disabled={assetRevealed}>
-                    {assetLocked ? 'Unlock' : 'Lock'}
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={handleAssetShow}>
-                    Show Info 
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => copyToClipboard(assetCard.cardNumber, 'Card number', assetRevealed)}>
-                    Copy Number
-                  </Button>
-                  {assetFlipped ? (
-                    <Button size="sm" variant="outline" onClick={() => setAssetFlipped(false)}>
-                      Flip to Front
-                    </Button>
-                  ) : (
-                    <Button size="sm" variant="outline" onClick={() => setAssetFlipped(true)}>
-                      Flip to Back
-                    </Button>
-                  )}
-                  {assetFlipped && (
-                    <Button size="sm" variant="outline" onClick={() => copyToClipboard(assetCard.securityKey, 'Security key', assetRevealed)}>
-                      Copy Security Key
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Card Details */}
-            <Card>
-              <CardContent className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Card Information</h3>
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <User className="w-5 h-5 text-muted-foreground mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm text-muted-foreground">Cardholder Name</p>
-                      <p className="font-semibold">{assetCard.holderName}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <Hash className="w-5 h-5 text-muted-foreground mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm text-muted-foreground">Card Number</p>
-                      <p className="font-mono text-sm">{assetCard.cardNumber}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <Wallet className="w-5 h-5 text-muted-foreground mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm text-muted-foreground">Asset Token Value</p>
-                      <p className="font-semibold">{assetCard.assetValue} AT</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <CreditCard className="w-5 h-5 text-muted-foreground mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm text-muted-foreground">HT Token Balance</p>
-                      <p className="font-semibold text-primary">{assetCard.htBalance} HT</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <Calendar className="w-5 h-5 text-muted-foreground mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm text-muted-foreground">Valid Until</p>
-                      <p className="font-semibold">{assetCard.validUntil}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <Calendar className="w-5 h-5 text-muted-foreground mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm text-muted-foreground">Issue Date</p>
-                      <p className="font-semibold">N/A</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <Shield className="w-5 h-5 text-muted-foreground mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm text-muted-foreground">Status</p>
-                      <span className="inline-block px-2 py-1 rounded-full text-xs bg-success/10 text-success">
-                        {assetCard.status}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+            renderCard(assetCard, revealAsset, () => setRevealAsset(prev => !prev))
           )}
-        </TabsContent>
-        )}
-      </Tabs>
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
   )
 }

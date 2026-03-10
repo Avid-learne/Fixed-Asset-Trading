@@ -28,7 +28,6 @@ public class ProfileResponse {
     private LocalDate dateOfBirth;
     private String role;
     private String status;
-    private String bio;
     
     // Patient-specific fields
     private UUID patientId;

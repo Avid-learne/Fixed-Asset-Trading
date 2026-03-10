@@ -10,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.UUID;
 
 /**
@@ -48,7 +50,6 @@ public class ProfileService {
             responseBuilder
                     .patientId(patient.getId())
                     .walletAddress(patient.getWalletAddress())
-                    .bio(patient.getBio())
                     .hasAsset(patient.getHasAsset())
                     .hasSubscription(patient.getHasSubscription())
                     .kycStatus(patient.getKycStatus() != null ? patient.getKycStatus().name() : null)
@@ -79,18 +80,19 @@ public class ProfileService {
         if (request.getCity() != null) {
             user.setCity(request.getCity().trim());
         }
+        if (request.getBloodGroup() != null) {
+            user.setBloodGroup(request.getBloodGroup().trim());
+        }
+        if (request.getDateOfBirth() != null && !request.getDateOfBirth().trim().isEmpty()) {
+            try {
+                user.setDateOfBirth(LocalDate.parse(request.getDateOfBirth().trim()));
+            } catch (DateTimeParseException ex) {
+                throw new RuntimeException("Invalid dateOfBirth format. Use YYYY-MM-DD");
+            }
+        }
 
         // Save updated user
         user = userRepository.save(user);
-
-        // Update bio if user is a patient
-        if (request.getBio() != null) {
-            Patient patient = patientRepository.findByUserId(userId).orElse(null);
-            if (patient != null) {
-                patient.setBio(request.getBio().trim());
-                patientRepository.save(patient);
-            }
-        }
 
         // Return updated profile
         return getProfile(userId);

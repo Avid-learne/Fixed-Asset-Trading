@@ -22,20 +22,15 @@ public interface HealthCardRepository extends JpaRepository<HealthCard, UUID> {
     /**
      * Find health card by card number
      */
-    Optional<HealthCard> findByCardNumber(String cardNumber);
+    Optional<HealthCard> findByCardNum(String cardNum);
     
     /**
      * Find health cards by patient ID and card type
      */
-    List<HealthCard> findByPatientIdAndCardType(UUID patientId, HealthCard.CardType cardType);
-    
-    /**
-     * Find health cards by patient ID and status
-     */
-    List<HealthCard> findByPatientIdAndStatus(UUID patientId, HealthCard.CardStatus status);
+    List<HealthCard> findByPatientIdAndCardId(UUID patientId, UUID cardId);
     
     /**
      * Check if health card exists by card number
      */
-    boolean existsByCardNumber(String cardNumber);
+    boolean existsByCardNum(String cardNum);
 }

@@ -6,32 +6,16 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/ui/button'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalClose, ModalFooter } from '@/components/ui/Modal'
-
-type ATTransaction = {
-  id: string
-  transaction_hash: string
-  from_address: string
-  to_address: string
-  token_id: string
-  amount: number
-  gas_used: number
-  status: string
-  created_at: string
-}
-
-const MOCK_AT_TXS: ATTransaction[] = [
-  { id: '1', transaction_hash: '0xabc123', from_address: '0xHospitalAdmin', to_address: '0x123patient', token_id: 'AT-001', amount: 500, gas_used: 21000, status: 'success', created_at: '2025-12-04' },
-  { id: '2', transaction_hash: '0xdef456', from_address: '0x123patient', to_address: '0x456...def', token_id: 'AT-001', amount: 200, gas_used: 21000, status: 'success', created_at: '2025-12-03' },
-  { id: '3', transaction_hash: '0x789abc', from_address: '0xMinter', to_address: '0x123patient', token_id: 'AT-002', amount: 300, gas_used: 45000, status: 'success', created_at: '2025-12-02' },
-]
+import { WalletTransaction } from '@/services/walletService'
 
 type Props = {
   balance: number
+  transactions: WalletTransaction[]
   assetBreakdown?: { asset: string; tokens: number }[]
 }
 
-export default function ATWalletCard({ balance, assetBreakdown = [] }: Props) {
-  const [selectedTx, setSelectedTx] = useState<ATTransaction | null>(null)
+export default function ATWalletCard({ balance, transactions, assetBreakdown = [] }: Props) {
+  const [selectedTx, setSelectedTx] = useState<WalletTransaction | null>(null)
 
   return (
     <div className="space-y-6">
@@ -71,16 +55,16 @@ export default function ATWalletCard({ balance, assetBreakdown = [] }: Props) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {MOCK_AT_TXS.map((tx) => (
-                <TableRow key={tx.id}>
-                  <TableCell>{new Date(tx.created_at).toLocaleDateString()}</TableCell>
-                  <TableCell className="font-mono text-xs">{tx.transaction_hash.slice(0, 10)}...</TableCell>
-                  <TableCell className="font-mono text-xs">{tx.from_address.slice(0, 10)}...</TableCell>
-                  <TableCell className="font-mono text-xs">{tx.to_address.slice(0, 10)}...</TableCell>
+              {transactions.map((tx) => (
+                <TableRow key={tx.transactionId}>
+                  <TableCell>{tx.timestamp ? new Date(tx.timestamp).toLocaleDateString() : 'N/A'}</TableCell>
+                  <TableCell className="font-mono text-xs">{tx.transactionHash ? `${tx.transactionHash.slice(0, 10)}...` : 'N/A'}</TableCell>
+                  <TableCell className="font-mono text-xs">{tx.senderWalletAddress ? `${tx.senderWalletAddress.slice(0, 10)}...` : 'N/A'}</TableCell>
+                  <TableCell className="font-mono text-xs">{tx.receiverWalletAddress ? `${tx.receiverWalletAddress.slice(0, 10)}...` : 'N/A'}</TableCell>
                   <TableCell className="font-semibold">{tx.amount} AT</TableCell>
                   <TableCell>
-                    <span className={`px-2 py-0.5 rounded-full text-xs ${tx.status === 'success' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
-                      {tx.status}
+                    <span className={`px-2 py-0.5 rounded-full text-xs ${tx.status?.toLowerCase() === 'success' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
+                      {tx.status || 'PENDING'}
                     </span>
                   </TableCell>
                   <TableCell>
@@ -88,6 +72,11 @@ export default function ATWalletCard({ balance, assetBreakdown = [] }: Props) {
                   </TableCell>
                 </TableRow>
               ))}
+              {transactions.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-muted-foreground">No AT transactions found.</TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -103,37 +92,37 @@ export default function ATWalletCard({ balance, assetBreakdown = [] }: Props) {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Transaction Hash</p>
-                  <p className="font-mono text-sm break-all mt-1">{selectedTx.transaction_hash}</p>
+                  <p className="font-mono text-sm break-all mt-1">{selectedTx.transactionHash || 'N/A'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Status</p>
-                  <span className={`inline-block px-2 py-0.5 rounded-full text-xs mt-1 ${selectedTx.status === 'success' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
-                    {selectedTx.status}
+                  <span className={`inline-block px-2 py-0.5 rounded-full text-xs mt-1 ${selectedTx.status?.toLowerCase() === 'success' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
+                    {selectedTx.status || 'PENDING'}
                   </span>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">From Address</p>
-                  <p className="font-mono text-sm break-all mt-1">{selectedTx.from_address}</p>
+                  <p className="font-mono text-sm break-all mt-1">{selectedTx.senderWalletAddress || 'N/A'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">To Address</p>
-                  <p className="font-mono text-sm break-all mt-1">{selectedTx.to_address}</p>
+                  <p className="font-mono text-sm break-all mt-1">{selectedTx.receiverWalletAddress || 'N/A'}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Token ID</p>
-                  <p className="font-mono text-sm mt-1">{selectedTx.token_id}</p>
+                  <p className="text-sm text-muted-foreground">Transaction Type</p>
+                  <p className="font-mono text-sm mt-1">{selectedTx.transactionType}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Amount</p>
                   <p className="font-semibold text-sm mt-1">{selectedTx.amount} AT</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Gas Used</p>
-                  <p className="text-sm mt-1">{selectedTx.gas_used.toLocaleString()}</p>
+                  <p className="text-sm text-muted-foreground">Block Number</p>
+                  <p className="text-sm mt-1">{selectedTx.blockNumber || 'N/A'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Date</p>
-                  <p className="text-sm mt-1">{new Date(selectedTx.created_at).toLocaleString()}</p>
+                  <p className="text-sm mt-1">{selectedTx.timestamp ? new Date(selectedTx.timestamp).toLocaleString() : 'N/A'}</p>
                 </div>
               </div>
             </div>

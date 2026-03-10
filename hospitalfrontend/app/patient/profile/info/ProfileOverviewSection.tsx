@@ -23,6 +23,7 @@ interface ProfileOverviewSectionProps {
 
 export function ProfileOverviewSection({ insights }: ProfileOverviewSectionProps) {
   const patient = usePatientProfileStore(state => state.profile)
+  const location = [patient.city, patient.address].filter(Boolean).join(', ')
   const initials = patient.fullName
     .split(' ')
     .map(part => part.charAt(0))
@@ -93,7 +94,7 @@ export function ProfileOverviewSection({ insights }: ProfileOverviewSectionProps
               </div>
               <div className="flex items-start gap-2 text-muted-foreground">
                 <MapPin className="mt-0.5 h-4 w-4" />
-                <span>{patient.location}</span>
+                <span>{location || 'Not provided'}</span>
               </div>
             </CardContent>
             <CardFooter>

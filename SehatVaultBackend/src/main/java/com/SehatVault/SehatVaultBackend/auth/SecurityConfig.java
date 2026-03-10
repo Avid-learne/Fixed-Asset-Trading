@@ -45,6 +45,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/verify").permitAll()
                 .requestMatchers("/api/subscriptions/**").permitAll()
                 .requestMatchers("/api/health-cards/**").permitAll()
+                .requestMatchers("/api/activity/**").permitAll()
+                .requestMatchers("/api/wallet/**").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
                 .requestMatchers("/actuator/health/**").permitAll()

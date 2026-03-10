@@ -13,7 +13,6 @@ export interface ProfileData {
   dateOfBirth: string;
   role: string;
   status: string;
-  bio?: string;
   // Patient-specific fields
   patientId?: string;
   walletAddress?: string;
@@ -28,7 +27,8 @@ export interface ProfileUpdateRequest {
   phoneNum: string;
   address?: string;
   city?: string;
-  bio?: string;
+  bloodGroup?: string;
+  dateOfBirth?: string;
 }
 
 class ProfileService {

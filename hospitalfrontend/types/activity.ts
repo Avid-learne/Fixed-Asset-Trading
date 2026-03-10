@@ -44,3 +44,13 @@ export type StatementItem = {
   totalHT: number
   generatedDate: string
 }
+
+export type ActivityLogItem = {
+  id: string
+  activityName: string
+  description?: string
+  type: 'LOGIN' | 'LOGOUT' | 'ACTION' | 'ERROR'
+  status?: string
+  ipAddress?: string
+  timestamp: string
+}

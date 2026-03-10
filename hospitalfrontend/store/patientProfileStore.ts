@@ -6,8 +6,8 @@ export type PatientProfile = {
   fullName: string
   email: string
   phone: string
-  location: string
-  bio: string
+  city: string
+  address: string
   avatar: string
   walletAddress: string
   dateOfBirth: string
@@ -26,8 +26,8 @@ const initialProfile: PatientProfile = {
   fullName: '',
   email: '',
   phone: '',
-  location: '',
-  bio: '',
+  city: '',
+  address: '',
   avatar: '/images/patient-placeholder.png',
   walletAddress: '',
   dateOfBirth: '',
@@ -41,8 +41,10 @@ const calculateCompletion = (profile: PatientProfile): number => {
     ['fullName', Boolean(profile.fullName.trim())],
     ['email', Boolean(profile.email.trim())],
     ['phone', Boolean(profile.phone.trim())],
-    ['location', Boolean(profile.location.trim())],
-    ['bio', Boolean(profile.bio.trim())],
+    ['city', Boolean(profile.city.trim())],
+    ['address', Boolean(profile.address.trim())],
+    ['bloodGroup', Boolean(profile.bloodGroup.trim())],
+    ['dateOfBirth', Boolean(profile.dateOfBirth.trim())],
   ]
 
   const filled = fields.filter(([, isFilled]) => isFilled).length
@@ -73,7 +75,8 @@ export const usePatientProfileStore = create<PatientProfileState>(set => ({
         fullName: user.name || state.profile.fullName,
         email: user.email || state.profile.email,
         phone: user.phoneNum || state.profile.phone,
-        location: [user.city, user.address].filter(Boolean).join(', ') || state.profile.location,
+        city: user.city || state.profile.city,
+        address: user.address || state.profile.address,
         bloodGroup: user.bloodGroup || state.profile.bloodGroup,
         dateOfBirth: user.dateOfBirth || state.profile.dateOfBirth,
         status: state.profile.status || 'Verified Patient',
