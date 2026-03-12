@@ -54,6 +54,7 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [wallet, setWallet] = useState("");
+  const [hospitalName, setHospitalName] = useState("");
   const [role, setRole] = useState("PATIENT");
   const [error, setError] = useState("");
 
@@ -122,6 +123,7 @@ export default function Auth() {
         name,
         role,
         walletAddress: wallet || undefined,
+        hospitalName: hospitalName || undefined,
       });
 
       if (response.success) {
@@ -130,6 +132,7 @@ export default function Auth() {
         setPassword("");
         setName("");
         setWallet("");
+        setHospitalName("");
         setRole("PATIENT");
         
         // Show success and redirect
@@ -262,6 +265,24 @@ export default function Auth() {
                         ))}
                       </select>
                     </div>
+                    {(role === "PATIENT" || role === "HOSPITAL_STAFF" || role === "HOSPITAL_ADMIN") && (
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-hospital">
+                          Hospital Name {role === "PATIENT" && <span className="text-error">*</span>}
+                        </Label>
+                        <Input 
+                          id="signup-hospital" 
+                          type="text" 
+                          placeholder="Enter hospital name" 
+                          value={hospitalName} 
+                          onChange={(e) => setHospitalName(e.target.value)}
+                          required={role === "PATIENT"}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          The hospital you are affiliated with
+                        </p>
+                      </div>
+                    )}
                     <div className="space-y-2">
                       <Label htmlFor="signup-wallet">Wallet Address (Optional)</Label>
                       <Input 

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,9 +25,12 @@ import {
   Calendar,
   MapPin,
   Phone,
-  Mail
+  Mail,
+  Loader2
 } from 'lucide-react'
 import { PatientProfile, PatientTokenBalance, AssetDeposit, Transaction, KYCStatus, PatientStatus } from '@/types/patient'
+import { patientService } from '@/services/patientService'
+import { useAuth } from '@/contexts/AuthContext'
 
 // Extended patient data for hospital staff view
 interface HospitalPatientData extends PatientProfile {
@@ -308,13 +311,97 @@ const MOCK_PATIENTS: HospitalPatientData[] = [
 ]
 
 export default function HospitalPatientsPage() {
+  const { user } = useAuth()
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [kycFilter, setKycFilter] = useState<string>('all')
   const [selectedPatient, setSelectedPatient] = useState<HospitalPatientData | null>(null)
+  const [patientsList, setPatientsList] = useState<HospitalPatientData[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Fetch patients from database for this hospital
+  useEffect(() => {
+    const fetchPatients = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+        const token = localStorage.getItem('authToken')
+        
+        // Get hospitalId from user's stored data
+        const storedUser = localStorage.getItem('user')
+        let hospitalId: string | null = null
+        
+        if (storedUser) {
+          const userData = JSON.parse(storedUser)
+          // Extract hospital ID if available, or use a placeholder
+          hospitalId = userData.hospitalId
+        }
+
+        // If we have a hospital ID, fetch patients for that hospital
+        if (hospitalId) {
+          const response = await fetch(`http://localhost:8000/api/profile/hospital/${hospitalId}/patients`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+          })
+
+          if (!response.ok) {
+            throw new Error('Failed to fetch patients')
+          }
+
+          const data = await response.json()
+          
+          // Transform backend response to HospitalPatientData format
+          const transformedPatients = (data.data || []).map((profile: any) => ({
+            id: profile.patientId || profile.userId,
+            registrationId: profile.registrationId || 'N/A',
+            fullName: profile.name,
+            email: profile.email,
+            phone: profile.phoneNum || '',
+            dateOfBirth: profile.dateOfBirth || '',
+            bloodGroup: profile.bloodGroup || '',
+            address: profile.address || '',
+            location: profile.city || '',
+            status: 'active' as const,
+            profileCompletion: 70,
+            memberSince: new Date().toISOString().split('T')[0],
+            walletAddress: profile.walletAddress || '',
+            createdAt: new Date().toISOString().split('T')[0],
+            kycStatus: (profile.kycStatus?.toLowerCase() || 'pending') as KYCStatus,
+            totalDepositsValue: 0,
+            totalTransactions: 0,
+            lastActivity: new Date().toISOString().split('T')[0],
+            tokenBalance: {
+              assetToken: 0,
+              healthToken: 0,
+              lastUpdated: new Date().toISOString().split('T')[0]
+            },
+            recentDeposits: [],
+            recentTransactions: []
+          } as HospitalPatientData))
+
+          setPatientsList(transformedPatients)
+        } else {
+          // If no hospital ID, show empty list
+          setPatientsList([])
+        }
+      } catch (err) {
+        console.error('Failed to fetch patients:', err)
+        setError('Failed to load patients from database')
+        setPatientsList([])
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchPatients()
+  }, [])
 
   // Filter patients
-  const filteredPatients = MOCK_PATIENTS.filter(patient => {
+  const filteredPatients = patientsList.filter(patient => {
     const matchesSearch = 
       patient.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       patient.registrationId.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -327,13 +414,13 @@ export default function HospitalPatientsPage() {
     return matchesSearch && matchesStatus && matchesKyc
   })
 
-  // Calculate summary stats
-  const totalPatients = MOCK_PATIENTS.length
-  const activePatients = MOCK_PATIENTS.filter(p => p.status === 'active').length
-  const verifiedPatients = MOCK_PATIENTS.filter(p => p.kycStatus === 'verified').length
-  const pendingKyc = MOCK_PATIENTS.filter(p => p.kycStatus === 'pending' || p.kycStatus === 'incomplete').length
-  const totalAssetValue = MOCK_PATIENTS.reduce((sum, p) => sum + p.totalDepositsValue, 0)
-  const totalTokensInCirculation = MOCK_PATIENTS.reduce((sum, p) => sum + p.tokenBalance.assetToken + p.tokenBalance.healthToken, 0)
+  // Calculate summary stats from fetched patients
+  const totalPatients = patientsList.length
+  const activePatients = patientsList.filter(p => p.status === 'active').length
+  const verifiedPatients = patientsList.filter(p => p.kycStatus === 'verified').length
+  const pendingKyc = patientsList.filter(p => p.kycStatus === 'pending' || p.kycStatus === 'incomplete').length
+  const totalAssetValue = patientsList.reduce((sum, p) => sum + p.totalDepositsValue, 0)
+  const totalTokensInCirculation = patientsList.reduce((sum, p) => sum + p.tokenBalance.assetToken + p.tokenBalance.healthToken, 0)
 
   const getStatusColor = (status: PatientStatus) => {
     switch (status) {
@@ -370,6 +457,32 @@ export default function HospitalPatientsPage() {
 
   if (selectedPatient) {
     return <PatientDetailView patient={selectedPatient} onBack={() => setSelectedPatient(null)} />
+  }
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-slate-600" />
+          <p className="text-slate-600">Loading patients from database...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <p className="text-red-700 font-medium">{error}</p>
+          </CardContent>
+        </Card>
+        <Button onClick={() => window.location.reload()}>Retry</Button>
+      </div>
+    )
   }
 
   return (

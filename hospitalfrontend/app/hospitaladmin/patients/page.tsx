@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 // Exchange rate: 1 USD = 280 PKR
@@ -13,8 +13,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Users, Search, Eye, Download, TrendingUp, Wallet, Activity, Clock, Coins, FileText, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { Users, Search, Eye, Download, TrendingUp, Wallet, Activity, Clock, Coins, FileText, ArrowUpRight, ArrowDownRight, Loader2 } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface Patient {
   id: string
@@ -128,10 +129,73 @@ const mockPatients: Patient[] = [
 ]
 
 export default function PatientsPage() {
-  const [patients, setPatients] = useState<Patient[]>(mockPatients)
+  const { user } = useAuth()
+  const [patients, setPatients] = useState<Patient[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchPatients = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+        
+        // Get the hospital ID from the user's context or localStorage
+        // For now, we'll fetch all patients and filter client-side
+        const token = localStorage.getItem('token')
+        const response = await fetch('http://localhost:8000/api/profile/hospital/patients', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        })
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch patients')
+        }
+
+        const data = await response.json()
+        
+        // Transform backend response to Patient format
+        const transformedPatients = (data.data || []).map((profile: any) => ({
+          id: profile.registrationId || profile.patientId,
+          name: profile.name,
+          email: profile.email,
+          phone: profile.phoneNum || '',
+          status: 'active' as const,
+          joinDate: new Date().toISOString().split('T')[0],
+          totalAssets: 0,
+          totalTokens: 0,
+          atBalance: 0,
+          htBalance: 0,
+          totalDeposits: 0,
+          totalRedemptions: 0,
+          assetHistory: [],
+          portfolioValue: [
+            { month: 'Jun', value: 0 },
+            { month: 'Jul', value: 0 },
+            { month: 'Aug', value: 0 },
+            { month: 'Sep', value: 0 },
+            { month: 'Oct', value: 0 },
+            { month: 'Nov', value: 0 },
+          ]
+        }))
+
+        setPatients(transformedPatients)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load patients')
+        setPatients([])
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchPatients()
+  }, [])
 
   const filteredPatients = patients.filter((patient) => {
     const matchesSearch = patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -218,7 +282,71 @@ export default function PatientsPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      {isLoading && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardContent className="py-8 flex items-center justify-center gap-3">
+            <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+            <p className="text-blue-700 font-medium">Loading patients...</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {error && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="py-4 flex items-center justify-between">
+            <p className="text-red-700 font-medium">{error}</p>
+            <Button size="sm" variant="outline" onClick={() => {
+              setIsLoading(true)
+              setError(null)
+              // Retry fetch - reuse the same logic from useEffect
+              const fetchPatients = async () => {
+                try {
+                  const token = localStorage.getItem('token')
+                  const response = await fetch('http://localhost:8000/api/profile/hospital/patients', {
+                    method: 'GET',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${token}`,
+                    },
+                  })
+                  if (!response.ok) throw new Error('Failed to fetch patients')
+                  const data = await response.json()
+                  const transformedPatients = (data.data || []).map((profile: any) => ({
+                    id: profile.registrationId || profile.patientId,
+                    name: profile.name,
+                    email: profile.email,
+                    phone: profile.phoneNum || '',
+                    status: 'active' as const,
+                    joinDate: new Date().toISOString().split('T')[0],
+                    totalAssets: 0,
+                    totalTokens: 0,
+                    atBalance: 0,
+                    htBalance: 0,
+                    totalDeposits: 0,
+                    totalRedemptions: 0,
+                    assetHistory: [],
+                    portfolioValue: [
+                      { month: 'Jun', value: 0 }, { month: 'Jul', value: 0 }, { month: 'Aug', value: 0 },
+                      { month: 'Sep', value: 0 }, { month: 'Oct', value: 0 }, { month: 'Nov', value: 0 },
+                    ]
+                  }))
+                  setPatients(transformedPatients)
+                  setError(null)
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : 'Failed to load patients')
+                } finally {
+                  setIsLoading(false)
+                }
+              }
+              fetchPatients()
+            }}>
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {!isLoading && !error && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
@@ -623,6 +751,7 @@ export default function PatientsPage() {
           )}
         </DialogContent>
       </Dialog>
+      )}
     </div>
   )
 }

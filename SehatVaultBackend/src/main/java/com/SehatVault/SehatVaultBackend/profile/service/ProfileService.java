@@ -12,7 +12,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Profile Service
@@ -108,5 +110,78 @@ public class ProfileService {
         
         patient.setWalletAddress(walletAddress);
         patientRepository.save(patient);
+    }
+
+    /**
+     * Get all patients with their profile data
+     */
+    public List<ProfileResponse> getAllPatients() {
+        return userRepository.findAll().stream()
+                .filter(user -> user.getRole() != null && 
+                        user.getRole().getRoleName().name().equals("PATIENT"))
+                .map(user -> {
+                    ProfileResponse.ProfileResponseBuilder responseBuilder = ProfileResponse.builder()
+                            .userId(user.getUserId())
+                            .name(user.getName())
+                            .email(user.getEmail())
+                            .phoneNum(user.getPhoneNum())
+                            .address(user.getAddress())
+                            .city(user.getCity())
+                            .bloodGroup(user.getBloodGroup())
+                            .dateOfBirth(user.getDateOfBirth())
+                            .role(user.getRole().getRoleName().name())
+                            .status(user.getStatus() != null ? user.getStatus().name() : null);
+
+                    // Add patient-specific data
+                    Patient patient = patientRepository.findByUserId(user.getUserId()).orElse(null);
+                    if (patient != null) {
+                        responseBuilder
+                                .patientId(patient.getId())
+                                .walletAddress(patient.getWalletAddress())
+                                .hasAsset(patient.getHasAsset())
+                                .hasSubscription(patient.getHasSubscription())
+                                .kycStatus(patient.getKycStatus() != null ? patient.getKycStatus().name() : null)
+                                .registrationId(patient.getRegistrationId());
+                    }
+
+                    return responseBuilder.build();
+                })
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get patients by hospital ID
+     */
+    public List<ProfileResponse> getPatientsByHospitalId(UUID hospitalId) {
+        return patientRepository.findByHospitalId(hospitalId).stream()
+                .map(patient -> {
+                    User user = userRepository.findById(patient.getUserId()).orElse(null);
+                    
+                    if (user == null) {
+                        return null;
+                    }
+
+                    return ProfileResponse.builder()
+                            .userId(user.getUserId())
+                            .name(user.getName())
+                            .email(user.getEmail())
+                            .phoneNum(user.getPhoneNum())
+                            .address(user.getAddress())
+                            .city(user.getCity())
+                            .bloodGroup(user.getBloodGroup())
+                            .dateOfBirth(user.getDateOfBirth())
+                            .role(user.getRole().getRoleName().name())
+                            .status(user.getStatus() != null ? user.getStatus().name() : null)
+                            .patientId(patient.getId())
+                            .walletAddress(patient.getWalletAddress())
+                            .hasAsset(patient.getHasAsset())
+                            .hasSubscription(patient.getHasSubscription())
+                            .kycStatus(patient.getKycStatus() != null ? patient.getKycStatus().name() : null)
+                            .registrationId(patient.getRegistrationId())
+                            .hospitalId(patient.getHospitalId())
+                            .build();
+                })
+                .filter(profile -> profile != null)
+                .collect(Collectors.toList());
     }
 }

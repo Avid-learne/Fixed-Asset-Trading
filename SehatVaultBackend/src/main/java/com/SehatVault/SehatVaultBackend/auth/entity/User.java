@@ -52,6 +52,9 @@ public class User {
     @Column(name = "date_of_birth")
     private LocalDate dateOfBirth;
     
+    @Column(name = "hospital_id")
+    private java.util.UUID hospitalId;
+    
     @Column(name = "mfa_enabled")
     private Boolean mfaEnabled = false;
     

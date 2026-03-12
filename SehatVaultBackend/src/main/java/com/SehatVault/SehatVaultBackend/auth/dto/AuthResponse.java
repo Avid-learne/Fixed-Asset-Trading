@@ -24,6 +24,7 @@ public class AuthResponse {
     private String city;
     private String bloodGroup;
     private String dateOfBirth;
+    private UUID hospitalId;
     private boolean success;
     private String message;
     

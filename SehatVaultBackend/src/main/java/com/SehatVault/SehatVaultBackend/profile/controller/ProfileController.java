@@ -1,16 +1,25 @@
 package com.SehatVault.SehatVaultBackend.profile.controller;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.SehatVault.SehatVaultBackend.profile.dto.ProfileResponse;
 import com.SehatVault.SehatVaultBackend.profile.dto.ProfileUpdateRequest;
 import com.SehatVault.SehatVaultBackend.profile.service.ProfileService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 
 /**
  * Profile Controller
@@ -61,6 +70,36 @@ public class ProfileController {
         } catch (Exception e) {
             return ResponseEntity.status(500)
                     .body(createErrorResponse("Error retrieving profile: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Get all patients
+     * GET /api/profile/hospital/patients
+     */
+    @GetMapping("/hospital/patients")
+    public ResponseEntity<?> getAllPatients() {
+        try {
+            List<ProfileResponse> patients = profileService.getAllPatients();
+            return ResponseEntity.ok(createSuccessResponse("Patients retrieved successfully", patients));
+        } catch (Exception e) {
+            return ResponseEntity.status(500)
+                    .body(createErrorResponse("Error retrieving patients: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Get patients by hospital ID
+     * GET /api/profile/hospital/{hospitalId}/patients
+     */
+    @GetMapping("/hospital/{hospitalId}/patients")
+    public ResponseEntity<?> getPatientsByHospital(@PathVariable UUID hospitalId) {
+        try {
+            List<ProfileResponse> patients = profileService.getPatientsByHospitalId(hospitalId);
+            return ResponseEntity.ok(createSuccessResponse("Patients retrieved successfully", patients));
+        } catch (Exception e) {
+            return ResponseEntity.status(500)
+                    .body(createErrorResponse("Error retrieving patients: " + e.getMessage()));
         }
     }
 

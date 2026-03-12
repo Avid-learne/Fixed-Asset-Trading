@@ -36,4 +36,5 @@ public class ProfileResponse {
     private Boolean hasSubscription;
     private String kycStatus;
     private String registrationId;
+    private UUID hospitalId;
 }

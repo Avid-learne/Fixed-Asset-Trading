@@ -22,6 +22,7 @@ public class SignupRequest {
     private String bloodGroup;
     private String dateOfBirth;  // Format: YYYY-MM-DD
     private String role;  // patient, hospital_admin, hospital_staff, bank_staff, admin
+    private String hospitalName;  // Hospital name for patient/hospital staff roles
     
     // Validation methods
     public boolean isValid() {

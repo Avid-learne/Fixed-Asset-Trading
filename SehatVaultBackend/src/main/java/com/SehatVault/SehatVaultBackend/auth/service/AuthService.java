@@ -1,5 +1,13 @@
 package com.SehatVault.SehatVaultBackend.auth.service;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.Optional;
+
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.stereotype.Service;
+
 import com.SehatVault.SehatVaultBackend.auth.dto.AuthResponse;
 import com.SehatVault.SehatVaultBackend.auth.dto.SigninRequest;
 import com.SehatVault.SehatVaultBackend.auth.dto.SignupRequest;
@@ -10,14 +18,9 @@ import com.SehatVault.SehatVaultBackend.auth.repository.RoleRepository;
 import com.SehatVault.SehatVaultBackend.auth.repository.SettingsRepository;
 import com.SehatVault.SehatVaultBackend.auth.repository.UserRepository;
 import com.SehatVault.SehatVaultBackend.auth.util.JwtUtil;
-import lombok.RequiredArgsConstructor;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.Optional;
+import lombok.RequiredArgsConstructor;
+import com.SehatVault.SehatVaultBackend.hospital.repository.HospitalRepository;
 
 /**
  * Auth Service
@@ -32,6 +35,7 @@ public class AuthService {
     private final SettingsRepository settingsRepository;
     private final JwtUtil jwtUtil;
     private final JdbcTemplate jdbcTemplate;
+    private final HospitalRepository hospitalRepository;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     
     /**
@@ -51,6 +55,29 @@ public class AuthService {
         }
     }
 
+    /**
+     * Call stored procedure to handle user signup and create role-specific records
+     * @param userId User ID
+     * @param role User role
+     * @param hospitalId Hospital ID (optional, for hospital_staff and patients)
+     */
+    private void callSignupProcedure(java.util.UUID userId, String role, java.util.UUID hospitalId) {
+        try {
+            String sql = "CALL public.usp_handle_user_signup(?, ?, ?)";
+            System.out.println("DEBUG: About to execute signup procedure with SQL: " + sql + " | User ID: " + userId + " | Role: " + role.toLowerCase() + " | Hospital ID: " + hospitalId);
+            int result = jdbcTemplate.update(sql, userId, role.toLowerCase(), hospitalId);
+            System.out.println("DEBUG: Signup procedure returned result: " + result);
+            System.out.println("Signup procedure executed for user: " + userId + " with role: " + role + " and hospital: " + hospitalId);
+        } catch (Exception e) {
+            System.err.println("Failed to execute signup procedure!");
+            System.err.println("Error Type: " + e.getClass().getName());
+            System.err.println("Error Message: " + e.getMessage());
+            e.printStackTrace();
+            // Don't throw exception, just log error to prevent interrupting signup flow
+            // The user is already created, so signup should succeed even if procedure fails
+        }
+    }
+
     private AuthResponse buildAuthResponse(User user, String role, String token) {
         AuthResponse response = new AuthResponse(
                 user.getUserId(),
@@ -64,6 +91,7 @@ public class AuthService {
         response.setCity(user.getCity());
         response.setBloodGroup(user.getBloodGroup());
         response.setDateOfBirth(user.getDateOfBirth() != null ? user.getDateOfBirth().toString() : null);
+        response.setHospitalId(user.getHospitalId());
         return response;
     }
     
@@ -121,6 +149,25 @@ public class AuthService {
             newUser.setCity(request.getCity());
             newUser.setBloodGroup(request.getBloodGroup());
             
+            // Look up hospital by name if provided (for patient, hospital_staff, hospital_admin roles)
+            java.util.UUID hospitalId = null;
+            if (request.getHospitalName() != null && !request.getHospitalName().isEmpty()) {
+                Optional<com.SehatVault.SehatVaultBackend.hospital.entity.Hospital> hospitalOpt = 
+                    hospitalRepository.findByHospitalName(request.getHospitalName());
+                
+                if (hospitalOpt.isPresent()) {
+                    hospitalId = hospitalOpt.get().getHospitalId();
+                    newUser.setHospitalId(hospitalId);
+                    System.out.println("Hospital found: " + request.getHospitalName() + " with ID: " + hospitalId);
+                } else {
+                    System.out.println("WARNING: Hospital not found: " + request.getHospitalName());
+                    // For patient role, hospital is required
+                    if (roleType == Role.RoleType.patient) {
+                        return new AuthResponse(false, "Hospital not found: " + request.getHospitalName());
+                    }
+                }
+            }
+            
             // Parse date of birth if provided
             if (request.getDateOfBirth() != null && !request.getDateOfBirth().isEmpty()) {
                 try {
@@ -147,6 +194,9 @@ public class AuthService {
             settings.setEmailVerified(false);
             settings.setNotificationEnabled(true);
             settingsRepository.save(settings);
+            
+            // Call stored procedure to create role-specific records
+            callSignupProcedure(savedUser.getUserId(), role.getRoleName().toString(), hospitalId);
             
             // Generate JWT token
             String token = jwtUtil.generateToken(

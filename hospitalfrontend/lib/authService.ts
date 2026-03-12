@@ -25,6 +25,7 @@ export interface AuthResponse {
   city?: string;
   bloodGroup?: string;
   dateOfBirth?: string;
+  hospitalId?: string;
   success: boolean;
   message: string;
 }
@@ -39,6 +40,7 @@ export interface StoredAuthUser {
   city?: string;
   bloodGroup?: string;
   dateOfBirth?: string;
+  hospitalId?: string;
 }
 
 export interface LoginRequest {
@@ -52,6 +54,7 @@ export interface SignupRequest {
   name: string;
   role: string;
   walletAddress?: string;
+  hospitalName?: string;
 }
 
 export const authService = {
@@ -83,6 +86,7 @@ export const authService = {
           password: request.password.trim(),
           name: request.name.trim(),
           role: normalizeRoleForBackend(request.role),
+          hospitalName: request.hospitalName ? request.hospitalName.trim() : undefined,
         }),
         signal: controller.signal,
       });
@@ -259,6 +263,7 @@ export const authService = {
           city: user.city || '',
           bloodGroup: user.bloodGroup || '',
           dateOfBirth: user.dateOfBirth || '',
+          hospitalId: user.hospitalId || null,
         })
       );
     }
