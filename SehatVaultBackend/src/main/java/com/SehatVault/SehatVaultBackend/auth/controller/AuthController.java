@@ -11,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
  * Auth Controller
  * Handles authentication endpoints (signup, signin, verify)
@@ -56,6 +58,16 @@ public class AuthController {
         } else {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
         }
+    }
+
+    /**
+     * Get Hospitals endpoint (Public)
+     * GET /api/auth/hospitals
+     * @return List of hospital names for signup dropdown
+     */
+    @GetMapping("/hospitals")
+    public ResponseEntity<List<String>> getHospitals() {
+        return ResponseEntity.ok(authService.getHospitalNames());
     }
     
     /**

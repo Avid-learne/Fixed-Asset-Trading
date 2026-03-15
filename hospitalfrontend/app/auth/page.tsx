@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +57,26 @@ export default function Auth() {
   const [hospitalName, setHospitalName] = useState("");
   const [role, setRole] = useState("PATIENT");
   const [error, setError] = useState("");
+  const [hospitals, setHospitals] = useState<string[]>([]);
+  const [hospitalsLoading, setHospitalsLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadHospitalsOnMount = async () => {
+      const hospitalNames = await authService.getHospitals();
+      if (isMounted) {
+        setHospitals(hospitalNames);
+        setHospitalsLoading(false);
+      }
+    };
+
+    loadHospitalsOnMount();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleDemoSignIn = async (account: DemoAccount) => {
     setIsLoading(true);
@@ -112,6 +132,18 @@ export default function Auth() {
 
     if (password.length < 6) {
       setError("Password must be at least 6 characters");
+      setIsLoading(false);
+      return;
+    }
+
+    if (role === "PATIENT" && !hospitalName) {
+      setError("Please select a hospital");
+      setIsLoading(false);
+      return;
+    }
+
+    if (role === "HOSPITAL_ADMIN" && !hospitalName) {
+      setError("Please enter your hospital name");
       setIsLoading(false);
       return;
     }
@@ -255,7 +287,15 @@ export default function Auth() {
                       <select
                         id="signup-role"
                         value={role}
-                        onChange={(e) => setRole(e.target.value)}
+                        onChange={(e) => {
+                          const selectedRole = e.target.value;
+                          setRole(selectedRole);
+
+                          // Hospital admin signs up a new hospital, so do not keep old hospital selection.
+                          if (selectedRole === "HOSPITAL_ADMIN") {
+                            setHospitalName("");
+                          }
+                        }}
                         className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                       >
                         {AVAILABLE_ROLES.map((r) => (
@@ -265,22 +305,45 @@ export default function Auth() {
                         ))}
                       </select>
                     </div>
-                    {(role === "PATIENT" || role === "HOSPITAL_STAFF" || role === "HOSPITAL_ADMIN") && (
+                    {(role === "PATIENT" || role === "HOSPITAL_STAFF") && (
                       <div className="space-y-2">
                         <Label htmlFor="signup-hospital">
                           Hospital Name {role === "PATIENT" && <span className="text-error">*</span>}
                         </Label>
-                        <Input 
-                          id="signup-hospital" 
-                          type="text" 
-                          placeholder="Enter hospital name" 
-                          value={hospitalName} 
+                        <select
+                          id="signup-hospital"
+                          value={hospitalName}
                           onChange={(e) => setHospitalName(e.target.value)}
                           required={role === "PATIENT"}
+                          disabled={hospitalsLoading}
+                          className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60"
+                        >
+                          <option value="">
+                            {hospitalsLoading ? "Loading hospitals..." : "Select hospital"}
+                          </option>
+                          {hospitals.map((hospital) => (
+                            <option key={hospital} value={hospital}>
+                              {hospital}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-xs text-muted-foreground">The hospital you are affiliated with</p>
+                      </div>
+                    )}
+                    {role === "HOSPITAL_ADMIN" && (
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-hospital-name">
+                          Hospital Name <span className="text-error">*</span>
+                        </Label>
+                        <Input
+                          id="signup-hospital-name"
+                          type="text"
+                          placeholder="Enter your hospital name"
+                          value={hospitalName}
+                          onChange={(e) => setHospitalName(e.target.value)}
+                          required
                         />
-                        <p className="text-xs text-muted-foreground">
-                          The hospital you are affiliated with
-                        </p>
+                        <p className="text-xs text-muted-foreground">A new hospital record will be created and linked to your account</p>
                       </div>
                     )}
                     <div className="space-y-2">

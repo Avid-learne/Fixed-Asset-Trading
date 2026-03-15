@@ -116,6 +116,31 @@ export const authService = {
   },
 
   /**
+   * Fetch hospital names for signup dropdown
+   */
+  async getHospitals(): Promise<string[]> {
+    try {
+      console.log(`[authService] Fetching hospitals from ${API_URL}/hospitals`);
+      const response = await fetch(`${API_URL}/hospitals`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch hospitals (${response.status})`);
+      }
+
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      console.error('Get hospitals error:', error);
+      return [];
+    }
+  },
+
+  /**
    * Login - Sign in with credentials
    */
   async login(request: LoginRequest): Promise<AuthResponse> {

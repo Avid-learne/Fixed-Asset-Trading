@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,7 +25,8 @@ import {
   X,
   Info,
   MapPin,
-  Clock
+  Clock,
+  Loader2
 } from 'lucide-react'
 import { ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -33,6 +34,8 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { authService } from '@/lib/authService'
+import { marketplaceService } from '@/services/marketplaceService'
 
 // Investment types available for trading
 type InvestmentType = {
@@ -40,10 +43,6 @@ type InvestmentType = {
   name: string
   symbol: string
   icon: any
-  currentPrice: number
-  change24h: number
-  volume24h: number
-  marketCap: number
   category: string
   description: string
 }
@@ -62,7 +61,7 @@ type Trade = {
   volume: number
   liquidity: number
   profitLoss: number
-  status: 'OPEN' | 'CLOSED'
+  status: 'OPEN' | 'CLOSED' | 'CANCELLED'
   notes: string
 }
 
@@ -81,10 +80,6 @@ const INVESTMENT_TYPES: InvestmentType[] = [
     name: 'Commercial Real Estate',
     symbol: 'CRE',
     icon: Building2,
-    currentPrice: 7850.25,
-    change24h: 2.45,
-    volume24h: 45000000,
-    marketCap: 2800000000,
     category: 'Real Estate',
     description: 'Office buildings, retail spaces, and commercial properties'
   },
@@ -93,10 +88,6 @@ const INVESTMENT_TYPES: InvestmentType[] = [
     name: 'Residential Property',
     symbol: 'RES',
     icon: Home,
-    currentPrice: 4520.80,
-    change24h: -1.23,
-    volume24h: 32000000,
-    marketCap: 1950000000,
     category: 'Real Estate',
     description: 'Apartments, houses, and residential units'
   },
@@ -105,10 +96,6 @@ const INVESTMENT_TYPES: InvestmentType[] = [
     name: 'Government Bonds',
     symbol: 'GOV',
     icon: Landmark,
-    currentPrice: 1050.00,
-    change24h: 0.15,
-    volume24h: 85000000,
-    marketCap: 5600000000,
     category: 'Bonds',
     description: 'Federal and state government securities'
   },
@@ -117,10 +104,6 @@ const INVESTMENT_TYPES: InvestmentType[] = [
     name: 'Industrial Property',
     symbol: 'IND',
     icon: Factory,
-    currentPrice: 6320.50,
-    change24h: 3.82,
-    volume24h: 28000000,
-    marketCap: 1450000000,
     category: 'Real Estate',
     description: 'Warehouses, factories, and industrial facilities'
   },
@@ -129,10 +112,6 @@ const INVESTMENT_TYPES: InvestmentType[] = [
     name: 'Retail Spaces',
     symbol: 'RET',
     icon: Store,
-    currentPrice: 3890.30,
-    change24h: -2.10,
-    volume24h: 19000000,
-    marketCap: 980000000,
     category: 'Real Estate',
     description: 'Shopping centers, malls, and retail outlets'
   },
@@ -141,10 +120,6 @@ const INVESTMENT_TYPES: InvestmentType[] = [
     name: 'Corporate Bonds',
     symbol: 'COR',
     icon: Landmark,
-    currentPrice: 980.75,
-    change24h: 0.85,
-    volume24h: 62000000,
-    marketCap: 4200000000,
     category: 'Bonds',
     description: 'Investment-grade corporate debt securities'
   },
@@ -153,10 +128,6 @@ const INVESTMENT_TYPES: InvestmentType[] = [
     name: 'Land Development',
     symbol: 'LND',
     icon: Building2,
-    currentPrice: 5640.90,
-    change24h: 4.25,
-    volume24h: 21000000,
-    marketCap: 1120000000,
     category: 'Real Estate',
     description: 'Undeveloped land and development projects'
   },
@@ -165,99 +136,76 @@ const INVESTMENT_TYPES: InvestmentType[] = [
     name: 'Office Space',
     symbol: 'OFC',
     icon: Building2,
-    currentPrice: 6890.40,
-    change24h: 1.67,
-    volume24h: 35000000,
-    marketCap: 2100000000,
     category: 'Real Estate',
     description: 'Class A and B office buildings'
   }
 ]
 
-// Generate initial trades for selected investment
-const generateInitialTrades = (investmentName: string, basePrice: number): Trade[] => {
-  const trades: Trade[] = []
-  const now = new Date()
-  
-  for (let i = 0; i < 50; i++) {
-    const timestamp = new Date(now.getTime() - (49 - i) * 2 * 60 * 60 * 1000)
-    const volatility = basePrice * 0.02
-    const open = basePrice + (Math.random() - 0.5) * volatility
-    const close = open + (Math.random() - 0.5) * volatility
-    const high = Math.max(open, close) + Math.random() * volatility * 0.5
-    const low = Math.min(open, close) - Math.random() * volatility * 0.5
-    const profitLoss = (close - open) * (Math.random() * 1000)
-    
-    trades.push({
-      id: `TRD-${Date.now()}-${i}`,
-      timestamp,
-      type: Math.random() > 0.5 ? 'BUY' : 'SELL',
-      investment: investmentName,
-      location: ['Lahore', 'Karachi', 'Islamabad', 'Rawalpindi', 'Faisalabad'][Math.floor(Math.random() * 5)],
-      open: open * 10, // Store in PKR
-      high: high * 10,
-      low: low * 10,
-      close: close * 10,
-      volume: Math.floor(Math.random() * 1000000) + 100000,
-      liquidity: Math.floor(Math.random() * 10000000) + 1000000,
-      profitLoss: profitLoss * 10, // Store in PKR
-      status: Math.random() > 0.3 ? 'OPEN' : 'CLOSED',
-      notes: ''
-    })
-  }
-  
-  return trades
-}
-
-// Generate order book
-const generateOrderBook = (basePrice: number) => {
-  const bids: OrderBookItem[] = []
-  const asks: OrderBookItem[] = []
-  const price = basePrice * 10 // Convert to PKR
-  
-  for (let i = 0; i < 8; i++) {
-    const volume = Math.floor(Math.random() * 100) + 10
-    bids.push({
-      price: price - i * 100 - 50,
-      volume,
-      total: (price - i * 100) * volume,
-      type: 'BID'
-    })
-  }
-  
-  for (let i = 0; i < 8; i++) {
-    const volume = Math.floor(Math.random() * 100)
-    asks.push({
-      price: price + i * 100,
-      volume,
-      total: (price + i * 100) * volume,
-      type: 'ASK'
-    })
-  }
-  
-  return { bids, asks }
-}
+const createEmptyOrderBook = () => ({ bids: [] as OrderBookItem[], asks: [] as OrderBookItem[] })
 
 // Conversion rate: 1 AT = 10 PKR
 const AT_TO_PKR = 10
 const convertPKRtoAT = (pkr: number) => pkr / AT_TO_PKR
-const convertATtoPKR = (at: number) => at * AT_TO_PKR
 
 export default function HospitalAdminMarketplace() {
   const [selectedInvestment, setSelectedInvestment] = useState<InvestmentType | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>('All')
+  const [allTrades, setAllTrades] = useState<import('@/services/marketplaceService').MarketplaceTrade[]>([])
+  const [isLoadingStats, setIsLoadingStats] = useState(true)
+
+  const currentUser = authService.getUser()
+  const hospitalId = currentUser?.hospitalId || ''
+
+  // Fetch all trades for this hospital once to compute live card stats
+  useEffect(() => {
+    if (!hospitalId) {
+      setIsLoadingStats(false)
+      return
+    }
+    marketplaceService.getHospitalTrades(hospitalId)
+      .then((trades) => setAllTrades(trades))
+      .catch(() => {})
+      .finally(() => setIsLoadingStats(false))
+  }, [hospitalId])
+
+  // Compute live stats per investment type from real trades in DB
+  const getInvestmentStats = (investmentName: string) => {
+    const invTrades = allTrades
+      .filter((t) => t.investment === investmentName)
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+
+    if (invTrades.length === 0) return null
+
+    const latest = invTrades[invTrades.length - 1]
+    const previous = invTrades.length > 1 ? invTrades[invTrades.length - 2] : null
+
+    const now = new Date()
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+    const trades24h = invTrades.filter((t) => new Date(t.timestamp) >= yesterday)
+
+    const currentPrice = latest.close > 0 ? latest.close / AT_TO_PKR : 0
+    const change24h =
+      previous && previous.close > 0
+        ? ((latest.close - previous.close) / previous.close) * 100
+        : 0
+    const volume24h = trades24h.reduce((sum, t) => sum + t.volume, 0)
+    const tradeCount = invTrades.length
+
+    return { currentPrice, change24h, volume24h, tradeCount }
+  }
 
   // Filter investments
-  const filteredInvestments = INVESTMENT_TYPES.filter(inv => {
-    const matchesSearch = inv.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         inv.symbol.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredInvestments = INVESTMENT_TYPES.filter((inv) => {
+    const matchesSearch =
+      inv.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      inv.symbol.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesCategory = categoryFilter === 'All' || inv.category === categoryFilter
     return matchesSearch && matchesCategory
   })
 
   // Get unique categories
-  const categories = ['All', ...Array.from(new Set(INVESTMENT_TYPES.map(inv => inv.category)))]
+  const categories = ['All', ...Array.from(new Set(INVESTMENT_TYPES.map((inv) => inv.category)))]
 
   if (!selectedInvestment) {
     // INVESTMENT SELECTION VIEW
@@ -284,7 +232,7 @@ export default function HospitalAdminMarketplace() {
             {categories.map((category) => (
               <Button
                 key={category}
-                variant={categoryFilter === category ? "default" : "outline"}
+                variant={categoryFilter === category ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setCategoryFilter(category)}
                 className="whitespace-nowrap"
@@ -299,8 +247,13 @@ export default function HospitalAdminMarketplace() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredInvestments.map((investment) => {
             const Icon = investment.icon
-            const isPositive = investment.change24h >= 0
-            
+            const liveStats = getInvestmentStats(investment.name)
+            const currentPrice = liveStats ? liveStats.currentPrice : null
+            const change24h = liveStats ? liveStats.change24h : 0
+            const volume24h = liveStats ? liveStats.volume24h : null
+            const tradeCount = liveStats ? liveStats.tradeCount : null
+            const isPositive = change24h >= 0
+
             return (
               <Card
                 key={investment.id}
@@ -318,28 +271,54 @@ export default function HospitalAdminMarketplace() {
                         <p className="text-xs text-slate-500">{investment.category}</p>
                       </div>
                     </div>
-                    <Badge variant={isPositive ? "default" : "destructive"} className="flex items-center gap-1">
-                      {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                      {isPositive ? '+' : ''}{investment.change24h.toFixed(2)}%
-                    </Badge>
+                    {liveStats ? (
+                      <Badge variant={isPositive ? 'default' : 'destructive'} className="flex items-center gap-1">
+                        {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                        {isPositive ? '+' : ''}{change24h.toFixed(2)}%
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-slate-400 text-xs">No data</Badge>
+                    )}
                   </div>
 
                   <p className="text-sm text-slate-600 mb-4 line-clamp-2">{investment.name}</p>
 
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="text-slate-600">Price:</span>
-                      <span className="font-semibold">{investment.currentPrice.toLocaleString()} AT</span>
+                      <span className="text-slate-600">Last Price:</span>
+                      <span className="font-semibold">
+                        {isLoadingStats
+                          ? <Loader2 className="h-3 w-3 animate-spin inline" />
+                          : currentPrice !== null
+                            ? `${currentPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })} AT`
+                            : '—'}
+                      </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-slate-600">Volume (24h):</span>
-                      <span className="font-medium">${(investment.volume24h / 1000000).toFixed(2)}M</span>
+                      <span className="font-medium">
+                        {isLoadingStats
+                          ? <Loader2 className="h-3 w-3 animate-spin inline" />
+                          : volume24h !== null
+                            ? volume24h.toLocaleString()
+                            : '—'}
+                      </span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-slate-600">Market Cap:</span>
-                      <span className="font-medium">${(investment.marketCap / 1000000000).toFixed(2)}B</span>
+                      <span className="text-slate-600">Total Trades:</span>
+                      <span className="font-medium">
+                        {isLoadingStats
+                          ? <Loader2 className="h-3 w-3 animate-spin inline" />
+                          : tradeCount !== null
+                            ? tradeCount
+                            : '—'}
+                      </span>
                     </div>
                   </div>
+
+                  {!isLoadingStats && !liveStats && (
+                    <p className="text-xs text-slate-400 mt-2 text-center">No trades yet — be the first</p>
+                  )}
 
                   <Button className="w-full mt-4 bg-emerald-600 hover:bg-emerald-700">
                     Trade Now
@@ -366,11 +345,17 @@ export default function HospitalAdminMarketplace() {
 
 // Trading Dashboard Component
 function TradingDashboard({ investment, onBack }: { investment: InvestmentType; onBack: () => void }) {
-  const [trades, setTrades] = useState<Trade[]>(generateInitialTrades(investment.name, investment.currentPrice))
-  const [orderBook, setOrderBook] = useState(generateOrderBook(investment.currentPrice))
+  const currentUser = authService.getUser()
+  const hospitalId = currentUser?.hospitalId || ''
+
+  const [trades, setTrades] = useState<Trade[]>([])
+  const [isTradesLoading, setIsTradesLoading] = useState(true)
+  const [tradeError, setTradeError] = useState('')
+  const [orderBook, setOrderBook] = useState(createEmptyOrderBook())
   const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null)
   const [isNewTradeOpen, setIsNewTradeOpen] = useState(false)
   const [isEditTradeOpen, setIsEditTradeOpen] = useState(false)
+  const [isSavingTrade, setIsSavingTrade] = useState(false)
   const [hoveredCandle, setHoveredCandle] = useState<Trade | null>(null)
   
   const [newTrade, setNewTrade] = useState({
@@ -382,13 +367,47 @@ function TradingDashboard({ investment, onBack }: { investment: InvestmentType; 
     notes: ''
   })
 
+  const loadTrades = async () => {
+    if (!hospitalId) {
+      setTradeError('Hospital is not linked to this account. Contact admin.')
+      setTrades([])
+      setIsTradesLoading(false)
+      return
+    }
+
+    setIsTradesLoading(true)
+    setTradeError('')
+
+    try {
+      const [allTrades, orderBookData] = await Promise.all([
+        marketplaceService.getHospitalTrades(hospitalId),
+        marketplaceService.getOrderBook(hospitalId, investment.name),
+      ])
+      const investmentTrades = allTrades
+        .filter((trade) => trade.investment === investment.name)
+        .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
+      setTrades(investmentTrades)
+      setOrderBook({ bids: orderBookData.bids, asks: orderBookData.asks })
+    } catch (err) {
+      setTradeError(err instanceof Error ? err.message : 'Failed to load marketplace trades')
+      setOrderBook(createEmptyOrderBook())
+    } finally {
+      setIsTradesLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadTrades()
+    // investment/hospital change should refresh data from DB.
+  }, [investment.name, hospitalId])
+
   // Calculate market stats
   const latestTrade = trades[trades.length - 1]
   const previousTrade = trades[trades.length - 2]
   const priceChange = latestTrade && previousTrade ? latestTrade.close - previousTrade.close : 0
   const priceChangePercent = previousTrade ? (priceChange / previousTrade.close) * 100 : 0
   const totalVolume = trades.reduce((sum, t) => sum + t.volume, 0)
-  const avgLiquidity = trades.reduce((sum, t) => sum + t.liquidity, 0) / trades.length
+  const avgLiquidity = trades.length > 0 ? trades.reduce((sum, t) => sum + t.liquidity, 0) / trades.length : 0
   const totalProfitLoss = trades.reduce((sum, t) => sum + t.profitLoss, 0)
   const openTrades = trades.filter(t => t.status === 'OPEN').length
 
@@ -445,47 +464,95 @@ function TradingDashboard({ investment, onBack }: { investment: InvestmentType; 
     )
   }
 
-  const handleCreateTrade = () => {
-    const trade: Trade = {
-      id: `TRD-${Date.now()}`,
-      timestamp: new Date(),
-      type: newTrade.type,
-      investment: investment.name,
-      location: newTrade.location,
-      open: newTrade.open * 10, // Convert AT to PKR for storage
-      high: newTrade.open * 10 * 1.02,
-      low: newTrade.open * 10 * 0.98,
-      close: newTrade.open * 10,
-      volume: newTrade.volume,
-      liquidity: newTrade.liquidity * 10, // Convert AT to PKR for storage
-      profitLoss: 0,
-      status: 'OPEN',
-      notes: newTrade.notes
+  const handleCreateTrade = async () => {
+    if (!hospitalId) {
+      setTradeError('Hospital is not linked to this account. Contact admin.')
+      return
     }
-    
-    setTrades([...trades, trade])
-    setIsNewTradeOpen(false)
-    setNewTrade({
-      type: 'BUY',
-      location: '',
-      open: 0,
-      volume: 0,
-      liquidity: 0,
-      notes: ''
-    })
+
+    if (!newTrade.open || !newTrade.volume) {
+      setTradeError('Opening price and volume are required')
+      return
+    }
+
+    try {
+      setTradeError('')
+      const createdTrade = await marketplaceService.createTrade({
+        hospitalId,
+        tradeType: newTrade.type,
+        investment: investment.name,
+        location: newTrade.location,
+        openingPrice: newTrade.open * 10,
+        high: newTrade.open * 10 * 1.02,
+        low: newTrade.open * 10 * 0.98,
+        closingPrice: newTrade.open * 10,
+        volume: newTrade.volume,
+        liquidity: newTrade.liquidity * 10,
+        notes: newTrade.notes,
+      })
+
+      setTrades((prev) => [...prev, createdTrade].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime()))
+      await loadTrades()
+      setIsNewTradeOpen(false)
+      setNewTrade({
+        type: 'BUY',
+        location: '',
+        open: 0,
+        volume: 0,
+        liquidity: 0,
+        notes: ''
+      })
+    } catch (err) {
+      setTradeError(err instanceof Error ? err.message : 'Failed to create trade')
+    }
   }
 
-  const handleUpdateTrade = () => {
-    if (selectedTrade) {
-      setTrades(trades.map(t => t.id === selectedTrade.id ? selectedTrade : t))
+  const handleUpdateTrade = async () => {
+    if (!selectedTrade) {
+      return
+    }
+
+    if (!selectedTrade.open || !selectedTrade.high || !selectedTrade.low || !selectedTrade.close || !selectedTrade.volume) {
+      setTradeError('Open, high, low, close, and volume are required')
+      return
+    }
+
+    try {
+      setIsSavingTrade(true)
+      setTradeError('')
+      const updatedTrade = await marketplaceService.updateTrade(selectedTrade.id, {
+        tradeType: selectedTrade.type,
+        status: selectedTrade.status,
+        investment: selectedTrade.investment,
+        location: selectedTrade.location,
+        openingPrice: selectedTrade.open,
+        high: selectedTrade.high,
+        low: selectedTrade.low,
+        closingPrice: selectedTrade.close,
+        volume: selectedTrade.volume,
+        liquidity: selectedTrade.liquidity,
+        notes: selectedTrade.notes,
+      })
+
+      setTrades((prev) => prev.map((trade) => trade.id === updatedTrade.id ? updatedTrade : trade))
+      await loadTrades()
       setIsEditTradeOpen(false)
+    } catch (err) {
+      setTradeError(err instanceof Error ? err.message : 'Failed to update trade')
+    } finally {
+      setIsSavingTrade(false)
     }
   }
 
-  const handleCloseTrade = (tradeId: string) => {
-    setTrades(trades.map(t => 
-      t.id === tradeId ? { ...t, status: 'CLOSED' as const } : t
-    ))
+  const handleCloseTrade = async (tradeId: string) => {
+    try {
+      setTradeError('')
+      const closedTrade = await marketplaceService.closeTrade(tradeId)
+      setTrades((prev) => prev.map((trade) => trade.id === closedTrade.id ? closedTrade : trade))
+      await loadTrades()
+    } catch (err) {
+      setTradeError(err instanceof Error ? err.message : 'Failed to close trade')
+    }
   }
 
   const Icon = investment.icon
@@ -514,7 +581,7 @@ function TradingDashboard({ investment, onBack }: { investment: InvestmentType; 
             <Settings className="h-4 w-4 mr-2" />
             Settings
           </Button>
-          <Dialog open={isNewTradeOpen} onOpenChange={setIsNewTradeOpen}>
+          <Dialog open={isNewTradeOpen} onOpenChange={(open) => { setIsNewTradeOpen(open); if (!open) setTradeError('') }}>
             <DialogTrigger asChild>
               <Button className="bg-emerald-600 hover:bg-emerald-700">
                 <Plus className="h-4 w-4 mr-2" />
@@ -549,7 +616,7 @@ function TradingDashboard({ investment, onBack }: { investment: InvestmentType; 
                     <Label>Opening Price (AT)</Label>
                     <Input 
                       type="number" 
-                      placeholder={investment.currentPrice.toString()}
+                        placeholder={latestTrade ? (latestTrade.close / AT_TO_PKR).toFixed(2) : 'Enter price'}
                       value={newTrade.open || ''}
                       onChange={(e) => setNewTrade({...newTrade, open: parseFloat(e.target.value) || 0})}
                     />
@@ -596,6 +663,11 @@ function TradingDashboard({ investment, onBack }: { investment: InvestmentType; 
                   />
                 </div>
               </div>
+              {tradeError && (
+                <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {tradeError}
+                </div>
+              )}
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsNewTradeOpen(false)}>
                   Cancel
@@ -608,6 +680,19 @@ function TradingDashboard({ investment, onBack }: { investment: InvestmentType; 
           </Dialog>
         </div>
       </div>
+
+      {tradeError && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {tradeError}
+        </div>
+      )}
+
+      {isTradesLoading && (
+        <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading marketplace trades from backend...
+        </div>
+      )}
 
       {/* Market Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -809,34 +894,42 @@ function TradingDashboard({ investment, onBack }: { investment: InvestmentType; 
               </TabsList>
               
               <TabsContent value="all" className="space-y-2">
-                {/* Asks */}
-                <div className="space-y-1">
-                  {orderBook.asks.slice().reverse().map((ask, idx) => (
-                    <div key={`ask-${idx}`} className="flex justify-between items-center text-xs py-1 px-2 rounded hover:bg-red-50">
-                      <span className="text-red-600 font-medium">{convertPKRtoAT(ask.price).toFixed(2)} AT</span>
-                      <span className="text-slate-600">{ask.volume}</span>
-                      <span className="text-slate-500">{(ask.total / 1000).toFixed(0)}K</span>
+                {orderBook.asks.length === 0 && orderBook.bids.length === 0 ? (
+                  <div className="text-center py-6 text-sm text-slate-500">No order book levels in backend yet</div>
+                ) : (
+                  <>
+                    {/* Asks */}
+                    <div className="space-y-1">
+                      {orderBook.asks.slice().reverse().map((ask, idx) => (
+                        <div key={`ask-${idx}`} className="flex justify-between items-center text-xs py-1 px-2 rounded hover:bg-red-50">
+                          <span className="text-red-600 font-medium">{convertPKRtoAT(ask.price).toFixed(2)} AT</span>
+                          <span className="text-slate-600">{ask.volume}</span>
+                          <span className="text-slate-500">{(ask.total / 1000).toFixed(0)}K</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-                
-                {/* Spread */}
-                <div className="py-2 px-2 bg-slate-100 rounded text-center">
-                  <span className="text-xs font-semibold text-slate-700">
-                    Spread: {convertPKRtoAT(orderBook.asks[0].price - orderBook.bids[0].price).toFixed(2)} AT
-                  </span>
-                </div>
-                
-                {/* Bids */}
-                <div className="space-y-1">
-                  {orderBook.bids.map((bid, idx) => (
-                    <div key={`bid-${idx}`} className="flex justify-between items-center text-xs py-1 px-2 rounded hover:bg-emerald-50">
-                      <span className="text-emerald-600 font-medium">{convertPKRtoAT(bid.price).toFixed(2)} AT</span>
-                      <span className="text-slate-600">{bid.volume}</span>
-                      <span className="text-slate-500">{(bid.total / 1000).toFixed(0)}K</span>
+
+                    {/* Spread */}
+                    <div className="py-2 px-2 bg-slate-100 rounded text-center">
+                      <span className="text-xs font-semibold text-slate-700">
+                        Spread: {orderBook.asks.length > 0 && orderBook.bids.length > 0
+                          ? `${convertPKRtoAT(orderBook.asks[0].price - orderBook.bids[0].price).toFixed(2)} AT`
+                          : '--'}
+                      </span>
                     </div>
-                  ))}
-                </div>
+
+                    {/* Bids */}
+                    <div className="space-y-1">
+                      {orderBook.bids.map((bid, idx) => (
+                        <div key={`bid-${idx}`} className="flex justify-between items-center text-xs py-1 px-2 rounded hover:bg-emerald-50">
+                          <span className="text-emerald-600 font-medium">{convertPKRtoAT(bid.price).toFixed(2)} AT</span>
+                          <span className="text-slate-600">{bid.volume}</span>
+                          <span className="text-slate-500">{(bid.total / 1000).toFixed(0)}K</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </TabsContent>
               
               <TabsContent value="bids">
@@ -957,7 +1050,12 @@ function TradingDashboard({ investment, onBack }: { investment: InvestmentType; 
       </div>
 
       {/* Edit Trade Dialog */}
-      <Dialog open={isEditTradeOpen} onOpenChange={setIsEditTradeOpen}>
+      <Dialog open={isEditTradeOpen} onOpenChange={(open) => {
+        setIsEditTradeOpen(open)
+        if (!open) {
+          setTradeError('')
+        }
+      }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Edit Trade - {selectedTrade?.id}</DialogTitle>
@@ -1082,12 +1180,24 @@ function TradingDashboard({ investment, onBack }: { investment: InvestmentType; 
               </div>
             </div>
           )}
+          {tradeError && (
+            <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {tradeError}
+            </div>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditTradeOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleUpdateTrade} className="bg-emerald-600 hover:bg-emerald-700">
-              Save Changes
+            <Button onClick={handleUpdateTrade} disabled={isSavingTrade} className="bg-emerald-600 hover:bg-emerald-700">
+              {isSavingTrade ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Changes'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -2,10 +2,6 @@
 
 import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-
-// Exchange rate: 1 USD = 280 PKR
-const USD_TO_PKR = 280
-const convertToPKR = (usdAmount: number) => usdAmount * USD_TO_PKR
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -16,6 +12,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Users, Search, Eye, Download, TrendingUp, Wallet, Activity, Clock, Coins, FileText, ArrowUpRight, ArrowDownRight, Loader2 } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 import { useAuth } from '@/contexts/AuthContext'
+
+// Exchange rate: 1 USD = 280 PKR
+const USD_TO_PKR = 280
+const convertToPKR = (usdAmount: number) => usdAmount * USD_TO_PKR
 
 interface Patient {
   id: string
@@ -347,6 +347,7 @@ export default function PatientsPage() {
       )}
 
       {!isLoading && !error && (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
@@ -395,7 +396,8 @@ export default function PatientsPage() {
             <p className="text-sm text-muted-foreground mt-1">Deposited</p>
           </CardContent>
         </Card>
-      </div>
+        </div>
+      )}
 
       <Card>
         <CardHeader>
@@ -751,7 +753,6 @@ export default function PatientsPage() {
           )}
         </DialogContent>
       </Dialog>
-      )}
     </div>
   )
 }

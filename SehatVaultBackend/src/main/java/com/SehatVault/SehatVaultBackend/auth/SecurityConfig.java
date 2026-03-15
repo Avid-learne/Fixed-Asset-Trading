@@ -43,6 +43,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/signup").permitAll()
                 .requestMatchers("/api/auth/signin").permitAll()
                 .requestMatchers("/api/auth/verify").permitAll()
+                .requestMatchers("/api/auth/hospitals").permitAll()
                 .requestMatchers("/api/subscriptions/**").permitAll()
                 .requestMatchers("/api/health-cards/**").permitAll()
                 .requestMatchers("/api/activity/**").permitAll()

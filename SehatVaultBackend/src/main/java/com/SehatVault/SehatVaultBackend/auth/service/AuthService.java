@@ -2,6 +2,7 @@ package com.SehatVault.SehatVaultBackend.auth.service;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -149,21 +150,47 @@ public class AuthService {
             newUser.setCity(request.getCity());
             newUser.setBloodGroup(request.getBloodGroup());
             
+            // For hospital_admin, hospitalName is required
+            if (roleType == Role.RoleType.hospital_admin &&
+                    (request.getHospitalName() == null || request.getHospitalName().trim().isEmpty())) {
+                return new AuthResponse(false, "Hospital name is required for hospital admin signup");
+            }
+
             // Look up hospital by name if provided (for patient, hospital_staff, hospital_admin roles)
             java.util.UUID hospitalId = null;
-            if (request.getHospitalName() != null && !request.getHospitalName().isEmpty()) {
-                Optional<com.SehatVault.SehatVaultBackend.hospital.entity.Hospital> hospitalOpt = 
-                    hospitalRepository.findByHospitalName(request.getHospitalName());
-                
+            if (request.getHospitalName() != null && !request.getHospitalName().trim().isEmpty()) {
+                Optional<com.SehatVault.SehatVaultBackend.hospital.entity.Hospital> hospitalOpt =
+                    hospitalRepository.findByHospitalName(request.getHospitalName().trim());
+
                 if (hospitalOpt.isPresent()) {
                     hospitalId = hospitalOpt.get().getHospitalId();
                     newUser.setHospitalId(hospitalId);
                     System.out.println("Hospital found: " + request.getHospitalName() + " with ID: " + hospitalId);
                 } else {
-                    System.out.println("WARNING: Hospital not found: " + request.getHospitalName());
-                    // For patient role, hospital is required
+                    System.out.println("Hospital not found by name: " + request.getHospitalName());
+                    // For patient/staff, hospital must already exist
                     if (roleType == Role.RoleType.patient) {
                         return new AuthResponse(false, "Hospital not found: " + request.getHospitalName());
+                    }
+                    // For hospital_admin, create a brand-new hospital record
+                    if (roleType == Role.RoleType.hospital_admin) {
+                        com.SehatVault.SehatVaultBackend.hospital.entity.Hospital newHospital =
+                            new com.SehatVault.SehatVaultBackend.hospital.entity.Hospital();
+                        java.util.UUID newHospitalId = java.util.UUID.randomUUID();
+                        newHospital.setHospitalId(newHospitalId);
+                        newHospital.setHospitalName(request.getHospitalName().trim());
+                        newHospital.setRegistrationNum("REG-" + newHospitalId.toString().substring(0, 8).toUpperCase());
+                        newHospital.setAddress(request.getAddress() != null && !request.getAddress().isEmpty() ? request.getAddress() : "Pending");
+                        newHospital.setContactNum(request.getPhoneNum() != null && !request.getPhoneNum().isEmpty() ? request.getPhoneNum() : "Pending");
+                        newHospital.setEmail(request.getEmail());
+                        newHospital.setCity(request.getCity());
+                        newHospital.setVerificationStatus(com.SehatVault.SehatVaultBackend.hospital.entity.Hospital.VerificationStatus.PENDING);
+                        newHospital.setCreatedAt(java.time.LocalDateTime.now());
+                        newHospital.setUpdatedAt(java.time.LocalDateTime.now());
+                        com.SehatVault.SehatVaultBackend.hospital.entity.Hospital savedHospital = hospitalRepository.save(newHospital);
+                        hospitalId = savedHospital.getHospitalId();
+                        newUser.setHospitalId(hospitalId);
+                        System.out.println("New hospital created: " + request.getHospitalName() + " with ID: " + hospitalId);
                     }
                 }
             }
@@ -287,6 +314,24 @@ public class AuthService {
 
         User user = userOpt.get();
         return buildAuthResponse(user, user.getRole().getRoleName().toString(), "");
+    }
+
+    /**
+     * Get hospital names for signup dropdown
+     * @return List of hospital names
+     */
+    public List<String> getHospitalNames() {
+        List<String> hospitalNames = hospitalRepository.findAll().stream()
+                .map(com.SehatVault.SehatVaultBackend.hospital.entity.Hospital::getHospitalName)
+                .filter(name -> name != null && !name.trim().isEmpty())
+                .distinct()
+                .sorted(String::compareToIgnoreCase)
+                .toList();
+
+        System.out.println("[AuthService] getHospitalNames count = " + hospitalNames.size());
+        System.out.println("[AuthService] getHospitalNames values = " + hospitalNames);
+
+        return hospitalNames;
     }
 
     /**
