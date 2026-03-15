@@ -1,13 +1,10 @@
-// Short overview: AT Wallet page for patients.
-// - Uses `ATWalletCard` component to display balance, transactions, and transfer actions.
-// - Relation: imports only `components/patient/ATWalletCard.tsx`
 'use client'
 
-import React, { useEffect, useState } from 'react'
-import ATWalletCard from '@/components/patient/ATWalletCard'
+import { useEffect, useState } from 'react'
+import { Loader2, AlertCircle } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
-import { walletService, WalletSummary, WalletTransaction } from '@/services/walletService'
-import { AlertCircle, Loader2 } from 'lucide-react'
+import { walletService, type WalletSummary, type WalletTransaction } from '@/services/walletService'
+import ATWalletCard from '@/components/patient/ATWalletCard'
 import { Card, CardContent } from '@/components/ui/card'
 
 export default function ATWalletPage() {
@@ -20,7 +17,7 @@ export default function ATWalletPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const loadWallet = async () => {
+    const loadAtWallet = async () => {
       if (!userId) {
         setLoading(false)
         setError('User not authenticated')
@@ -43,7 +40,7 @@ export default function ATWalletPage() {
       }
     }
 
-    loadWallet()
+    loadAtWallet()
   }, [userId])
 
   if (loading) {
@@ -57,8 +54,8 @@ export default function ATWalletPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">AT Wallet</h1>
-        <p className="text-muted-foreground">Manage your Asset Tokens, view balances and transaction history.</p>
+        <h1 className="text-2xl font-bold">AT Wallet Details</h1>
+        <p className="text-muted-foreground">Your AT usage, burnt amount, and remaining balance.</p>
       </div>
 
       {error && (
@@ -72,10 +69,7 @@ export default function ATWalletPage() {
         </Card>
       )}
 
-      <ATWalletCard
-        balance={summary?.totalAt || 0}
-        transactions={transactions}
-      />
+      <ATWalletCard balance={summary?.totalAt || 0} transactions={transactions} />
     </div>
   )
 }

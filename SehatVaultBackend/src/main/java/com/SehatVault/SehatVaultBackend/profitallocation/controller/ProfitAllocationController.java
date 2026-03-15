@@ -26,8 +26,7 @@ public class ProfitAllocationController {
     @GetMapping("/preview")
     public ResponseEntity<?> getPreview(
             Authentication authentication,
-            @RequestParam(required = false) BigDecimal totalProfit,
-            @RequestParam(required = false, defaultValue = "70") BigDecimal patientSharePercent
+            @RequestParam(required = false) BigDecimal totalProfit
     ) {
         try {
             if (authentication == null || authentication.getName() == null) {
@@ -35,7 +34,7 @@ public class ProfitAllocationController {
             }
 
             ProfitAllocationPreviewResponse data = profitAllocationService
-                    .getPreview(authentication.getName(), totalProfit, patientSharePercent);
+                    .getPreview(authentication.getName(), totalProfit);
             return ResponseEntity.ok(success("Preview generated", data));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(error(e.getMessage()));

@@ -17,6 +17,8 @@ public interface PatientRepository extends JpaRepository<Patient, UUID> {
     Optional<Patient> findByUserId(UUID userId);
     
     Optional<Patient> findByRegistrationId(String registrationId);
+
+    Optional<Patient> findByWalletAddressIgnoreCase(String walletAddress);
     
     boolean existsByUserId(UUID userId);
     

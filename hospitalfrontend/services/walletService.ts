@@ -89,4 +89,17 @@ export const walletService = {
     const payload: ApiResponse<WalletTransaction[]> = await res.json()
     return (payload.data || []).map(mapTransaction)
   },
+
+  async transferHT(recipientWalletAddress: string, amount: number, note?: string): Promise<void> {
+    const res = await fetch(`${API_URL}/patient/transfer/ht`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ recipientWalletAddress, amount, note }),
+    })
+
+    const payload = await res.json().catch(() => ({} as ApiResponse<unknown>))
+    if (!res.ok) {
+      throw new Error((payload as ApiResponse<unknown>)?.message || `HT transfer failed (${res.status})`)
+    }
+  },
 }

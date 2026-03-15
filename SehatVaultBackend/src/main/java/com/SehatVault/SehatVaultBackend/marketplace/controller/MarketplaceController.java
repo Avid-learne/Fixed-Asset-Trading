@@ -3,6 +3,7 @@ package com.SehatVault.SehatVaultBackend.marketplace.controller;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.ApiResponse;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.CreateTradeRequest;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.OrderBookDto;
+import com.SehatVault.SehatVaultBackend.marketplace.dto.PatientTradeDto;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.TradeDto;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.UpdateTradeRequest;
 import com.SehatVault.SehatVaultBackend.marketplace.service.MarketplaceService;
@@ -24,6 +25,12 @@ public class MarketplaceController {
     @GetMapping("/trades/hospital/{hospitalId}")
     public ResponseEntity<ApiResponse<List<TradeDto>>> getHospitalTrades(@PathVariable UUID hospitalId) {
         List<TradeDto> trades = marketplaceService.getTradesByHospital(hospitalId);
+        return ResponseEntity.ok(ApiResponse.success(trades));
+    }
+
+    @GetMapping("/trades/hospital/{hospitalId}/patient-view")
+    public ResponseEntity<ApiResponse<List<PatientTradeDto>>> getPatientViewTrades(@PathVariable UUID hospitalId) {
+        List<PatientTradeDto> trades = marketplaceService.getPatientViewTrades(hospitalId);
         return ResponseEntity.ok(ApiResponse.success(trades));
     }
 

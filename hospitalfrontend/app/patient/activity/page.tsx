@@ -35,7 +35,6 @@ const buildStatements = (transactions: Tx[]): StatementItem[] => {
     }
 
     current.transactions += 1
-    if (tx.token_type === "AT") current.totalAT += tx.amount
     if (tx.token_type === "HT") current.totalHT += tx.amount
 
     byMonth.set(key, current)
@@ -52,7 +51,7 @@ export default function ActivityPage() {
   const { user } = useAuth()
   const userId = user?.id || (user as any)?.userId
   const [query, setQuery] = useState("")
-  const [filter, setFilter] = useState<"all" | "AT" | "HT">("all")
+  const [filter, setFilter] = useState<"all" | "HT">("all")
   const [activeTab, setActiveTab] = useState("transactions")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -190,14 +189,6 @@ export default function ActivityPage() {
                     >
                       <Filter className="w-3 h-3" />
                       All
-                    </Button>
-                    <Button 
-                      variant={filter === "AT" ? "default" : "outline"} 
-                      size="sm" 
-                      onClick={() => setFilter("AT")}
-                      className="text-blue-600"
-                    >
-                      AT
                     </Button>
                     <Button 
                       variant={filter === "HT" ? "default" : "outline"} 

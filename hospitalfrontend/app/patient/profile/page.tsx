@@ -40,6 +40,7 @@ export default function PatientProfilePage() {
           bloodGroup: profileData.bloodGroup || '',
           dateOfBirth: formattedDob,
           walletAddress: profileData.walletAddress || '',
+          affiliatedHospital: profileData.hospitalName || user.hospitalName || user.hospitalId || '',
         })
       } catch (error) {
         console.error('Error fetching profile:', error)

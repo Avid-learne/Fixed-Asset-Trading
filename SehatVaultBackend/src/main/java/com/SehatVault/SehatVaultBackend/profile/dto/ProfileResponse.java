@@ -37,4 +37,5 @@ public class ProfileResponse {
     private String kycStatus;
     private String registrationId;
     private UUID hospitalId;
+    private String hospitalName;
 }

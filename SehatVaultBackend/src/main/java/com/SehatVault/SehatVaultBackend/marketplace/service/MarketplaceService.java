@@ -3,15 +3,18 @@ package com.SehatVault.SehatVaultBackend.marketplace.service;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.CreateTradeRequest;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.OrderBookDto;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.OrderBookLevelDto;
+import com.SehatVault.SehatVaultBackend.marketplace.dto.PatientTradeDto;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.TradeDto;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.UpdateTradeRequest;
 import com.SehatVault.SehatVaultBackend.marketplace.entity.MarketplaceTrade;
 import com.SehatVault.SehatVaultBackend.marketplace.repository.MarketplaceTradeRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -23,6 +26,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class MarketplaceService {
 
     private final MarketplaceTradeRepository marketplaceTradeRepository;
@@ -31,6 +35,13 @@ public class MarketplaceService {
         return marketplaceTradeRepository.findByHospitalIdOrderByStartTimeDesc(hospitalId)
                 .stream()
                 .map(this::toDto)
+                .collect(Collectors.toList());
+    }
+
+    public List<PatientTradeDto> getPatientViewTrades(UUID hospitalId) {
+        return marketplaceTradeRepository.findByHospitalIdOrderByStartTimeDesc(hospitalId)
+                .stream()
+                .map(this::toPatientDto)
                 .collect(Collectors.toList());
     }
 
@@ -80,19 +91,29 @@ public class MarketplaceService {
     @Transactional
     public TradeDto createTrade(CreateTradeRequest request) {
         validateCreateRequest(request);
+        log.info("[Marketplace] createTrade request hospitalId={} type={} title='{}' investment='{}'",
+            request.getHospitalId(), request.getTradeType(), request.getTitle(), request.getInvestment());
 
         MarketplaceTrade trade = new MarketplaceTrade();
         trade.setHospitalId(request.getHospitalId());
         trade.setTradeType(parseTradeType(request.getTradeType()));
         trade.setStatus(MarketplaceTrade.TradeStatus.ACTIVE);
-        trade.setStartTime(LocalDateTime.now());
+        LocalDate tradeDate = request.getTradeDate();
+        trade.setStartTime((tradeDate == null ? LocalDate.now() : tradeDate).atStartOfDay());
 
-        trade.setOpeningPrice(nz(request.getOpeningPrice()));
-        trade.setHigh(nz(request.getHigh()));
-        trade.setLow(nz(request.getLow()));
-        trade.setClosingPrice(nz(request.getClosingPrice()));
-        trade.setVolume(nz(request.getVolume()));
-        trade.setAmountBeforeTrade(nz(request.getLiquidity()));
+        BigDecimal buyPrice = request.getBuyPrice() != null ? request.getBuyPrice() : request.getOpeningPrice();
+        BigDecimal quantity = request.getQuantity();
+        BigDecimal currentValuePerUnit = request.getCurrentValue();
+
+        trade.setOpeningPrice(nz(buyPrice));
+        trade.setVolume(nz(quantity));
+        trade.setHigh(request.getHigh() != null ? request.getHigh() : nz(buyPrice));
+        trade.setLow(request.getLow() != null ? request.getLow() : nz(buyPrice));
+        BigDecimal closingPricePerUnit = currentValuePerUnit != null
+            ? currentValuePerUnit
+            : request.getClosingPrice() != null ? request.getClosingPrice() : nz(buyPrice);
+        trade.setClosingPrice(closingPricePerUnit);
+        trade.setAmountBeforeTrade(BigDecimal.ZERO);
 
         BigDecimal amountInvested = trade.getOpeningPrice().multiply(trade.getVolume());
         BigDecimal amountAfterTrade = trade.getClosingPrice().multiply(trade.getVolume());
@@ -103,14 +124,31 @@ public class MarketplaceService {
         trade.setProfitLoss(profitLoss);
         trade.setTotalAtBurnt(BigDecimal.ZERO);
 
-        trade.setInvestmentDescription(buildDescription(request.getInvestment(), request.getLocation(), request.getNotes()));
+        String assetName = sanitize(request.getAssetName());
+        if (assetName.isEmpty()) {
+            assetName = sanitize(request.getTitle());
+        }
+        String tradeDescription = sanitize(request.getDescription());
+
+        trade.setTradeTitle(assetName);
+        trade.setTradeDescription(tradeDescription);
+
+        trade.setInvestmentDescription(buildDescription(
+            sanitize(request.getAssetType()).isEmpty() ? request.getInvestment() : request.getAssetType(),
+            request.getLocation(),
+            request.getNotes()
+        ));
 
         MarketplaceTrade saved = marketplaceTradeRepository.save(trade);
+        log.info("[Marketplace] createTrade saved tradeId={} tradeTitle='{}' tradeDescription='{}'",
+            saved.getTradeId(), saved.getTradeTitle(), saved.getTradeDescription());
         return toDto(saved);
     }
 
     @Transactional
     public TradeDto updateTrade(UUID tradeId, UpdateTradeRequest request) {
+        log.info("[Marketplace] updateTrade request tradeId={} title='{}' status={}",
+            tradeId, request.getTitle(), request.getStatus());
         MarketplaceTrade trade = marketplaceTradeRepository.findById(tradeId)
                 .orElseThrow(() -> new IllegalArgumentException("Trade not found"));
 
@@ -126,8 +164,9 @@ public class MarketplaceService {
             }
         }
 
-        if (request.getOpeningPrice() != null) {
-            trade.setOpeningPrice(request.getOpeningPrice());
+        BigDecimal updatedBuyPrice = request.getBuyPrice() != null ? request.getBuyPrice() : request.getOpeningPrice();
+        if (updatedBuyPrice != null) {
+            trade.setOpeningPrice(updatedBuyPrice);
         }
         if (request.getHigh() != null) {
             trade.setHigh(request.getHigh());
@@ -138,22 +177,49 @@ public class MarketplaceService {
         if (request.getClosingPrice() != null) {
             trade.setClosingPrice(request.getClosingPrice());
         }
-        if (request.getVolume() != null) {
-            trade.setVolume(request.getVolume());
+        BigDecimal updatedQuantity = request.getQuantity();
+        if (updatedQuantity != null) {
+            trade.setVolume(updatedQuantity);
         }
-        if (request.getLiquidity() != null) {
-            trade.setAmountBeforeTrade(request.getLiquidity());
+        if (request.getTradeDate() != null) {
+            trade.setStartTime(request.getTradeDate().atStartOfDay());
         }
 
         DescriptionParts parts = parseDescription(trade.getInvestmentDescription());
-        String investment = request.getInvestment() != null ? request.getInvestment() : parts.investment;
+        String title = request.getAssetName() != null ? sanitize(request.getAssetName())
+            : request.getTitle() != null ? sanitize(request.getTitle())
+            : sanitize(trade.getTradeTitle());
+        String description = request.getDescription() != null ? sanitize(request.getDescription()) : sanitize(trade.getTradeDescription());
+        String investment = request.getAssetType() != null ? request.getAssetType()
+            : request.getInvestment() != null ? request.getInvestment()
+            : parts.investment;
         String location = request.getLocation() != null ? request.getLocation() : parts.location;
         String notes = request.getNotes() != null ? request.getNotes() : parts.notes;
+        trade.setTradeTitle(title);
+        trade.setTradeDescription(description);
         trade.setInvestmentDescription(buildDescription(investment, location, notes));
 
         // Recompute derived financial fields after edits.
-        BigDecimal amountInvested = nz(trade.getOpeningPrice()).multiply(nz(trade.getVolume()));
-        BigDecimal amountAfterTrade = nz(trade.getClosingPrice()).multiply(nz(trade.getVolume()));
+        BigDecimal quantity = nz(trade.getVolume());
+        BigDecimal amountInvested = nz(trade.getOpeningPrice()).multiply(quantity);
+        BigDecimal amountAfterTrade;
+        if (trade.getStatus() == MarketplaceTrade.TradeStatus.CLOSED) {
+            BigDecimal exitPerUnit = request.getExitValue() != null
+                    ? request.getExitValue()
+                    : request.getCurrentValue() != null
+                        ? request.getCurrentValue()
+                        : nz(trade.getClosingPrice());
+            trade.setClosingPrice(exitPerUnit);
+            amountAfterTrade = nz(exitPerUnit).multiply(quantity);
+        } else {
+            if (request.getCurrentValue() != null) {
+                trade.setClosingPrice(request.getCurrentValue());
+            }
+            amountAfterTrade = nz(trade.getClosingPrice()).multiply(quantity);
+            if (amountAfterTrade.compareTo(BigDecimal.ZERO) <= 0) {
+                amountAfterTrade = amountInvested;
+            }
+        }
         BigDecimal profitLoss = amountAfterTrade.subtract(amountInvested);
 
         trade.setAmountInvested(amountInvested);
@@ -161,6 +227,8 @@ public class MarketplaceService {
         trade.setProfitLoss(profitLoss);
 
         MarketplaceTrade saved = marketplaceTradeRepository.save(trade);
+        log.info("[Marketplace] updateTrade saved tradeId={} tradeTitle='{}' tradeDescription='{}'",
+            saved.getTradeId(), saved.getTradeTitle(), saved.getTradeDescription());
         return toDto(saved);
     }
 
@@ -171,6 +239,15 @@ public class MarketplaceService {
 
         trade.setStatus(MarketplaceTrade.TradeStatus.CLOSED);
         trade.setEndTime(LocalDateTime.now());
+
+        BigDecimal amountInvested = nz(trade.getOpeningPrice()).multiply(nz(trade.getVolume()));
+        BigDecimal amountAfterTrade = nz(trade.getAmountAfterTrade());
+        if (amountAfterTrade.compareTo(BigDecimal.ZERO) <= 0) {
+            amountAfterTrade = amountInvested;
+        }
+        trade.setAmountInvested(amountInvested);
+        trade.setAmountAfterTrade(amountAfterTrade);
+        trade.setProfitLoss(amountAfterTrade.subtract(amountInvested));
 
         MarketplaceTrade saved = marketplaceTradeRepository.save(trade);
         return toDto(saved);
@@ -183,13 +260,27 @@ public class MarketplaceService {
         if (request.getTradeType() == null || request.getTradeType().isBlank()) {
             throw new IllegalArgumentException("tradeType is required");
         }
-        if (request.getInvestment() == null || request.getInvestment().isBlank()) {
-            throw new IllegalArgumentException("investment is required");
+        String assetName = sanitize(request.getAssetName()).isEmpty() ? sanitize(request.getTitle()) : sanitize(request.getAssetName());
+        if (assetName.isEmpty()) {
+            throw new IllegalArgumentException("assetName is required");
+        }
+        BigDecimal buyPrice = request.getBuyPrice() != null ? request.getBuyPrice() : request.getOpeningPrice();
+        BigDecimal quantity = request.getQuantity();
+        if (buyPrice == null || buyPrice.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("buyPrice must be greater than zero");
+        }
+        if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("quantity must be greater than zero");
         }
     }
 
     private TradeDto toDto(MarketplaceTrade trade) {
         DescriptionParts parts = parseDescription(trade.getInvestmentDescription());
+        String resolvedTitle = sanitize(trade.getTradeTitle()).isEmpty() ? parts.investment : sanitize(trade.getTradeTitle());
+        String resolvedDescription = sanitize(trade.getTradeDescription());
+        if (resolvedDescription.isEmpty()) {
+            resolvedDescription = parts.notes;
+        }
 
         TradeDto dto = new TradeDto();
         dto.setTradeId(trade.getTradeId());
@@ -197,6 +288,23 @@ public class MarketplaceService {
         dto.setTradeType(trade.getTradeType().name());
         dto.setStatus(mapStatusForFrontend(trade.getStatus()));
 
+        dto.setTitle(resolvedTitle);
+        dto.setDescription(resolvedDescription);
+        dto.setAssetName(resolvedTitle);
+        dto.setAssetType(parts.investment);
+        dto.setBuyPrice(nz(trade.getOpeningPrice()));
+        dto.setQuantity(nz(trade.getVolume()));
+        dto.setTradeDate(trade.getStartTime() == null ? null : trade.getStartTime().toLocalDate());
+        dto.setCurrentValue(nz(trade.getClosingPrice()));
+        if (trade.getStatus() == MarketplaceTrade.TradeStatus.CLOSED) {
+            dto.setExitValue(nz(trade.getClosingPrice()));
+            dto.setRealizedPnl(nz(trade.getProfitLoss()));
+            dto.setUnrealizedPnl(BigDecimal.ZERO);
+        } else {
+            dto.setExitValue(null);
+            dto.setRealizedPnl(BigDecimal.ZERO);
+            dto.setUnrealizedPnl(nz(trade.getProfitLoss()));
+        }
         dto.setInvestment(parts.investment);
         dto.setLocation(parts.location);
         dto.setNotes(parts.notes);
@@ -217,6 +325,20 @@ public class MarketplaceService {
         dto.setEndTime(trade.getEndTime());
         dto.setCreatedAt(trade.getCreatedAt());
         dto.setUpdatedAt(trade.getUpdatedAt());
+        return dto;
+    }
+
+    private PatientTradeDto toPatientDto(MarketplaceTrade trade) {
+        DescriptionParts parts = parseDescription(trade.getInvestmentDescription());
+        String name = sanitize(trade.getTradeTitle()).isEmpty() ? parts.investment : sanitize(trade.getTradeTitle());
+
+        PatientTradeDto dto = new PatientTradeDto();
+        dto.setTradeId(trade.getTradeId());
+        dto.setTradeName(name);
+        dto.setAssetType(parts.investment);
+        dto.setInvestmentAmount(nz(trade.getAmountInvested()));
+        dto.setCurrentValue(nz(trade.getAmountAfterTrade()));
+        dto.setPnl(nz(trade.getProfitLoss()));
         return dto;
     }
 

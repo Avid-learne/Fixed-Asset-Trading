@@ -35,6 +35,12 @@ public class MarketplaceTrade {
     @Column(name = "investment_description")
     private String investmentDescription;
 
+    @Column(name = "trade_title", nullable = false)
+    private String tradeTitle;
+
+    @Column(name = "trade_description")
+    private String tradeDescription;
+
     @Column(name = "amount_before_trade", nullable = false)
     private BigDecimal amountBeforeTrade;
 

@@ -225,5 +225,47 @@ export const subscriptionService = {
       throw error;
     }
   },
+
+  // ─── Hospital admin CRUD ─────────────────────────────────────────────────
+
+  async getAdminPlans(): Promise<SubscriptionPlan[]> {
+    const res = await fetch(`${API_URL}/admin/plans`, { headers: this.getAuthHeaders() });
+    const result: ApiResponse<SubscriptionPlan[]> = await res.json();
+    if (!res.ok) throw new Error(result.message || 'Failed to load plans');
+    return result.data || [];
+  },
+
+  async createPlan(data: { subscriptionName: string; amountPerMonth: number; features: string[] }): Promise<SubscriptionPlan> {
+    const res = await fetch(`${API_URL}/admin/plans`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    const result: ApiResponse<SubscriptionPlan> = await res.json();
+    if (!res.ok) throw new Error(result.message || 'Failed to create plan');
+    return result.data;
+  },
+
+  async updatePlan(subsId: string, data: { subscriptionName: string; amountPerMonth: number; features: string[] }): Promise<SubscriptionPlan> {
+    const res = await fetch(`${API_URL}/admin/plans/${subsId}`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    const result: ApiResponse<SubscriptionPlan> = await res.json();
+    if (!res.ok) throw new Error(result.message || 'Failed to update plan');
+    return result.data;
+  },
+
+  async deactivatePlan(subsId: string): Promise<void> {
+    const res = await fetch(`${API_URL}/admin/plans/${subsId}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders(),
+    });
+    if (!res.ok) {
+      const result = await res.json().catch(() => ({}));
+      throw new Error((result as ApiResponse<null>).message || 'Failed to deactivate plan');
+    }
+  },
 };
 

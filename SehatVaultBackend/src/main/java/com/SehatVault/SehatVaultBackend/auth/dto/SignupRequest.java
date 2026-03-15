@@ -23,6 +23,7 @@ public class SignupRequest {
     private String dateOfBirth;  // Format: YYYY-MM-DD
     private String role;  // patient, hospital_admin, hospital_staff, bank_staff, admin
     private String hospitalName;  // Hospital name for patient/hospital staff roles
+    private String bankName;  // Bank name for bank staff role
     
     // Validation methods
     public boolean isValid() {

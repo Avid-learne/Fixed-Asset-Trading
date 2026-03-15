@@ -13,9 +13,10 @@ public class ProfitAllocationPreviewResponse {
     private BigDecimal hospitalSharePercent;
     private BigDecimal patientAmountPkr;
     private BigDecimal hospitalAmountPkr;
+    private BigDecimal tokenMintPoolPkr;
     private BigDecimal htConversionRate;
     private BigDecimal totalHtToDistribute;
-    private BigDecimal totalAtHolding;
+    private BigDecimal totalAssetContributionPkr;
     private Integer totalRecipients;
     private List<PatientAllocationPreviewDto> allocations;
 }

@@ -82,6 +82,7 @@ const hospitalAdminNavItems: NavItem[] = [
   { name: 'Token Minting', href: '/hospitaladmin/minting', icon: Coins, roles: [UserRole.HOSPITAL_ADMIN] },
   { name: 'Trading Simulator', href: '/hospitaladmin/trading', icon: TrendingUp, roles: [UserRole.HOSPITAL_ADMIN] },
   { name: 'Profit Allocation', href: '/hospitaladmin/allocation', icon: Gift, roles: [UserRole.HOSPITAL_ADMIN] },
+  { name: 'Subscription Plans', href: '/hospitaladmin/subscriptions', icon: Package, roles: [UserRole.HOSPITAL_ADMIN] },
   { name: 'Patient Profiles', href: '/hospitaladmin/patients', icon: Users, roles: [UserRole.HOSPITAL_ADMIN] },
   { name: 'Staff Management', href: '/hospitaladmin/staff', icon: Users, roles: [UserRole.HOSPITAL_ADMIN] },
   { name: 'Bank Integrations', href: '/hospitaladmin/banks', icon: Building, roles: [UserRole.HOSPITAL_ADMIN] },
@@ -93,6 +94,8 @@ const hospitalAdminNavItems: NavItem[] = [
 
 const bankNavItems: NavItem[] = [
   { name: 'Dashboard', href: '/bank', icon: LayoutDashboard, roles: [UserRole.BANK_OFFICER] },
+  { name: 'Deposit Requests', href: '/bank/deposits', icon: CheckSquare, roles: [UserRole.BANK_OFFICER] },
+  { name: 'Integrations', href: '/bank/integrations', icon: Building2, roles: [UserRole.BANK_OFFICER] },
   { name: 'Policies', href: '/bank/policies', icon: Shield, roles: [UserRole.BANK_OFFICER] },
   { name: 'Tokenized Assets', href: '/bank/assets', icon: Building, roles: [UserRole.BANK_OFFICER] },
   { name: 'Reports', href: '/bank/reports', icon: DollarSign, roles: [UserRole.BANK_OFFICER] },

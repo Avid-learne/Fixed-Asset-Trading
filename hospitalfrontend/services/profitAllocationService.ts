@@ -12,7 +12,8 @@ export interface PatientAllocationPreview {
   patientId: string
   userId: string
   patientName: string
-  atHolding: number
+  walletAddress: string
+  assetContributionPkr: number
   sharePercent: number
   htAmount: number
   pkrValue: number
@@ -25,9 +26,10 @@ export interface ProfitAllocationPreview {
   hospitalSharePercent: number
   patientAmountPkr: number
   hospitalAmountPkr: number
+  tokenMintPoolPkr: number
   htConversionRate: number
   totalHtToDistribute: number
-  totalAtHolding: number
+  totalAssetContributionPkr: number
   totalRecipients: number
   allocations: PatientAllocationPreview[]
 }
@@ -49,6 +51,7 @@ export interface ExecuteProfitAllocationResponse {
   totalHtDistributed: number
   patientAmountPkr: number
   hospitalAmountPkr: number
+  tokenMintPoolPkr: number
 }
 
 const getAuthHeaders = (): HeadersInit => {
@@ -60,8 +63,8 @@ const getAuthHeaders = (): HeadersInit => {
 }
 
 export const profitAllocationService = {
-  async getPreview(totalProfit: number | null, patientSharePercent: number): Promise<ProfitAllocationPreview> {
-    const params = new URLSearchParams({ patientSharePercent: String(patientSharePercent) })
+  async getPreview(totalProfit: number | null): Promise<ProfitAllocationPreview> {
+    const params = new URLSearchParams()
     if (totalProfit !== null && totalProfit > 0) {
       params.set('totalProfit', String(totalProfit))
     }
@@ -78,11 +81,11 @@ export const profitAllocationService = {
     return result.data
   },
 
-  async distribute(totalProfit: number, patientSharePercent: number): Promise<ExecuteProfitAllocationResponse> {
+  async distribute(totalProfit: number): Promise<ExecuteProfitAllocationResponse> {
     const response = await fetch(`${API_BASE}/profit-allocation/distribute`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ totalProfit, patientSharePercent }),
+      body: JSON.stringify({ totalProfit }),
     })
 
     const result: ApiResponse<ExecuteProfitAllocationResponse> = await response.json()

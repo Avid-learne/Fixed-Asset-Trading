@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -19,6 +20,8 @@ import com.SehatVault.SehatVaultBackend.auth.repository.RoleRepository;
 import com.SehatVault.SehatVaultBackend.auth.repository.SettingsRepository;
 import com.SehatVault.SehatVaultBackend.auth.repository.UserRepository;
 import com.SehatVault.SehatVaultBackend.auth.util.JwtUtil;
+import com.SehatVault.SehatVaultBackend.bank.entity.Bank;
+import com.SehatVault.SehatVaultBackend.bank.repository.BankRepository;
 
 import lombok.RequiredArgsConstructor;
 import com.SehatVault.SehatVaultBackend.hospital.repository.HospitalRepository;
@@ -37,6 +40,7 @@ public class AuthService {
     private final JwtUtil jwtUtil;
     private final JdbcTemplate jdbcTemplate;
     private final HospitalRepository hospitalRepository;
+    private final BankRepository bankRepository;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     
     /**
@@ -93,6 +97,10 @@ public class AuthService {
         response.setBloodGroup(user.getBloodGroup());
         response.setDateOfBirth(user.getDateOfBirth() != null ? user.getDateOfBirth().toString() : null);
         response.setHospitalId(user.getHospitalId());
+        if (user.getHospitalId() != null) {
+            hospitalRepository.findById(user.getHospitalId())
+                    .ifPresent(hospital -> response.setHospitalName(hospital.getHospitalName()));
+        }
         return response;
     }
     
@@ -193,6 +201,11 @@ public class AuthService {
                         System.out.println("New hospital created: " + request.getHospitalName() + " with ID: " + hospitalId);
                     }
                 }
+            }
+
+            // For bank_staff, ensure there is a corresponding row in banks table.
+            if (roleType == Role.RoleType.bank_staff) {
+                createOrReuseBankRecord(request, email);
             }
             
             // Parse date of birth if provided
@@ -298,6 +311,31 @@ public class AuthService {
         callActivityProcedure("usp_log_login", user.getUserId(), "User successfully logged in");
         
         return buildAuthResponse(user, user.getRole().getRoleName().toString(), token);
+    }
+
+    private void createOrReuseBankRecord(SignupRequest request, String email) {
+        if (bankRepository.findByEmail(email).isPresent()) {
+            return;
+        }
+
+        Bank bank = new Bank();
+        UUID bankId = UUID.randomUUID();
+        String resolvedName = request.getBankName() != null && !request.getBankName().trim().isEmpty()
+                ? request.getBankName().trim()
+                : request.getName().trim() + " Bank";
+
+        bank.setBankId(bankId);
+        bank.setBankName(resolvedName);
+        bank.setRegistration("BANK-REG-" + bankId.toString().substring(0, 8).toUpperCase());
+        bank.setSwiftCode(null);
+        bank.setBankCode("B-" + bankId.toString().substring(0, 6).toUpperCase());
+        bank.setAddress(request.getAddress() != null && !request.getAddress().isBlank() ? request.getAddress().trim() : "Pending");
+        bank.setEmail(email);
+        bank.setContactNum(request.getPhoneNum() != null && !request.getPhoneNum().isBlank() ? request.getPhoneNum().trim() : "Pending");
+        bank.setCity(request.getCity());
+        bank.setVerificationStatus(Bank.VerificationStatus.PENDING);
+
+        bankRepository.save(bank);
     }
     
     /**

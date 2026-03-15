@@ -7,5 +7,4 @@ import java.math.BigDecimal;
 @Data
 public class ExecuteProfitAllocationRequest {
     private BigDecimal totalProfit;
-    private BigDecimal patientSharePercent;
 }

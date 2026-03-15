@@ -11,6 +11,9 @@ import java.util.UUID;
 
 public interface WalletTransactionRepository extends JpaRepository<Transaction, UUID> {
 
+    @Query(value = "SELECT token_id FROM tokens WHERE UPPER(token_symbol) = UPPER(:tokenSymbol) LIMIT 1", nativeQuery = true)
+    UUID findTokenIdBySymbol(String tokenSymbol);
+
     @Query(value = """
             SELECT
                 t.transaction_id AS transactionId,

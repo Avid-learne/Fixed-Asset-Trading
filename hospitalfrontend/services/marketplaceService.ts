@@ -9,17 +9,37 @@ export interface MarketplaceTrade {
   id: string
   timestamp: Date
   type: TradeType
+  title: string
+  description: string
+  assetName: string
+  assetType: string
+  buyPrice: number
+  quantity: number
+  tradeDate?: string
+  currentValue: number
+  currentValueTotal: number
+  exitValue?: number
+  unrealizedPnl: number
+  realizedPnl: number
+  amountInvested: number
   investment: string
   location: string
   open: number
   high: number
   low: number
   close: number
-  volume: number
-  liquidity: number
   profitLoss: number
   status: TradeStatus
   notes: string
+}
+
+export interface PatientMarketplaceTrade {
+  tradeId: string
+  tradeName: string
+  assetType: string
+  investmentAmount: number
+  currentValue: number
+  pnl: number
 }
 
 export interface OrderBookLevel {
@@ -46,9 +66,23 @@ interface BackendTrade {
   hospitalId: string
   tradeType: TradeType
   status: TradeStatus
+  title: string
+  description: string
+  assetName?: string
+  assetType?: string
+  buyPrice?: number
+  quantity?: number
+  tradeDate?: string
+  currentValue?: number
+  amountAfterTrade?: number
+  exitValue?: number
+  unrealizedPnl?: number
+  realizedPnl?: number
   investment: string
   location: string
   notes: string
+  amountInvested?: number
+  amountAfterTrade?: number
   amountBeforeTrade: number
   openingPrice: number
   high: number
@@ -75,28 +109,41 @@ interface BackendOrderBook {
 interface CreateTradePayload {
   hospitalId: string
   tradeType: TradeType
+  assetName: string
+  assetType: string
+  buyPrice: number
+  quantity: number
+  tradeDate: string
+  currentValue: number
+  title: string
+  description: string
   investment: string
   location: string
   openingPrice: number
   high: number
   low: number
   closingPrice: number
-  volume: number
-  liquidity: number
   notes: string
 }
 
 interface UpdateTradePayload {
   tradeType: TradeType
   status: TradeStatus
+  assetName?: string
+  assetType?: string
+  buyPrice?: number
+  quantity?: number
+  tradeDate?: string
+  currentValue?: number
+  exitValue?: number
+  title: string
+  description: string
   investment: string
   location: string
   openingPrice: number
   high: number
   low: number
   closingPrice: number
-  volume: number
-  liquidity: number
   notes: string
 }
 
@@ -112,14 +159,25 @@ const mapTrade = (trade: BackendTrade): MarketplaceTrade => ({
   id: trade.tradeId,
   timestamp: new Date(trade.startTime),
   type: trade.tradeType,
+  title: trade.title || trade.investment || '',
+  description: trade.description || trade.notes || '',
+  assetName: trade.assetName || trade.title || trade.investment || '',
+  assetType: trade.assetType || trade.investment || '',
+  buyPrice: Number(trade.buyPrice ?? trade.openingPrice ?? 0),
+  quantity: Number(trade.quantity ?? trade.volume ?? 0),
+  tradeDate: trade.tradeDate,
+  currentValue: Number(trade.currentValue ?? trade.amountAfterTrade ?? 0),
+  currentValueTotal: Number(trade.amountAfterTrade ?? 0),
+  exitValue: trade.exitValue === undefined || trade.exitValue === null ? undefined : Number(trade.exitValue),
+  unrealizedPnl: Number(trade.unrealizedPnl ?? 0),
+  realizedPnl: Number(trade.realizedPnl ?? 0),
+  amountInvested: Number(trade.amountInvested ?? 0),
   investment: trade.investment || '',
   location: trade.location || '',
   open: Number(trade.openingPrice || 0),
   high: Number(trade.high || 0),
   low: Number(trade.low || 0),
   close: Number(trade.closingPrice || 0),
-  volume: Number(trade.volume || 0),
-  liquidity: Number(trade.amountBeforeTrade || 0),
   profitLoss: Number(trade.profitLoss || 0),
   status: trade.status || 'OPEN',
   notes: trade.notes || '',
@@ -216,5 +274,26 @@ export const marketplaceService = {
     }
 
     return mapTrade(result.data)
+  },
+
+  async getPatientViewTrades(hospitalId: string): Promise<PatientMarketplaceTrade[]> {
+    const response = await fetch(`${API_BASE}/marketplace/trades/hospital/${hospitalId}/patient-view`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch patient-facing trades')
+    }
+
+    const result: ApiResponse<PatientMarketplaceTrade[]> = await response.json()
+    return (result.data || []).map((trade) => ({
+      tradeId: trade.tradeId,
+      tradeName: trade.tradeName,
+      assetType: trade.assetType,
+      investmentAmount: Number(trade.investmentAmount || 0),
+      currentValue: Number(trade.currentValue || 0),
+      pnl: Number(trade.pnl || 0),
+    }))
   },
 }

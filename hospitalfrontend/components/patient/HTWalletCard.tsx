@@ -15,17 +15,51 @@ type Props = {
   transactions: WalletTransaction[]
   totalRedeemed?: number
   upcomingBenefits?: number
+  onTransfer?: (recipientWalletAddress: string, amount: number, note?: string) => Promise<void>
 }
 
-export default function HTWalletCard({ balance, transactions, totalRedeemed = 0, upcomingBenefits = 0 }: Props) {
+export default function HTWalletCard({
+  balance,
+  transactions,
+  totalRedeemed = 0,
+  upcomingBenefits = 0,
+  onTransfer,
+}: Props) {
   const [transferOpen, setTransferOpen] = useState(false)
   const [selectedTx, setSelectedTx] = useState<WalletTransaction | null>(null)
   const [toAddress, setToAddress] = useState('')
   const [transferAmount, setTransferAmount] = useState(0)
+  const [note, setNote] = useState('')
+  const [transferError, setTransferError] = useState('')
+  const [isTransferring, setIsTransferring] = useState(false)
 
-  const handleTransfer = () => {
-    console.log('Transfer HT', { to: toAddress, amount: transferAmount })
-    setTransferOpen(false)
+  const handleTransfer = async () => {
+    if (!onTransfer) {
+      setTransferError('Transfer service is not configured')
+      return
+    }
+    if (!toAddress.trim()) {
+      setTransferError('Recipient wallet address is required')
+      return
+    }
+    if (!transferAmount || transferAmount <= 0) {
+      setTransferError('Amount must be greater than zero')
+      return
+    }
+
+    try {
+      setIsTransferring(true)
+      setTransferError('')
+      await onTransfer(toAddress.trim(), transferAmount, note.trim() || undefined)
+      setTransferOpen(false)
+      setToAddress('')
+      setTransferAmount(0)
+      setNote('')
+    } catch (err) {
+      setTransferError(err instanceof Error ? err.message : 'Transfer failed')
+    } finally {
+      setIsTransferring(false)
+    }
   }
 
   return (
@@ -50,17 +84,24 @@ export default function HTWalletCard({ balance, transactions, totalRedeemed = 0,
                   </ModalHeader>
                   <div className="space-y-3">
                     <div>
-                      <label className="text-sm text-muted-foreground">To Address</label>
-                      <Input value={toAddress} onChange={(e) => setToAddress(e.target.value)} placeholder="0x..." className="mt-1" />
+                      <label className="text-sm text-muted-foreground">Recipient Wallet Address</label>
+                      <Input value={toAddress} onChange={(e) => setToAddress(e.target.value)} placeholder="Recipient wallet address" className="mt-1" />
                     </div>
                     <div>
                       <label className="text-sm text-muted-foreground">Amount (HT)</label>
                       <Input type="number" value={transferAmount} onChange={(e) => setTransferAmount(Number(e.target.value))} placeholder="0" className="mt-1" />
                     </div>
+                    <div>
+                      <label className="text-sm text-muted-foreground">Note (optional)</label>
+                      <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="For medical support" className="mt-1" />
+                    </div>
+                    {transferError && <p className="text-sm text-red-600">{transferError}</p>}
                   </div>
                   <ModalFooter>
                     <ModalClose asChild><Button variant="outline">Cancel</Button></ModalClose>
-                    <Button onClick={handleTransfer}>Confirm Transfer</Button>
+                    <Button onClick={handleTransfer} disabled={isTransferring}>
+                      {isTransferring ? 'Transferring...' : 'Confirm Transfer'}
+                    </Button>
                   </ModalFooter>
                 </ModalContent>
               </Modal>

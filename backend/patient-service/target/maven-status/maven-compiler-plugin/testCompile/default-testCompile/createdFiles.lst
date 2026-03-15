@@ -1,9 +1,0 @@
-com\fixed_asset\patient_service\controller\PatientControllerIntegrationTest.class
-com\fixed_asset\patient_service\service\TokenServiceTest.class
-com\fixed_asset\patient_service\service\DepositServiceTest.class
-com\fixed_asset\patient_service\service\PatientServiceTest.class
-com\fixed_asset\patient_service\controller\AuthControllerIntegrationTest.class
-com\fixed_asset\patient_service\controller\DepositControllerIntegrationTest.class
-com\fixed_asset\patient_service\service\AuthServiceTest.class
-com\fixed_asset\patient_service\service\BenefitServiceTest.class
-com\fixed_asset\patient_service\PatientServiceApplicationTests.class

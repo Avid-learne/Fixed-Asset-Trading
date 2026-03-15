@@ -1,16 +1,14 @@
-// Short overview: Unified Wallet page with tabs for AT and HT wallets
-// - Displays both Asset Tokens and Health Tokens in separate tabs
-// - Relation: imports ATWalletCard and HTWalletCard components
+// Short overview: Unified Wallet page for HT-only patient experience.
 'use client'
 
 import React, { useEffect, useMemo, useState } from 'react'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import ATWalletCard from '@/components/patient/ATWalletCard'
 import HTWalletCard from '@/components/patient/HTWalletCard'
-import { AlertCircle, Coins, Heart, Loader2 } from 'lucide-react'
+import { AlertCircle, Heart, Loader2 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { walletService, WalletSummary, WalletTransaction } from '@/services/walletService'
 import { Card, CardContent } from '@/components/ui/card'
+import Link from 'next/link'
+import { Button } from '@/components/ui/button'
 
 export default function WalletPage() {
   const { user } = useAuth()
@@ -21,36 +19,40 @@ export default function WalletPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const loadWallet = async () => {
-      if (!userId) {
-        setLoading(false)
-        setError('User not authenticated')
-        return
-      }
-
-      try {
-        setLoading(true)
-        setError(null)
-
-        const [summaryData, txData] = await Promise.all([
-          walletService.getSummary(userId),
-          walletService.getTransactions(userId),
-        ])
-
-        setSummary(summaryData)
-        setTransactions(txData)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load wallet data')
-      } finally {
-        setLoading(false)
-      }
+  const loadWallet = async () => {
+    if (!userId) {
+      setLoading(false)
+      setError('User not authenticated')
+      return
     }
 
+    try {
+      setLoading(true)
+      setError(null)
+
+      const [summaryData, txData] = await Promise.all([
+        walletService.getSummary(userId),
+        walletService.getTransactions(userId),
+      ])
+
+      setSummary(summaryData)
+      setTransactions(txData)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load wallet data')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
     loadWallet()
   }, [userId])
 
-  const atTransactions = useMemo(() => transactions.filter((t) => t.tokenSymbol === 'AT'), [transactions])
+  const handleTransfer = async (recipientWalletAddress: string, amount: number, note?: string) => {
+    await walletService.transferHT(recipientWalletAddress, amount, note)
+    await loadWallet()
+  }
+
   const htTransactions = useMemo(() => transactions.filter((t) => t.tokenSymbol === 'HT'), [transactions])
   const totalRedeemed = useMemo(
     () => htTransactions.filter((t) => t.transactionType === 'DEBIT').reduce((sum, t) => sum + Math.abs(t.amount), 0),
@@ -69,7 +71,7 @@ export default function WalletPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">My Wallet</h1>
-        <p className="text-muted-foreground">Manage your Asset Tokens and Health Tokens in one place</p>
+        <p className="text-muted-foreground">Manage your Health Tokens and view your AT usage details.</p>
       </div>
 
       {error && (
@@ -83,34 +85,27 @@ export default function WalletPage() {
         </Card>
       )}
 
-      <Tabs defaultValue="at" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="at" className="flex items-center gap-2">
-            <Coins className="w-4 h-4" />
-            Asset Tokens (AT)
-          </TabsTrigger>
-          <TabsTrigger value="ht" className="flex items-center gap-2">
+      <Card>
+        <CardContent className="pt-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <div className="text-sm text-muted-foreground">Need AT details (burnt, left, where used)?</div>
+            <Link href="/patient/wallet/at">
+              <Button size="sm" variant="outline">Open AT Details</Button>
+            </Link>
+          </div>
+          <div className="mb-4 flex items-center gap-2 text-muted-foreground">
             <Heart className="w-4 h-4" />
             Health Tokens (HT)
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="at" className="space-y-4 mt-6">
-          <ATWalletCard
-            balance={summary?.totalAt || 0}
-            transactions={atTransactions}
-          />
-        </TabsContent>
-
-        <TabsContent value="ht" className="space-y-4 mt-6">
+          </div>
           <HTWalletCard
             balance={summary?.totalHt || 0}
             transactions={htTransactions}
             totalRedeemed={totalRedeemed}
             upcomingBenefits={0}
+            onTransfer={handleTransfer}
           />
-        </TabsContent>
-      </Tabs>
+        </CardContent>
+      </Card>
     </div>
   )
 }

@@ -35,6 +35,7 @@ import java.util.UUID;
 public class ProfitAllocationService {
 
     private static final BigDecimal ONE_HUNDRED = new BigDecimal("100");
+    private static final BigDecimal ZERO = BigDecimal.ZERO;
     private static final BigDecimal HT_CONVERSION_RATE = new BigDecimal("10"); // PKR 10 = 1 HT
 
     private final UserRepository userRepository;
@@ -46,34 +47,35 @@ public class ProfitAllocationService {
     private final AssetDepositRefRepository assetDepositRefRepository;
 
     @Transactional(readOnly = true)
-    public ProfitAllocationPreviewResponse getPreview(String email, BigDecimal requestedProfit, BigDecimal patientSharePercent) {
+    public ProfitAllocationPreviewResponse getPreview(String email, BigDecimal requestedProfit) {
         User admin = findHospitalAdmin(email);
         UUID hospitalId = requireHospitalId(admin);
 
         BigDecimal availableProfit = calculateAvailableProfit(hospitalId);
         BigDecimal totalProfit = normalizeTotalProfit(requestedProfit, availableProfit);
-        BigDecimal patientShare = normalizePatientShare(patientSharePercent);
 
-        BigDecimal patientAmountPkr = totalProfit.multiply(patientShare)
-                .divide(ONE_HUNDRED, 6, RoundingMode.HALF_UP);
-        BigDecimal hospitalAmountPkr = totalProfit.subtract(patientAmountPkr);
-        BigDecimal totalHt = patientAmountPkr.divide(HT_CONVERSION_RATE, 6, RoundingMode.HALF_UP);
+        // Cash profit remains with hospital. HT mint pool is derived from full profit value.
+        BigDecimal hospitalAmountPkr = totalProfit;
+        BigDecimal patientAmountPkr = ZERO;
+        BigDecimal tokenMintPoolPkr = totalProfit;
+        BigDecimal totalHt = tokenMintPoolPkr.divide(HT_CONVERSION_RATE, 6, RoundingMode.HALF_UP);
 
-        List<PatientAllocationPreviewDto> allocations = buildAllocations(hospitalId, totalHt, patientAmountPkr);
-        BigDecimal totalAtHolding = allocations.stream()
-                .map(PatientAllocationPreviewDto::getAtHolding)
+        List<PatientAllocationPreviewDto> allocations = buildAllocations(hospitalId, totalHt, tokenMintPoolPkr);
+        BigDecimal totalAssetContributionPkr = allocations.stream()
+            .map(PatientAllocationPreviewDto::getAssetContributionPkr)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         ProfitAllocationPreviewResponse response = new ProfitAllocationPreviewResponse();
         response.setAvailableProfit(availableProfit);
         response.setTotalProfit(totalProfit);
-        response.setPatientSharePercent(patientShare);
-        response.setHospitalSharePercent(ONE_HUNDRED.subtract(patientShare));
+        response.setPatientSharePercent(ZERO);
+        response.setHospitalSharePercent(ONE_HUNDRED);
         response.setPatientAmountPkr(patientAmountPkr);
         response.setHospitalAmountPkr(hospitalAmountPkr);
+        response.setTokenMintPoolPkr(tokenMintPoolPkr);
         response.setHtConversionRate(HT_CONVERSION_RATE);
         response.setTotalHtToDistribute(totalHt);
-        response.setTotalAtHolding(totalAtHolding);
+        response.setTotalAssetContributionPkr(totalAssetContributionPkr);
         response.setTotalRecipients(allocations.size());
         response.setAllocations(allocations);
         return response;
@@ -85,7 +87,7 @@ public class ProfitAllocationService {
             throw new IllegalArgumentException("Request body is required");
         }
 
-        ProfitAllocationPreviewResponse preview = getPreview(email, request.getTotalProfit(), request.getPatientSharePercent());
+        ProfitAllocationPreviewResponse preview = getPreview(email, request.getTotalProfit());
         if (preview.getTotalRecipients() == null || preview.getTotalRecipients() == 0) {
             throw new IllegalArgumentException("No eligible patients with AT holdings for allocation");
         }
@@ -96,7 +98,7 @@ public class ProfitAllocationService {
         ProfitDistribution distribution = new ProfitDistribution();
         distribution.setHospitalId(hospitalId);
         distribution.setTotalProfit(preview.getTotalProfit());
-        distribution.setPatientsPercentage(preview.getPatientSharePercent());
+        distribution.setPatientsPercentage(ZERO);
         distribution.setHospitalOperations(preview.getHospitalAmountPkr());
         distribution.setHospitalEarning(preview.getHospitalAmountPkr());
         distribution.setBankLoanFunds(BigDecimal.ZERO);
@@ -134,6 +136,7 @@ public class ProfitAllocationService {
         response.setTotalHtDistributed(preview.getTotalHtToDistribute());
         response.setPatientAmountPkr(preview.getPatientAmountPkr());
         response.setHospitalAmountPkr(preview.getHospitalAmountPkr());
+        response.setTokenMintPoolPkr(preview.getTokenMintPoolPkr());
         return response;
     }
 
@@ -167,22 +170,29 @@ public class ProfitAllocationService {
                 .toList();
     }
 
-    private List<PatientAllocationPreviewDto> buildAllocations(UUID hospitalId, BigDecimal totalHt, BigDecimal patientAmountPkr) {
+        private List<PatientAllocationPreviewDto> buildAllocations(UUID hospitalId, BigDecimal totalHt, BigDecimal tokenMintPoolPkr) {
         List<Patient> patients = patientRepository.findByHospitalId(hospitalId);
 
         List<PatientHolding> holdings = new ArrayList<>();
         for (Patient patient : patients) {
-            UUID latestAssetId = assetDepositRefRepository.findTopByPatientIdOrderBySubmittedAtDesc(patient.getId())
-                    .map(asset -> asset.getAssetId())
-                    .orElse(null);
+            UUID latestAssetId = assetDepositRefRepository.findLatestApprovedAssetIdByPatientId(patient.getId());
+            if (latestAssetId == null) {
+            latestAssetId = assetDepositRefRepository.findTopByPatientIdOrderBySubmittedAtDesc(patient.getId())
+                .map(asset -> asset.getAssetId())
+                .orElse(null);
+            }
             if (latestAssetId == null) {
                 continue;
             }
 
-            BigDecimal atHolding = patientTokenBalanceRepository.findByPatientId(patient.getId())
-                    .map(PatientTokenBalance::getTotalAt)
-                    .orElse(BigDecimal.ZERO);
-            if (nz(atHolding).compareTo(BigDecimal.ZERO) <= 0) {
+            String walletAddress = patient.getWalletAddress();
+            if (walletAddress == null || walletAddress.isBlank()) {
+            continue;
+            }
+
+            BigDecimal assetContribution = nz(assetDepositRefRepository
+                .sumApprovedAssetValueByPatientId(patient.getId()));
+            if (assetContribution.compareTo(BigDecimal.ZERO) <= 0) {
                 continue;
             }
 
@@ -190,36 +200,66 @@ public class ProfitAllocationService {
                     .map(User::getName)
                     .orElse("Unknown Patient");
 
-            holdings.add(new PatientHolding(patient.getId(), patient.getUserId(), latestAssetId, name, atHolding));
+            holdings.add(new PatientHolding(
+                patient.getId(),
+                patient.getUserId(),
+                latestAssetId,
+                name,
+                walletAddress,
+                assetContribution
+            ));
         }
 
-        BigDecimal totalAtHolding = holdings.stream()
-                .map(PatientHolding::atHolding)
+        BigDecimal totalContribution = holdings.stream()
+            .map(PatientHolding::assetContributionPkr)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        if (totalAtHolding.compareTo(BigDecimal.ZERO) <= 0) {
+        if (totalContribution.compareTo(BigDecimal.ZERO) <= 0) {
             return List.of();
         }
 
         List<PatientAllocationPreviewDto> allocations = new ArrayList<>();
-        for (PatientHolding holding : holdings) {
-            BigDecimal sharePercent = holding.atHolding
-                    .multiply(ONE_HUNDRED)
-                    .divide(totalAtHolding, 8, RoundingMode.HALF_UP);
-            BigDecimal htAmount = totalHt.multiply(holding.atHolding)
-                    .divide(totalAtHolding, 8, RoundingMode.HALF_UP);
-            BigDecimal pkrValue = patientAmountPkr.multiply(holding.atHolding)
-                    .divide(totalAtHolding, 8, RoundingMode.HALF_UP);
+        BigDecimal allocatedShare = BigDecimal.ZERO;
+        BigDecimal allocatedHt = BigDecimal.ZERO;
+        BigDecimal allocatedPkrValue = BigDecimal.ZERO;
+
+        for (int i = 0; i < holdings.size(); i++) {
+            PatientHolding holding = holdings.get(i);
+            boolean isLast = i == holdings.size() - 1;
+
+            BigDecimal sharePercent;
+            BigDecimal htAmount;
+            BigDecimal pkrValue;
+
+            if (isLast) {
+            // Force exact totals so no HT remainder is left undistributed.
+            sharePercent = ONE_HUNDRED.subtract(allocatedShare);
+            htAmount = totalHt.subtract(allocatedHt);
+            pkrValue = tokenMintPoolPkr.subtract(allocatedPkrValue);
+            } else {
+            sharePercent = holding.assetContributionPkr
+                .multiply(ONE_HUNDRED)
+                .divide(totalContribution, 8, RoundingMode.HALF_UP);
+            htAmount = totalHt.multiply(holding.assetContributionPkr)
+                .divide(totalContribution, 8, RoundingMode.HALF_UP);
+            pkrValue = tokenMintPoolPkr.multiply(holding.assetContributionPkr)
+                .divide(totalContribution, 8, RoundingMode.HALF_UP);
+
+            allocatedShare = allocatedShare.add(sharePercent);
+            allocatedHt = allocatedHt.add(htAmount);
+            allocatedPkrValue = allocatedPkrValue.add(pkrValue);
+            }
 
             PatientAllocationPreviewDto dto = new PatientAllocationPreviewDto();
             dto.setPatientId(holding.patientId);
             dto.setUserId(holding.userId);
             dto.setAssetId(holding.assetId);
             dto.setPatientName(holding.name);
-            dto.setAtHolding(holding.atHolding);
-            dto.setSharePercent(sharePercent);
-            dto.setHtAmount(htAmount);
-            dto.setPkrValue(pkrValue);
+            dto.setWalletAddress(holding.walletAddress);
+            dto.setAssetContributionPkr(holding.assetContributionPkr);
+            dto.setSharePercent(sharePercent.max(BigDecimal.ZERO));
+            dto.setHtAmount(htAmount.max(BigDecimal.ZERO));
+            dto.setPkrValue(pkrValue.max(BigDecimal.ZERO));
             allocations.add(dto);
         }
 
@@ -272,17 +312,16 @@ public class ProfitAllocationService {
         return selected;
     }
 
-    private BigDecimal normalizePatientShare(BigDecimal share) {
-        BigDecimal value = share == null ? new BigDecimal("70") : share;
-        if (value.compareTo(BigDecimal.ZERO) < 0 || value.compareTo(ONE_HUNDRED) > 0) {
-            throw new IllegalArgumentException("patientSharePercent must be between 0 and 100");
-        }
-        return value;
-    }
-
     private BigDecimal nz(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
     }
 
-    private record PatientHolding(UUID patientId, UUID userId, UUID assetId, String name, BigDecimal atHolding) {}
+    private record PatientHolding(
+            UUID patientId,
+            UUID userId,
+            UUID assetId,
+            String name,
+            String walletAddress,
+            BigDecimal assetContributionPkr
+    ) {}
 }

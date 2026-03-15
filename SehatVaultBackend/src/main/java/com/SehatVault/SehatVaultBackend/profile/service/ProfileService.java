@@ -2,6 +2,7 @@ package com.SehatVault.SehatVaultBackend.profile.service;
 
 import com.SehatVault.SehatVaultBackend.auth.entity.User;
 import com.SehatVault.SehatVaultBackend.auth.repository.UserRepository;
+import com.SehatVault.SehatVaultBackend.hospital.repository.HospitalRepository;
 import com.SehatVault.SehatVaultBackend.patient.entity.Patient;
 import com.SehatVault.SehatVaultBackend.patient.repository.PatientRepository;
 import com.SehatVault.SehatVaultBackend.profile.dto.ProfileResponse;
@@ -26,6 +27,7 @@ public class ProfileService {
 
     private final UserRepository userRepository;
     private final PatientRepository patientRepository;
+    private final HospitalRepository hospitalRepository;
 
     /**
      * Get user profile by user ID
@@ -49,13 +51,20 @@ public class ProfileService {
         // If user is a patient, add patient-specific data
         Patient patient = patientRepository.findByUserId(userId).orElse(null);
         if (patient != null) {
+            UUID resolvedHospitalId = patient.getHospitalId() != null ? patient.getHospitalId() : user.getHospitalId();
             responseBuilder
                     .patientId(patient.getId())
                     .walletAddress(patient.getWalletAddress())
                     .hasAsset(patient.getHasAsset())
                     .hasSubscription(patient.getHasSubscription())
                     .kycStatus(patient.getKycStatus() != null ? patient.getKycStatus().name() : null)
-                    .registrationId(patient.getRegistrationId());
+                .registrationId(patient.getRegistrationId())
+                .hospitalId(resolvedHospitalId)
+                .hospitalName(resolveHospitalName(resolvedHospitalId));
+        } else if (user.getHospitalId() != null) {
+            responseBuilder
+                .hospitalId(user.getHospitalId())
+                .hospitalName(resolveHospitalName(user.getHospitalId()));
         }
 
         return responseBuilder.build();
@@ -135,13 +144,20 @@ public class ProfileService {
                     // Add patient-specific data
                     Patient patient = patientRepository.findByUserId(user.getUserId()).orElse(null);
                     if (patient != null) {
+                        UUID resolvedHospitalId = patient.getHospitalId() != null ? patient.getHospitalId() : user.getHospitalId();
                         responseBuilder
                                 .patientId(patient.getId())
                                 .walletAddress(patient.getWalletAddress())
                                 .hasAsset(patient.getHasAsset())
                                 .hasSubscription(patient.getHasSubscription())
                                 .kycStatus(patient.getKycStatus() != null ? patient.getKycStatus().name() : null)
-                                .registrationId(patient.getRegistrationId());
+                            .registrationId(patient.getRegistrationId())
+                            .hospitalId(resolvedHospitalId)
+                            .hospitalName(resolveHospitalName(resolvedHospitalId));
+                        } else if (user.getHospitalId() != null) {
+                        responseBuilder
+                            .hospitalId(user.getHospitalId())
+                            .hospitalName(resolveHospitalName(user.getHospitalId()));
                     }
 
                     return responseBuilder.build();
@@ -179,9 +195,19 @@ public class ProfileService {
                             .kycStatus(patient.getKycStatus() != null ? patient.getKycStatus().name() : null)
                             .registrationId(patient.getRegistrationId())
                             .hospitalId(patient.getHospitalId())
+                            .hospitalName(resolveHospitalName(patient.getHospitalId()))
                             .build();
                 })
                 .filter(profile -> profile != null)
                 .collect(Collectors.toList());
+    }
+
+    private String resolveHospitalName(UUID hospitalId) {
+        if (hospitalId == null) {
+            return null;
+        }
+        return hospitalRepository.findById(hospitalId)
+                .map(hospital -> hospital.getHospitalName())
+                .orElse(null);
     }
 }

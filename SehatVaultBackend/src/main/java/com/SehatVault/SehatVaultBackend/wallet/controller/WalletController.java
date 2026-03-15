@@ -1,14 +1,18 @@
 package com.SehatVault.SehatVaultBackend.wallet.controller;
 
 import com.SehatVault.SehatVaultBackend.subscription.dto.ApiResponse;
+import com.SehatVault.SehatVaultBackend.wallet.dto.TransferHtRequest;
 import com.SehatVault.SehatVaultBackend.wallet.dto.WalletSummaryDto;
 import com.SehatVault.SehatVaultBackend.wallet.dto.WalletTransactionDto;
 import com.SehatVault.SehatVaultBackend.wallet.service.WalletService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -39,5 +43,14 @@ public class WalletController {
             @PathVariable String tokenSymbol
     ) {
         return ResponseEntity.ok(ApiResponse.success(walletService.getWalletTransactionsByToken(userId, tokenSymbol)));
+    }
+
+    @PostMapping("/patient/transfer/ht")
+    public ResponseEntity<ApiResponse<String>> transferHt(
+            Authentication authentication,
+            @RequestBody TransferHtRequest request
+    ) {
+        walletService.transferHealthTokens(authentication.getName(), request);
+        return ResponseEntity.ok(ApiResponse.success("HT transferred successfully", "OK"));
     }
 }

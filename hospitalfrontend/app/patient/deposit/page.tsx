@@ -1,30 +1,51 @@
 // src/app/patient/deposit/page.tsx
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Coins, Building2, ArrowRight, CheckCircle, Calculator } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { authService } from '@/lib/authService'
+import { depositRequestService, type AssetDepositItem } from '@/services/depositRequestService'
 
 type AssetType = 'gold' | 'silver' | ''
 
 const GOLD_RATE_PER_GRAM = 15000 // PKR per gram
 const SILVER_RATE_PER_GRAM = 250 // PKR per gram
-const TOKEN_RATIO = 100 // 1 AT token = 100 PKR worth of asset
-
-const HOSPITALS = [
-  { id: 'h1', name: 'Liaquat National Hospital', location: 'Karachi' },
-]
+const TOKEN_RATIO = 100 // 1 HT token = 100 PKR worth of asset
 
 export default function DepositAssetPage() {
   const router = useRouter()
   const [assetType, setAssetType] = useState<AssetType>('')
   const [weight, setWeight] = useState('')
-  const [selectedHospital, setSelectedHospital] = useState('')
+  const [assignedHospitalName, setAssignedHospitalName] = useState('')
+  const [error, setError] = useState('')
+  const [submittedRequest, setSubmittedRequest] = useState<AssetDepositItem | null>(null)
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [requests, setRequests] = useState<AssetDepositItem[]>([])
+  const [loadingRequests, setLoadingRequests] = useState(true)
+
+  const loadMyRequests = async () => {
+    try {
+      setLoadingRequests(true)
+      const data = await depositRequestService.getMyRequests('all')
+      setRequests(data)
+    } catch {
+      // Keep page usable if history fails to load.
+    } finally {
+      setLoadingRequests(false)
+    }
+  }
+
+  useEffect(() => {
+    const user = authService.getUser()
+    setAssignedHospitalName(user?.hospitalName || user?.hospitalId || '')
+    loadMyRequests()
+  }, [])
 
   const calculateWorth = () => {
     const weightNum = parseFloat(weight)
@@ -36,22 +57,69 @@ export default function DepositAssetPage() {
     return Math.floor(calculateWorth() / TOKEN_RATIO)
   }
 
+  const selectedHospitalDisplay = useMemo(
+    () => submittedRequest?.hospitalName || assignedHospitalName || 'Not Assigned',
+    [submittedRequest?.hospitalName, assignedHospitalName]
+  )
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
+    try {
+      setLoading(true)
+      setError('')
 
-    // Simulate API call
-    setTimeout(() => {
+      const assetValue = calculateWorth()
+      const response = await depositRequestService.submitRequest({
+        assetType: assetType.toUpperCase(),
+        weight: Number(weight),
+        assetValue,
+      })
+
+      setSubmittedRequest(response)
+      setRequests(prev => [response, ...prev.filter(item => item.assetId !== response.assetId)])
       setLoading(false)
       setSubmitted(true)
-    }, 1500)
+    } catch (err) {
+      setLoading(false)
+      setError(err instanceof Error ? err.message : 'Failed to submit request')
+    }
   }
 
   const resetForm = () => {
     setAssetType('')
     setWeight('')
-    setSelectedHospital('')
+    setSubmittedRequest(null)
     setSubmitted(false)
+  }
+
+  const approvedByBank = useMemo(
+    () => requests.filter(item => (item.bankApprovalStatus || '').toLowerCase() === 'approved'),
+    [requests]
+  )
+
+  const requestStatusBadge = (status: string) => {
+    const normalized = (status || '').toLowerCase()
+    if (normalized === 'approved') {
+      return <Badge className="bg-emerald-600 hover:bg-emerald-600">Hospital Approved</Badge>
+    }
+    if (normalized === 'rejected') {
+      return <Badge className="bg-rose-600 hover:bg-rose-600">Rejected</Badge>
+    }
+    return <Badge variant="outline">Pending Hospital Review</Badge>
+  }
+
+  const bankStatusBadge = (status?: string) => {
+    const normalized = (status || '').toLowerCase()
+    if (normalized === 'approved') {
+      return <Badge className="bg-emerald-600 hover:bg-emerald-600">Approved by Bank</Badge>
+    }
+    if (normalized === 'rejected') {
+      return <Badge className="bg-rose-600 hover:bg-rose-600">Rejected by Bank</Badge>
+    }
+    if (normalized === 'pending') {
+      return <Badge variant="outline">In Bank Review</Badge>
+    }
+    return <Badge variant="secondary">Awaiting Forwarding</Badge>
   }
 
   if (submitted) {
@@ -67,7 +135,7 @@ export default function DepositAssetPage() {
               Your investment request has been sent to the hospital for verification.
             </p>
             <p className="text-sm text-muted-foreground mb-8">
-              You will receive a notification once the hospital approves your request and mints the AT tokens.
+              You will receive a notification once approvals complete and HT is credited.
             </p>
 
             <div className="bg-muted/50 rounded-lg p-6 mb-8 text-left">
@@ -86,14 +154,16 @@ export default function DepositAssetPage() {
                   <span className="font-medium">PKR {calculateWorth().toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Expected AT Tokens:</span>
-                  <span className="font-semibold text-lg text-primary">{calculateTokens()} AT</span>
+                  <span className="text-muted-foreground">Expected HT:</span>
+                  <span className="font-semibold text-lg text-primary">{calculateTokens()} HT</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Hospital:</span>
-                  <span className="font-medium">
-                    {HOSPITALS.find(h => h.id === selectedHospital)?.name}
-                  </span>
+                  <span className="font-medium">{selectedHospitalDisplay}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Request Status:</span>
+                  <span className="font-medium capitalize">{submittedRequest?.status || 'pending'}</span>
                 </div>
               </div>
             </div>
@@ -117,9 +187,21 @@ export default function DepositAssetPage() {
       <div>
         <h1 className="text-3xl font-bold">Deposit Asset</h1>
         <p className="text-muted-foreground mt-1">
-          Invest in gold or silver to receive Asset Tokens (AT) backed by physical assets
+          Deposit gold or silver to receive Health Tokens (HT) after approvals
         </p>
       </div>
+
+      {error && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      {!assignedHospitalName && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Hospital is not assigned on your profile yet. Contact hospital admin to assign a hospital before submitting deposits.
+        </div>
+      )}
 
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -199,26 +281,15 @@ export default function DepositAssetPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Building2 className="w-5 h-5" />
-                  Select Hospital
+                  Assigned Hospital
                 </CardTitle>
-                <CardDescription>Choose the hospital that will receive your request.</CardDescription>
+                <CardDescription>Deposit requests are automatically routed to your assigned hospital profile.</CardDescription>
               </CardHeader>
-              <CardContent className="grid gap-3">
-                {HOSPITALS.map(hospital => (
-                  <button
-                    key={hospital.id}
-                    type="button"
-                    onClick={() => setSelectedHospital(hospital.id)}
-                    className={`w-full p-4 rounded-lg border text-left transition hover:shadow-sm ${
-                      selectedHospital === hospital.id
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/40'
-                    }`}
-                  >
-                    <div className="font-semibold">{hospital.name}</div>
-                    <div className="text-sm text-muted-foreground">{hospital.location}</div>
-                  </button>
-                ))}
+              <CardContent className="space-y-2">
+                <div className="rounded-lg border bg-muted/40 px-4 py-3 text-sm">
+                  <p className="font-medium text-slate-900">{selectedHospitalDisplay}</p>
+                  <p className="text-xs text-slate-600 mt-1">Hospital selection is managed in signup/profile assignment.</p>
+                </div>
               </CardContent>
             </Card>
 
@@ -228,8 +299,10 @@ export default function DepositAssetPage() {
               </CardHeader>
               <CardContent className="space-y-2 text-sm text-muted-foreground">
                 <p>Your selected hospital verifies the asset details you submit.</p>
-                <p>Once approved, Asset Tokens (AT) are minted and deposited into your wallet.</p>
-                <p>You can redeem or trade tokens once the verification completes.</p>
+                <p>Your assigned hospital receives this request automatically.</p>
+                <p>Once approved by hospital and bank, an Asset Health Card is auto-created for you.</p>
+                <p>Approved HT is automatically credited to your wallet and your Asset Health Card.</p>
+                <p>You can use or transfer HT once verification is complete.</p>
               </CardContent>
             </Card>
           </div>
@@ -255,9 +328,7 @@ export default function DepositAssetPage() {
                   </div>
                   <div className="flex justify-between text-muted-foreground">
                     <span>Hospital</span>
-                    <span className="font-medium">
-                      {selectedHospital ? HOSPITALS.find(h => h.id === selectedHospital)?.name : '—'}
-                    </span>
+                    <span className="font-medium">{selectedHospitalDisplay}</span>
                   </div>
                 </div>
 
@@ -269,15 +340,15 @@ export default function DepositAssetPage() {
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span>Estimated AT Tokens</span>
-                    <span className="font-semibold text-primary">{calculateTokens()} AT</span>
+                    <span>Estimated HT</span>
+                    <span className="font-semibold text-primary">{calculateTokens()} HT</span>
                   </div>
                 </div>
 
                 <Button
                   type="submit"
                   className="w-full flex items-center justify-center gap-2"
-                  disabled={loading || !assetType || !weight || !selectedHospital}
+                  disabled={loading || !assetType || !weight || selectedHospitalDisplay === 'Not Assigned'}
                 >
                   {loading ? 'Submitting…' : 'Submit Investment Request'}
                   {!loading && <ArrowRight className="w-4 h-4" />}
@@ -293,6 +364,71 @@ export default function DepositAssetPage() {
           </div>
         </div>
       </form>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Deposits Approved by Bank</CardTitle>
+          <CardDescription>These deposits have completed both hospital and bank approval.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {loadingRequests ? (
+            <p className="text-sm text-muted-foreground">Loading approved deposits...</p>
+          ) : approvedByBank.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No bank-approved deposits yet.</p>
+          ) : (
+            approvedByBank.map(item => (
+              <div key={item.assetId} className="rounded-lg border p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-semibold">{item.assetType} • {item.weight} g</p>
+                  {bankStatusBadge(item.bankApprovalStatus)}
+                </div>
+                <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm text-muted-foreground">
+                  <p>Worth: PKR {Number(item.assetValue).toLocaleString()}</p>
+                  <p>Tokens: {Number(item.expectedTokens).toLocaleString()} HT</p>
+                  <p>Date: {new Date(item.submittedAt).toLocaleDateString()}</p>
+                </div>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>All Deposit Requests</CardTitle>
+          <CardDescription>Track hospital and bank review status for every request.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {loadingRequests ? (
+            <p className="text-sm text-muted-foreground">Loading your requests...</p>
+          ) : requests.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No deposit requests submitted yet.</p>
+          ) : (
+            requests.map(item => (
+              <div key={item.assetId} className="rounded-lg border p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-semibold">{item.assetType} • {item.weight} g</p>
+                  <div className="flex items-center gap-2">
+                    {requestStatusBadge(item.status)}
+                    {bankStatusBadge(item.bankApprovalStatus)}
+                  </div>
+                </div>
+                <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm text-muted-foreground">
+                  <p>Worth: PKR {Number(item.assetValue).toLocaleString()}</p>
+                  <p>Tokens: {Number(item.expectedTokens).toLocaleString()} HT</p>
+                  <p>Submitted: {new Date(item.submittedAt).toLocaleDateString()}</p>
+                </div>
+                {item.rejectionReason && (
+                  <p className="mt-2 text-sm text-rose-700">Reason: {item.rejectionReason}</p>
+                )}
+                {item.bankRejectionReason && (
+                  <p className="mt-1 text-sm text-rose-700">Bank reason: {item.bankRejectionReason}</p>
+                )}
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

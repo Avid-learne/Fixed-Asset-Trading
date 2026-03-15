@@ -3,6 +3,7 @@ package com.SehatVault.SehatVaultBackend.marketplace.dto;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -14,6 +15,17 @@ public class TradeDto {
     private String tradeType; // BUY | SELL
     private String status; // OPEN | CLOSED | CANCELLED
 
+    private String title;
+    private String description;
+    private String assetName;
+    private String assetType;
+    private BigDecimal buyPrice;
+    private BigDecimal quantity;
+    private LocalDate tradeDate;
+    private BigDecimal currentValue;
+    private BigDecimal exitValue;
+    private BigDecimal unrealizedPnl;
+    private BigDecimal realizedPnl;
     private String investment;
     private String location;
     private String notes;

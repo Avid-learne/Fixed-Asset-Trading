@@ -331,25 +331,36 @@ CREATE TABLE public.patient_cards (
 -- =========================
 
 CREATE TABLE public.trades (
-    trade_id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    hospital_id          uuid NOT NULL REFERENCES public.hospitals(h_id),
-    amount_invested      numeric NOT NULL,                -- in PKR
+    trade_id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    hospital_id           uuid NOT NULL REFERENCES public.hospitals(h_id),
+
+    trade_title           text NOT NULL,
+    trade_description     text,
+
+    amount_invested       numeric NOT NULL,                -- in PKR
     investment_description text,
-    amount_before_trade  numeric NOT NULL,
-    amount_after_trade   numeric,
-    profit_loss          numeric,
-    trade_type           trade_type NOT NULL,             -- BUY or SELL
-    start_time           timestamptz NOT NULL,
-    end_time             timestamptz,
-    total_at_burnt       numeric DEFAULT 0,
-    opening_price        numeric,
-    closing_price        numeric,
-    high                 numeric,
-    low                  numeric,
-    volume               numeric,
-    status               trade_status DEFAULT 'ACTIVE',
-    created_at           timestamptz DEFAULT now(),
-    updated_at           timestamptz DEFAULT now()
+
+    amount_before_trade   numeric NOT NULL,
+    amount_after_trade    numeric,
+    profit_loss           numeric,
+
+    trade_type            trade_type NOT NULL,             -- BUY or SELL
+
+    start_time            timestamptz NOT NULL,
+    end_time              timestamptz,
+
+    total_at_burnt        numeric DEFAULT 0,
+
+    opening_price         numeric,
+    closing_price         numeric,
+    high                  numeric,
+    low                   numeric,
+    volume                numeric,
+
+    status                trade_status DEFAULT 'ACTIVE',
+
+    created_at            timestamptz DEFAULT now(),
+    updated_at            timestamptz DEFAULT now()
 );
 
 

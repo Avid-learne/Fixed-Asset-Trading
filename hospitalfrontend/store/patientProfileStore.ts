@@ -12,6 +12,7 @@ export type PatientProfile = {
   walletAddress: string
   dateOfBirth: string
   bloodGroup: string
+  affiliatedHospital: string
   status: string
   profileCompletion: number
 }
@@ -32,6 +33,7 @@ const initialProfile: PatientProfile = {
   walletAddress: '',
   dateOfBirth: '',
   bloodGroup: '',
+  affiliatedHospital: '',
   status: 'Verified Patient',
   profileCompletion: 0,
 }
@@ -79,6 +81,8 @@ export const usePatientProfileStore = create<PatientProfileState>(set => ({
         address: user.address || state.profile.address,
         bloodGroup: user.bloodGroup || state.profile.bloodGroup,
         dateOfBirth: user.dateOfBirth || state.profile.dateOfBirth,
+        walletAddress: (user as any).walletAddress || state.profile.walletAddress,
+        affiliatedHospital: user.hospitalName || user.hospitalId || state.profile.affiliatedHospital,
         status: state.profile.status || 'Verified Patient',
       }
 

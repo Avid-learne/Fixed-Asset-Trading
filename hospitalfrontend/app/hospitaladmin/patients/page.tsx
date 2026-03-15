@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Users, Search, Eye, Download, TrendingUp, Wallet, Activity, Clock, Coins, FileText, ArrowUpRight, ArrowDownRight, Loader2 } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 import { useAuth } from '@/contexts/AuthContext'
+import { authService } from '@/lib/authService'
 
 // Exchange rate: 1 USD = 280 PKR
 const USD_TO_PKR = 280
@@ -137,65 +138,64 @@ export default function PatientsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const fetchPatients = async () => {
-      try {
-        setIsLoading(true)
-        setError(null)
-        
-        // Get the hospital ID from the user's context or localStorage
-        // For now, we'll fetch all patients and filter client-side
-        const token = localStorage.getItem('token')
-        const response = await fetch('http://localhost:8000/api/profile/hospital/patients', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-        })
+  const fetchPatients = useCallback(async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch patients')
-        }
+      const token = authService.getToken()
+      const currentUser = authService.getUser()
+      const hospitalId = currentUser?.hospitalId
 
-        const data = await response.json()
-        
-        // Transform backend response to Patient format
-        const transformedPatients = (data.data || []).map((profile: any) => ({
-          id: profile.registrationId || profile.patientId,
-          name: profile.name,
-          email: profile.email,
-          phone: profile.phoneNum || '',
-          status: 'active' as const,
-          joinDate: new Date().toISOString().split('T')[0],
-          totalAssets: 0,
-          totalTokens: 0,
-          atBalance: 0,
-          htBalance: 0,
-          totalDeposits: 0,
-          totalRedemptions: 0,
-          assetHistory: [],
-          portfolioValue: [
-            { month: 'Jun', value: 0 },
-            { month: 'Jul', value: 0 },
-            { month: 'Aug', value: 0 },
-            { month: 'Sep', value: 0 },
-            { month: 'Oct', value: 0 },
-            { month: 'Nov', value: 0 },
-          ]
-        }))
+      const url = hospitalId
+        ? `http://localhost:8000/api/profile/hospital/${hospitalId}/patients`
+        : 'http://localhost:8000/api/profile/hospital/patients'
 
-        setPatients(transformedPatients)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load patients')
-        setPatients([])
-      } finally {
-        setIsLoading(false)
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}))
+        throw new Error((errBody as any).message || 'Failed to fetch patients')
       }
-    }
 
-    fetchPatients()
+      const data = await response.json()
+      const transformedPatients = (data.data || []).map((profile: any) => ({
+        id: profile.registrationId || profile.patientId,
+        name: profile.name,
+        email: profile.email,
+        phone: profile.phoneNum || '',
+        status: 'active' as const,
+        joinDate: new Date().toISOString().split('T')[0],
+        totalAssets: 0,
+        totalTokens: 0,
+        atBalance: 0,
+        htBalance: 0,
+        totalDeposits: 0,
+        totalRedemptions: 0,
+        assetHistory: [],
+        portfolioValue: [
+          { month: 'Jun', value: 0 }, { month: 'Jul', value: 0 }, { month: 'Aug', value: 0 },
+          { month: 'Sep', value: 0 }, { month: 'Oct', value: 0 }, { month: 'Nov', value: 0 },
+        ]
+      }))
+      setPatients(transformedPatients)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load patients')
+      setPatients([])
+    } finally {
+      setIsLoading(false)
+    }
   }, [])
+
+  useEffect(() => {
+    fetchPatients()
+  }, [fetchPatients])
 
   const filteredPatients = patients.filter((patient) => {
     const matchesSearch = patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -295,51 +295,7 @@ export default function PatientsPage() {
         <Card className="border-red-200 bg-red-50">
           <CardContent className="py-4 flex items-center justify-between">
             <p className="text-red-700 font-medium">{error}</p>
-            <Button size="sm" variant="outline" onClick={() => {
-              setIsLoading(true)
-              setError(null)
-              // Retry fetch - reuse the same logic from useEffect
-              const fetchPatients = async () => {
-                try {
-                  const token = localStorage.getItem('token')
-                  const response = await fetch('http://localhost:8000/api/profile/hospital/patients', {
-                    method: 'GET',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${token}`,
-                    },
-                  })
-                  if (!response.ok) throw new Error('Failed to fetch patients')
-                  const data = await response.json()
-                  const transformedPatients = (data.data || []).map((profile: any) => ({
-                    id: profile.registrationId || profile.patientId,
-                    name: profile.name,
-                    email: profile.email,
-                    phone: profile.phoneNum || '',
-                    status: 'active' as const,
-                    joinDate: new Date().toISOString().split('T')[0],
-                    totalAssets: 0,
-                    totalTokens: 0,
-                    atBalance: 0,
-                    htBalance: 0,
-                    totalDeposits: 0,
-                    totalRedemptions: 0,
-                    assetHistory: [],
-                    portfolioValue: [
-                      { month: 'Jun', value: 0 }, { month: 'Jul', value: 0 }, { month: 'Aug', value: 0 },
-                      { month: 'Sep', value: 0 }, { month: 'Oct', value: 0 }, { month: 'Nov', value: 0 },
-                    ]
-                  }))
-                  setPatients(transformedPatients)
-                  setError(null)
-                } catch (err) {
-                  setError(err instanceof Error ? err.message : 'Failed to load patients')
-                } finally {
-                  setIsLoading(false)
-                }
-              }
-              fetchPatients()
-            }}>
+            <Button size="sm" variant="outline" onClick={() => fetchPatients()}>
               Retry
             </Button>
           </CardContent>

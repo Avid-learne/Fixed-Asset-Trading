@@ -15,6 +15,7 @@ import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
 import { AccountInsight } from '../data'
 import { AlertCircle, Calendar, CheckCircle, Mail, MapPin, Phone, Wallet } from 'lucide-react'
+import { Building2 } from 'lucide-react'
 import { usePatientProfileStore } from '@/store/patientProfileStore'
 
 interface ProfileOverviewSectionProps {
@@ -48,6 +49,12 @@ export function ProfileOverviewSection({ insights }: ProfileOverviewSectionProps
                 <CheckCircle className="mr-1 h-3 w-3" />
                 {patient.status}
               </Badge>
+              {patient.affiliatedHospital && (
+                <span className="flex items-center gap-1">
+                  <Building2 className="h-4 w-4" />
+                  {patient.affiliatedHospital}
+                </span>
+              )}
               <span className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
                 {patient.dateOfBirth}

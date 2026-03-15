@@ -33,7 +33,6 @@ MONTHLY SUMMARY
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Total Transactions: ${statement.transactions}
-Total AT Transactions: ${statement.totalAT >= 0 ? '+' : ''}${statement.totalAT} AT
 Total HT Transactions: ${statement.totalHT >= 0 ? '+' : ''}${statement.totalHT} HT
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -42,18 +41,15 @@ TRANSACTION DETAILS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ${monthTransactions.length > 0 ? monthTransactions.map((tx, idx) => `
-${idx + 1}. ${tx.token_type} Transaction
+${idx + 1}. HT Transaction
    Date: ${new Date(tx.created_at).toLocaleString()}
-   Amount: ${tx.amount >= 0 ? '+' : ''}${tx.amount} ${tx.token_type}
+  Amount: ${tx.amount >= 0 ? '+' : ''}${tx.amount} HT
    Status: ${tx.status.toUpperCase()}
    Tx Hash: ${tx.transaction_hash || 'N/A'}
-   ${tx.token_type === 'AT' ? `From: ${tx.from_address || 'N/A'}
-   To: ${tx.to_address || 'N/A'}
-   Token ID: ${tx.token_id || 'N/A'}
-   Gas Used: ${tx.gas_used?.toLocaleString() || 'N/A'}` : `Patient ID: ${tx.patient_id || 'N/A'}
-   Type: ${tx.type || 'N/A'}
-   Source: ${tx.source || 'N/A'}
-   Block: ${tx.block_number?.toLocaleString() || 'N/A'}`}
+  Patient ID: ${tx.patient_id || 'N/A'}
+  Type: ${tx.type || 'N/A'}
+  Source: ${tx.source || 'N/A'}
+  Block: ${tx.block_number?.toLocaleString() || 'N/A'}
 `).join('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n') : 'No transactions found for this period.'}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -98,9 +94,6 @@ export default function StatementsList({ statements, transactions }: StatementsL
                   <div className="flex items-center gap-4 mt-2 text-xs">
                     <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded">
                       {s.transactions} Transactions
-                    </span>
-                    <span className="text-muted-foreground">
-                      AT: {s.totalAT >= 0 ? '+' : ''}{s.totalAT}
                     </span>
                     <span className="text-muted-foreground">
                       HT: {s.totalHT >= 0 ? '+' : ''}{s.totalHT}
@@ -151,9 +144,6 @@ export default function StatementsList({ statements, transactions }: StatementsL
                           <div className="flex items-center gap-4 mt-2 text-xs">
                             <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded">
                               {s.transactions} Transactions
-                            </span>
-                            <span className="text-muted-foreground">
-                              AT: {s.totalAT >= 0 ? '+' : ''}{s.totalAT}
                             </span>
                             <span className="text-muted-foreground">
                               HT: {s.totalHT >= 0 ? '+' : ''}{s.totalHT}

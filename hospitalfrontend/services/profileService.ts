@@ -20,6 +20,8 @@ export interface ProfileData {
   hasSubscription?: boolean;
   kycStatus?: string;
   registrationId?: string;
+  hospitalId?: string;
+  hospitalName?: string;
 }
 
 export interface ProfileUpdateRequest {

@@ -26,6 +26,7 @@ export interface AuthResponse {
   bloodGroup?: string;
   dateOfBirth?: string;
   hospitalId?: string;
+  hospitalName?: string;
   success: boolean;
   message: string;
 }
@@ -41,6 +42,7 @@ export interface StoredAuthUser {
   bloodGroup?: string;
   dateOfBirth?: string;
   hospitalId?: string;
+  hospitalName?: string;
 }
 
 export interface LoginRequest {
@@ -289,6 +291,7 @@ export const authService = {
           bloodGroup: user.bloodGroup || '',
           dateOfBirth: user.dateOfBirth || '',
           hospitalId: user.hospitalId || null,
+          hospitalName: user.hospitalName || null,
         })
       );
     }

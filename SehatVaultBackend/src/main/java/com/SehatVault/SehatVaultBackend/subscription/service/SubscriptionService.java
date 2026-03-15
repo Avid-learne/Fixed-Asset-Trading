@@ -1,5 +1,9 @@
 package com.SehatVault.SehatVaultBackend.subscription.service;
 
+import com.SehatVault.SehatVaultBackend.healthcard.entity.Card;
+import com.SehatVault.SehatVaultBackend.healthcard.entity.HealthCard;
+import com.SehatVault.SehatVaultBackend.healthcard.repository.CardRepository;
+import com.SehatVault.SehatVaultBackend.healthcard.repository.HealthCardRepository;
 import com.SehatVault.SehatVaultBackend.patient.entity.Patient;
 import com.SehatVault.SehatVaultBackend.patient.repository.PatientRepository;
 import com.SehatVault.SehatVaultBackend.subscription.dto.*;
@@ -18,6 +22,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -32,6 +37,8 @@ public class SubscriptionService {
     private final PatientSubscriptionRepository patientSubscriptionRepository;
     private final PaymentHistoryRepository paymentHistoryRepository;
     private final PatientRepository patientRepository;
+    private final HealthCardRepository healthCardRepository;
+    private final CardRepository cardRepository;
 
     /**
      * Get all active subscription plans
@@ -134,12 +141,98 @@ public class SubscriptionService {
             patient.setHasSubscription(true);
             patientRepository.save(patient);
 
+            // Auto-create Subscription Card if patient doesn't have one
+            autoCreateSubscriptionCard(patient.getId());
+
             PatientSubscriptionDto dto = convertToSubscriptionDto(subscription, plan);
             return ApiResponse.success("Subscription successful", dto);
 
         } catch (Exception e) {
             return ApiResponse.error("Subscription failed: " + e.getMessage());
         }
+    }
+
+    // ─── Hospital admin plan management ───────────────────────────────────────
+
+    public List<SubscriptionPlanDto> getHospitalPlans(UUID hospitalId) {
+        return subscriptionPlanRepository.findByHospitalId(hospitalId)
+                .stream().map(this::convertToDto).collect(Collectors.toList());
+    }
+
+    @Transactional
+    public SubscriptionPlanDto createPlan(UUID hospitalId, UpsertPlanRequest request) {
+        List<SubscriptionPlan> existing = subscriptionPlanRepository.findByHospitalId(hospitalId);
+        long activePlans = existing.stream().filter(p -> Boolean.TRUE.equals(p.getIsActive())).count();
+        if (activePlans >= 3) {
+            throw new IllegalStateException("A hospital can have at most 3 active subscription plans");
+        }
+        SubscriptionPlan plan = new SubscriptionPlan();
+        plan.setHospitalId(hospitalId);
+        plan.setSubscriptionName(request.getSubscriptionName());
+        plan.setAmountPerMonth(request.getAmountPerMonth());
+        plan.setFeatures(String.join("|", request.getFeatures()));
+        plan.setIsActive(true);
+        return convertToDto(subscriptionPlanRepository.save(plan));
+    }
+
+    @Transactional
+    public SubscriptionPlanDto updatePlan(UUID hospitalId, UUID subsId, UpsertPlanRequest request) {
+        SubscriptionPlan plan = subscriptionPlanRepository.findById(subsId)
+                .orElseThrow(() -> new IllegalArgumentException("Plan not found"));
+        if (!plan.getHospitalId().equals(hospitalId)) {
+            throw new IllegalArgumentException("Plan does not belong to this hospital");
+        }
+        plan.setSubscriptionName(request.getSubscriptionName());
+        plan.setAmountPerMonth(request.getAmountPerMonth());
+        plan.setFeatures(String.join("|", request.getFeatures()));
+        return convertToDto(subscriptionPlanRepository.save(plan));
+    }
+
+    @Transactional
+    public void deactivatePlan(UUID hospitalId, UUID subsId) {
+        SubscriptionPlan plan = subscriptionPlanRepository.findById(subsId)
+                .orElseThrow(() -> new IllegalArgumentException("Plan not found"));
+        if (!plan.getHospitalId().equals(hospitalId)) {
+            throw new IllegalArgumentException("Plan does not belong to this hospital");
+        }
+        plan.setIsActive(false);
+        subscriptionPlanRepository.save(plan);
+    }
+
+    // ─── Health card helper ───────────────────────────────────────────────────
+
+    private void autoCreateSubscriptionCard(UUID patientId) {
+        try {
+            Card card = cardRepository.findByCardNameIgnoreCase("Subscription Card").orElseGet(() -> {
+                Card c = new Card();
+                c.setCardName("Subscription Card");
+                return cardRepository.save(c);
+            });
+            boolean exists = !healthCardRepository.findByPatientIdAndCardId(patientId, card.getCardId()).isEmpty();
+            if (!exists) {
+                HealthCard hc = new HealthCard();
+                hc.setPatientId(patientId);
+                hc.setCardId(card.getCardId());
+                hc.setCardNum(generateCardNum());
+                hc.setHtBalance(BigDecimal.ZERO);
+                hc.setExpiryDate(LocalDate.now().plusYears(1));
+                hc.setCvv(String.format("%03d", new Random().nextInt(1000)));
+                healthCardRepository.save(hc);
+            }
+        } catch (Exception e) {
+            System.err.println("[WARN] Could not auto-create subscription card: " + e.getMessage());
+        }
+    }
+
+    private String generateCardNum() {
+        Random rng = new Random();
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < 16; i++) {
+            if (i > 0 && i % 4 == 0) sb.append('-');
+            sb.append(rng.nextInt(10));
+        }
+        String num = sb.toString();
+        return healthCardRepository.existsByCardNum(num) ? generateCardNum() : num;
     }
 
     /**

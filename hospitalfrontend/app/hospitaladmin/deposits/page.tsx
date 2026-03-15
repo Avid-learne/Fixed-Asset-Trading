@@ -1,716 +1,263 @@
 'use client'
 
-import React, { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
-import { CheckCircle, XCircle, Search, Eye, FileText, AlertTriangle, Clock, Filter, Download, Users, Calculator } from 'lucide-react'
-import { TabsTrigger } from '@radix-ui/react-tabs'
-import { TabsList } from '@radix-ui/react-tabs'
-import { Tabs } from '@radix-ui/react-tabs'
-import { TabsContent } from '@radix-ui/react-tabs'
-interface Deposit {
-  id: string
-  patientId: string
-  patientName: string
-  patientEmail: string
-  assetType: string
-  weight?: number // For gold/silver in grams
-  assetDescription: string
-  value: number
-  expectedTokens: number // AT tokens to be minted
-  hospitalName: string
-  status: 'pending_review' | 'pending_bank' | 'approved' | 'rejected'
-  submittedDate: string
-  documentStatus: 'incomplete' | 'complete'
-  documents: {
-    title: string
-    type: string
-    status: 'verified' | 'pending' | 'rejected'
-  }[]
-  bankVerification?: {
-    status: 'pending' | 'verified' | 'failed'
-    verifiedBy?: string
-    verifiedDate?: string
-  }
-}
+import { Badge } from '@/components/ui/badge'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { CheckCircle2, XCircle, Loader2, RefreshCw, Search } from 'lucide-react'
+import { depositRequestService, type AssetDepositItem } from '@/services/depositRequestService'
 
-const mockDeposits: Deposit[] = [
-  {
-    id: 'DEP-1001',
-    patientId: 'PAT-001',
-    patientName: 'John Patient',
-    patientEmail: 'john.patient@example.com',
-    assetType: 'Gold',
-    weight: 50,
-    assetDescription: '50 grams of Gold',
-    value: 750000,
-    expectedTokens: 7500,
-    hospitalName: 'Liaquat National Hospital',
-    status: 'pending_review',
-    submittedDate: '2024-12-08',
-    documentStatus: 'complete',
-    documents: [
-      { title: 'Asset Certificate', type: 'pdf', status: 'pending' },
-      { title: 'Identity Proof', type: 'pdf', status: 'pending' },
-    ],
-    bankVerification: { status: 'pending' }
-  },
-  {
-    id: 'DEP-1002',
-    patientId: 'PAT-002',
-    patientName: 'Sarah Johnson',
-    patientEmail: 'sarah@example.com',
-    assetType: 'Silver',
-    weight: 200,
-    assetDescription: '200 grams of Silver',
-    value: 50000,
-    expectedTokens: 500,
-    hospitalName: 'Liaquat National Hospital',
-    status: 'pending_review',
-    submittedDate: '2024-12-07',
-    documentStatus: 'complete',
-    documents: [
-      { title: 'Asset Certificate', type: 'pdf', status: 'verified' },
-      { title: 'Identity Proof', type: 'pdf', status: 'verified' },
-    ],
-    bankVerification: { status: 'pending' }
-  },
-  {
-    id: 'DEP-1003',
-    patientId: 'PAT-003',
-    patientName: 'Michael Brown',
-    patientEmail: 'michael@example.com',
-    assetType: 'Gold',
-    weight: 25,
-    assetDescription: '25 grams of Gold',
-    value: 375000,
-    expectedTokens: 3750,
-    hospitalName: 'Liaquat National Hospital',
-    status: 'approved',
-    submittedDate: '2024-12-05',
-    documentStatus: 'complete',
-    documents: [
-      { title: 'Asset Certificate', type: 'pdf', status: 'verified' },
-      { title: 'Identity Proof', type: 'pdf', status: 'verified' },
-    ],
-    bankVerification: { status: 'verified', verifiedBy: 'Liaquat National Hospital', verifiedDate: '2024-12-06' }
-  },
-  {
-    id: 'DEP-1004',
-    patientId: 'PAT-004',
-    patientName: 'Emily Davis',
-    patientEmail: 'emily@example.com',
-    assetType: 'Silver',
-    weight: 100,
-    assetDescription: '100 grams of Silver',
-    value: 25000,
-    expectedTokens: 250,
-    hospitalName: 'Liaquat National Hospital',
-    status: 'rejected',
-    submittedDate: '2024-12-04',
-    documentStatus: 'incomplete',
-    documents: [
-      { title: 'Asset Certificate', type: 'pdf', status: 'rejected' },
-      { title: 'Identity Proof', type: 'pdf', status: 'verified' },
-    ],
-    bankVerification: { status: 'failed' }
-  },
-]
+const toNumber = (value: number | string | undefined | null) => Number(value || 0)
 
 export default function DepositsPage() {
-  const [deposits, setDeposits] = useState<Deposit[]>(mockDeposits)
-  const [searchTerm, setSearchTerm] = useState('')
+  const [rows, setRows] = useState<AssetDepositItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
+  const [error, setError] = useState('')
+
   const [statusFilter, setStatusFilter] = useState('all')
-  const [selectedDeposits, setSelectedDeposits] = useState<string[]>([])
-  const [selectedDeposit, setSelectedDeposit] = useState<Deposit | null>(null)
-  const [showRejectDialog, setShowRejectDialog] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+
+  const [rejectOpen, setRejectOpen] = useState(false)
+  const [rejectTarget, setRejectTarget] = useState<AssetDepositItem | null>(null)
   const [rejectReason, setRejectReason] = useState('')
-  const [showBulkApprove, setShowBulkApprove] = useState(false)
-  const [processing, setProcessing] = useState(false)
 
-  const filteredDeposits = deposits.filter((deposit) => {
-    const matchesSearch = deposit.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         deposit.patientId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         deposit.id.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === 'all' || deposit.status === statusFilter
-    return matchesSearch && matchesStatus
-  })
-
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedDeposits(filteredDeposits.filter(d => d.status !== 'approved' && d.status !== 'rejected').map(d => d.id))
-    } else {
-      setSelectedDeposits([])
+  const loadRequests = async (status: string = statusFilter) => {
+    try {
+      setLoading(true)
+      setError('')
+      const data = await depositRequestService.getHospitalRequests(status)
+      setRows(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load deposit requests')
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleSelectDeposit = (id: string, checked: boolean) => {
-    if (checked) {
-      setSelectedDeposits([...selectedDeposits, id])
-    } else {
-      setSelectedDeposits(selectedDeposits.filter(d => d !== id))
+  useEffect(() => {
+    loadRequests('all')
+  }, [])
+
+  const filtered = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase()
+    if (!query) return rows
+    return rows.filter((item) => {
+      return (
+        item.patientName.toLowerCase().includes(query) ||
+        item.patientEmail.toLowerCase().includes(query) ||
+        item.assetId.toLowerCase().includes(query)
+      )
+    })
+  }, [rows, searchTerm])
+
+  const pendingCount = rows.filter((r) => r.status.toLowerCase() === 'pending').length
+  const approvedCount = rows.filter((r) => r.status.toLowerCase() === 'approved').length
+  const rejectedCount = rows.filter((r) => r.status.toLowerCase() === 'rejected').length
+  const approvedValue = rows
+    .filter((r) => r.status.toLowerCase() === 'approved')
+    .reduce((sum, r) => sum + toNumber(r.assetValue), 0)
+
+  const approve = async (row: AssetDepositItem) => {
+    try {
+      setActionLoadingId(row.assetId)
+      setError('')
+      await depositRequestService.approve(row.assetId)
+      await loadRequests(statusFilter)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to approve request')
+    } finally {
+      setActionLoadingId(null)
     }
   }
 
-  const handleApprove = (id: string) => {
-    setDeposits(deposits.map(d => d.id === id ? { ...d, status: 'approved' as const } : d))
-  }
+  const reject = async () => {
+    if (!rejectTarget) return
+    if (!rejectReason.trim()) {
+      setError('Rejection reason is required')
+      return
+    }
 
-  const handleReject = () => {
-    if (!selectedDeposit || !rejectReason.trim()) return
-    
-    setProcessing(true)
-    setTimeout(() => {
-      setDeposits(deposits.map(d => 
-        d.id === selectedDeposit.id ? { ...d, status: 'rejected' as const } : d
-      ))
-      setShowRejectDialog(false)
+    try {
+      setActionLoadingId(rejectTarget.assetId)
+      setError('')
+      await depositRequestService.reject(rejectTarget.assetId, rejectReason.trim())
+      setRejectOpen(false)
+      setRejectTarget(null)
       setRejectReason('')
-      setSelectedDeposit(null)
-      setProcessing(false)
-    }, 1000)
-  }
-
-  const handleBulkApprove = () => {
-    setProcessing(true)
-    setTimeout(() => {
-      setDeposits(deposits.map(d => 
-        selectedDeposits.includes(d.id) ? { ...d, status: 'approved' as const } : d
-      ))
-      setSelectedDeposits([])
-      setShowBulkApprove(false)
-      setProcessing(false)
-    }, 1500)
-  }
-
-  const getStatusBadge = (status: string) => {
-    const configs = {
-      pending_review: { color: 'bg-yellow-100 text-yellow-700 border-yellow-200', label: 'Pending Review', icon: Clock },
-      pending_bank: { color: 'bg-blue-100 text-blue-700 border-blue-200', label: 'Pending Bank', icon: Clock },
-      approved: { color: 'bg-green-100 text-green-700 border-green-200', label: 'Approved', icon: CheckCircle },
-      rejected: { color: 'bg-red-100 text-red-700 border-red-200', label: 'Rejected', icon: XCircle },
+      await loadRequests(statusFilter)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reject request')
+    } finally {
+      setActionLoadingId(null)
     }
-    const config = configs[status as keyof typeof configs]
-    const Icon = config.icon
-    return (
-      <Badge variant="outline" className={`gap-1 ${config.color}`}>
-        <Icon className="w-3 h-3" />
-        {config.label}
-      </Badge>
-    )
   }
 
-  const pendingCount = deposits.filter(d => d.status === 'pending_review').length
-  const bankPendingCount = deposits.filter(d => d.status === 'pending_bank').length
-  const approvedCount = deposits.filter(d => d.status === 'approved').length
-  const totalValue = deposits.filter(d => d.status === 'approved').reduce((sum, d) => sum + d.value, 0)
+  const statusBadge = (status: string) => {
+    const value = status.toLowerCase()
+    if (value === 'approved') {
+      return <Badge className="bg-emerald-600 hover:bg-emerald-600">Approved</Badge>
+    }
+    if (value === 'rejected') {
+      return <Badge className="bg-rose-600 hover:bg-rose-600">Rejected</Badge>
+    }
+    return <Badge variant="outline">Pending</Badge>
+  }
+
+  const bankReviewBadge = (status?: string) => {
+    const value = (status || '').toLowerCase()
+    if (value === 'approved') {
+      return <Badge className="bg-emerald-600 hover:bg-emerald-600">Bank Approved</Badge>
+    }
+    if (value === 'rejected') {
+      return <Badge className="bg-rose-600 hover:bg-rose-600">Bank Rejected</Badge>
+    }
+    if (value === 'pending') {
+      return <Badge variant="outline">Forwarded to Bank</Badge>
+    }
+    return <Badge variant="secondary">Not Forwarded</Badge>
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Deposit Management</h1>
-          <p className="text-muted-foreground mt-1">Manage asset deposits and AT token minting.</p>
-        </div>
-        {selectedDeposits.length > 0 && (
-          <Button className="gap-2" onClick={() => setShowBulkApprove(true)}>
-            <CheckCircle className="w-4 h-4" />
-            Approve Selected ({selectedDeposits.length})
-          </Button>
-        )}
+    <div className="mx-auto max-w-7xl space-y-5 px-4 pb-8 pt-2 lg:px-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Hospital Deposit Requests</h1>
+        <p className="mt-1 text-sm text-slate-600">Approve patient asset deposits for your hospital. Approved deposits are used in HT profit contribution calculations.</p>
       </div>
 
-      {/* Asset Deposits */}
-      <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
-                  Pending Review
-                  <Clock className="w-4 h-4 text-yellow-600" />
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-foreground">{pendingCount}</p>
-                <p className="text-sm text-muted-foreground mt-1">Awaiting approval</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
-                  Bank Verification
-                  <Users className="w-4 h-4 text-blue-600" />
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-foreground">{bankPendingCount}</p>
-                <p className="text-sm text-muted-foreground mt-1">With banks</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
-                  Approved
-                  <CheckCircle className="w-4 h-4 text-green-600" />
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-foreground">{approvedCount}</p>
-                <p className="text-sm text-muted-foreground mt-1">Ready to mint</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
-                  Total Value
-                  <Download className="w-4 h-4 text-primary" />
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-foreground">PKR {(totalValue / 1000).toFixed(0)}K</p>
-                <p className="text-sm text-muted-foreground mt-1">Approved assets</p>
-              </CardContent>
-            </Card>
-          </div>
+      {error && <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-      <Card>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <Card className="shadow-sm"><CardHeader className="pb-2"><CardTitle className="text-xs uppercase tracking-wide text-slate-500">Pending</CardTitle></CardHeader><CardContent><p className="text-2xl font-semibold">{pendingCount}</p></CardContent></Card>
+        <Card className="shadow-sm"><CardHeader className="pb-2"><CardTitle className="text-xs uppercase tracking-wide text-slate-500">Approved</CardTitle></CardHeader><CardContent><p className="text-2xl font-semibold text-emerald-700">{approvedCount}</p></CardContent></Card>
+        <Card className="shadow-sm"><CardHeader className="pb-2"><CardTitle className="text-xs uppercase tracking-wide text-slate-500">Rejected</CardTitle></CardHeader><CardContent><p className="text-2xl font-semibold text-rose-700">{rejectedCount}</p></CardContent></Card>
+        <Card className="shadow-sm"><CardHeader className="pb-2"><CardTitle className="text-xs uppercase tracking-wide text-slate-500">Approved Value</CardTitle></CardHeader><CardContent><p className="text-2xl font-semibold">PKR {approvedValue.toLocaleString()}</p></CardContent></Card>
+      </div>
+
+      <Card className="shadow-sm">
         <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <CardTitle className="text-lg">Deposit Queue</CardTitle>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <div className="relative flex-1 sm:w-64">
-                <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search deposits..."
-                  className="pl-10"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <CardTitle className="text-lg">Requests Queue</CardTitle>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
+                <Input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9" placeholder="Search patient or request" />
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-[180px]">
-                  <Filter className="w-4 h-4 mr-2" />
-                  <SelectValue />
-                </SelectTrigger>
+              <Select
+                value={statusFilter}
+                onValueChange={async (value) => {
+                  setStatusFilter(value)
+                  await loadRequests(value)
+                }}
+              >
+                <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="pending_review">Pending Review</SelectItem>
-                  <SelectItem value="pending_bank">Pending Bank</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="approved">Approved</SelectItem>
                   <SelectItem value="rejected">Rejected</SelectItem>
                 </SelectContent>
               </Select>
+              <Button variant="outline" onClick={() => loadRequests(statusFilter)}>
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              </Button>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">
-                  <Checkbox 
-                    checked={selectedDeposits.length === filteredDeposits.filter(d => d.status !== 'approved' && d.status !== 'rejected').length && filteredDeposits.filter(d => d.status !== 'approved' && d.status !== 'rejected').length > 0}
-                    onCheckedChange={handleSelectAll}
-                  />
-                </TableHead>
-                <TableHead>Deposit ID</TableHead>
-                <TableHead>Patient</TableHead>
-                <TableHead>Asset Type</TableHead>
-                <TableHead>Weight</TableHead>
-                <TableHead className="text-right">Worth (PKR)</TableHead>
-                <TableHead className="text-right">AT Tokens</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredDeposits.length === 0 ? (
+          {loading ? (
+            <div className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" />Loading requests...</div>
+          ) : (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
-                    No deposits found
-                  </TableCell>
+                  <TableHead>Request</TableHead>
+                  <TableHead>Patient</TableHead>
+                  <TableHead>Asset</TableHead>
+                  <TableHead className="text-right">Weight</TableHead>
+                  <TableHead className="text-right">Value</TableHead>
+                  <TableHead className="text-right">AT</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Bank Review</TableHead>
+                  <TableHead>Submitted</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
                 </TableRow>
-              ) : (
-                filteredDeposits.map((deposit) => (
-                  <TableRow key={deposit.id}>
-                    <TableCell>
-                      <Checkbox 
-                        checked={selectedDeposits.includes(deposit.id)}
-                        onCheckedChange={(checked) => handleSelectDeposit(deposit.id, checked as boolean)}
-                        disabled={deposit.status === 'approved' || deposit.status === 'rejected'}
-                      />
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">{deposit.id}</TableCell>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{deposit.patientName}</p>
-                        <p className="text-xs text-muted-foreground">{deposit.patientEmail}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={
-                        deposit.assetType === 'Gold' 
-                          ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
-                          : 'bg-slate-50 text-slate-700 border-slate-200'
-                      }>
-                        {deposit.assetType}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {deposit.weight ? `${deposit.weight}g` : '—'}
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {deposit.value.toLocaleString()}
-                    </TableCell>
-                    <TableCell className="text-right font-semibold text-accent">
-                      {deposit.expectedTokens} AT
-                    </TableCell>
-                    <TableCell>{getStatusBadge(deposit.status)}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex gap-2 justify-end">
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => setSelectedDeposit(deposit)}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        {deposit.status === 'pending_review' && (
-                          <>
-                            <Button 
-                              size="sm" 
-                              className="bg-success hover:bg-success/90"
-                              onClick={() => handleApprove(deposit.id)}
-                            >
-                              Approve
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="destructive"
-                              onClick={() => {
-                                setSelectedDeposit(deposit)
-                                setShowRejectDialog(true)
-                              }}
-                            >
-                              Reject
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
+              </TableHeader>
+              <TableBody>
+                {filtered.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={10} className="py-8 text-center text-sm text-slate-500">No requests found</TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  filtered.map((row) => {
+                    const isPending = row.status.toLowerCase() === 'pending'
+                    return (
+                      <TableRow key={row.assetId}>
+                        <TableCell className="font-mono text-xs">{row.assetId.slice(0, 8)}</TableCell>
+                        <TableCell>
+                          <p className="font-medium text-slate-900">{row.patientName}</p>
+                          <p className="text-xs text-slate-500">{row.patientEmail}</p>
+                        </TableCell>
+                        <TableCell>{row.assetType}</TableCell>
+                        <TableCell className="text-right">{toNumber(row.weight).toLocaleString()} g</TableCell>
+                        <TableCell className="text-right">PKR {toNumber(row.assetValue).toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-semibold text-emerald-700">{toNumber(row.expectedTokens).toLocaleString()} AT</TableCell>
+                        <TableCell>{statusBadge(row.status)}</TableCell>
+                        <TableCell>{bankReviewBadge(row.bankApprovalStatus)}</TableCell>
+                        <TableCell>{new Date(row.submittedAt).toLocaleDateString()}</TableCell>
+                        <TableCell className="text-right">
+                          {isPending ? (
+                            <div className="flex justify-end gap-2">
+                              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" disabled={actionLoadingId === row.assetId} onClick={() => approve(row)}>
+                                {actionLoadingId === row.assetId ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-rose-200 text-rose-700 hover:bg-rose-50"
+                                disabled={actionLoadingId === row.assetId}
+                                onClick={() => {
+                                  setRejectTarget(row)
+                                  setRejectOpen(true)
+                                }}
+                              >
+                                <XCircle className="h-4 w-4" />
+                                Reject
+                              </Button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-500">Completed</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
-      </div>
 
-      {/* View Deposit Details Dialog */}
-      <Dialog open={!!selectedDeposit && !showRejectDialog} onOpenChange={(open) => !open && setSelectedDeposit(null)}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Deposit Details - {selectedDeposit?.id}</DialogTitle>
-            <DialogDescription>
-              Review all information before approving or rejecting this deposit.
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedDeposit && (
-            <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="documents">Documents</TabsTrigger>
-                <TabsTrigger value="verification">Verification</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="overview" className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Patient Name</label>
-                    <p className="text-sm">{selectedDeposit.patientName}</p>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Patient Email</label>
-                    <p className="text-sm text-muted-foreground">{selectedDeposit.patientEmail}</p>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Patient ID</label>
-                    <p className="text-sm font-mono">{selectedDeposit.patientId}</p>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Hospital</label>
-                    <p className="text-sm">{selectedDeposit.hospitalName}</p>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Asset Type</label>
-                    <p className="text-sm font-semibold">{selectedDeposit.assetType}</p>
-                  </div>
-                  {selectedDeposit.weight && (
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Weight</label>
-                      <p className="text-sm">{selectedDeposit.weight} grams</p>
-                    </div>
-                  )}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Asset Worth</label>
-                    <p className="text-sm font-bold text-primary">PKR {selectedDeposit.value.toLocaleString()}</p>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Expected AT Tokens</label>
-                    <p className="text-sm font-bold text-accent">{selectedDeposit.expectedTokens} AT</p>
-                  </div>
-                  <div className="space-y-2 col-span-2">
-                    <label className="text-sm font-medium">Asset Description</label>
-                    <p className="text-sm text-muted-foreground">{selectedDeposit.assetDescription}</p>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Submitted Date</label>
-                    <p className="text-sm">{selectedDeposit.submittedDate}</p>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Current Status</label>
-                    {getStatusBadge(selectedDeposit.status)}
-                  </div>
-                </div>
-
-                {/* Investment Calculation Breakdown */}
-                <div className="mt-6 p-4 bg-muted/50 rounded-lg border">
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <Calculator className="w-4 h-4" />
-                    Investment Calculation
-                  </h4>
-                  <div className="space-y-2 text-sm">
-                    {selectedDeposit.weight && (
-                      <>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Asset Weight:</span>
-                          <span className="font-medium">{selectedDeposit.weight} grams</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Rate per gram:</span>
-                          <span className="font-medium">
-                            PKR {selectedDeposit.assetType === 'Gold' ? '15,000' : '250'}
-                          </span>
-                        </div>
-                      </>
-                    )}
-                    <div className="flex justify-between pt-2 border-t">
-                      <span className="text-muted-foreground">Total Asset Worth:</span>
-                      <span className="font-bold">PKR {selectedDeposit.value.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Token Ratio:</span>
-                      <span className="font-medium">1 AT = 100 PKR</span>
-                    </div>
-                    <div className="flex justify-between pt-2 border-t">
-                      <span className="font-semibold">AT Tokens to Mint:</span>
-                      <span className="font-bold text-lg text-accent">{selectedDeposit.expectedTokens} AT</span>
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="documents" className="space-y-4">
-                <div className="space-y-3">
-                  {selectedDeposit.documents.map((doc, index) => (
-                    <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <FileText className="w-5 h-5 text-muted-foreground" />
-                        <div>
-                          <p className="font-medium text-sm">{doc.title}</p>
-                          <p className="text-xs text-muted-foreground">{doc.type.toUpperCase()}</p>
-                        </div>
-                      </div>
-                      <Badge variant="outline" className={
-                        doc.status === 'verified' 
-                          ? 'bg-green-50 text-green-700 border-green-200'
-                          : doc.status === 'rejected'
-                          ? 'bg-red-50 text-red-700 border-red-200'
-                          : 'bg-yellow-50 text-yellow-700 border-yellow-200'
-                      }>
-                        {doc.status}
-                      </Badge>
-                      <Button size="sm" variant="outline">
-                        <Eye className="w-4 h-4 mr-2" />
-                        View
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="verification" className="space-y-4">
-                <div className="space-y-4">
-                  <div className="p-4 border rounded-lg">
-                    <h4 className="font-medium mb-3">Bank Verification Status</h4>
-                    {selectedDeposit.bankVerification?.status === 'verified' ? (
-                      <div className="flex items-start gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                        <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
-                        <div>
-                          <p className="font-medium text-sm text-green-900">Verified by {selectedDeposit.bankVerification.verifiedBy}</p>
-                          <p className="text-xs text-green-700 mt-1">Verified on {selectedDeposit.bankVerification.verifiedDate}</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-start gap-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <Clock className="w-5 h-5 text-yellow-600 mt-0.5" />
-                        <div>
-                          <p className="font-medium text-sm text-yellow-900">Pending Bank Verification</p>
-                          <p className="text-xs text-yellow-700 mt-1">Awaiting response from custody bank</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="p-4 border rounded-lg">
-                    <h4 className="font-medium mb-3">Document Verification</h4>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Verified Documents</span>
-                        <span className="font-medium">{selectedDeposit.documents.filter(d => d.status === 'verified').length} / {selectedDeposit.documents.length}</span>
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div 
-                          className="bg-green-600 h-2 rounded-full" 
-                          style={{ width: `${(selectedDeposit.documents.filter(d => d.status === 'verified').length / selectedDeposit.documents.length) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
-            </Tabs>
-          )}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedDeposit(null)}>
-              Close
-            </Button>
-            {selectedDeposit?.status === 'pending_review' && (
-              <>
-                <Button 
-                  variant="destructive"
-                  onClick={() => setShowRejectDialog(true)}
-                >
-                  Reject
-                </Button>
-                <Button 
-                  onClick={() => {
-                    handleApprove(selectedDeposit.id)
-                    setSelectedDeposit(null)
-                  }}
-                >
-                  Approve
-                </Button>
-              </>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Reject Dialog */}
-      <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
+      <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reject Deposit</DialogTitle>
+            <DialogTitle>Reject Deposit Request</DialogTitle>
             <DialogDescription>
-              Please provide a reason for rejecting this deposit.
+              Add a reason for rejection. This will be stored with the request.
             </DialogDescription>
           </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <Textarea 
-              placeholder="Enter rejection reason..."
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              rows={4}
-            />
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex gap-2">
-              <AlertTriangle className="w-5 h-5 text-yellow-600 shrink-0 mt-0.5" />
-              <p className="text-xs text-yellow-700">
-                The patient will be notified via email about the rejection and the reason provided.
-              </p>
-            </div>
-          </div>
-
+          <Textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="Reason for rejection" />
           <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              setShowRejectDialog(false)
-              setRejectReason('')
-            }} disabled={processing}>
-              Cancel
-            </Button>
-            <Button 
-              variant="destructive"
-              onClick={handleReject}
-              disabled={!rejectReason.trim() || processing}
-            >
-              {processing ? 'Processing...' : 'Confirm Rejection'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Bulk Approve Dialog */}
-      <Dialog open={showBulkApprove} onOpenChange={setShowBulkApprove}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Bulk Approve Deposits</DialogTitle>
-            <DialogDescription>
-              You are about to approve {selectedDeposits.length} deposits.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="p-4 bg-muted rounded-lg">
-              <p className="text-sm text-muted-foreground">Total Deposits</p>
-              <p className="text-2xl font-bold">{selectedDeposits.length}</p>
-            </div>
-
-            <div className="max-h-64 overflow-y-auto border rounded-lg">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Patient</TableHead>
-                    <TableHead>Asset</TableHead>
-                    <TableHead className="text-right">Value</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {deposits.filter(d => selectedDeposits.includes(d.id)).map(d => (
-                    <TableRow key={d.id}>
-                      <TableCell className="font-medium">{d.patientName}</TableCell>
-                      <TableCell>{d.assetType} - {d.weight}g</TableCell>
-                      <TableCell className="text-right">PKR {d.value.toLocaleString()}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex gap-2">
-              <AlertTriangle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
-              <p className="text-xs text-blue-700">
-                Approved deposits will be moved to the minting queue and patients will be notified.
-              </p>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowBulkApprove(false)} disabled={processing}>
-              Cancel
-            </Button>
-            <Button onClick={handleBulkApprove} disabled={processing}>
-              {processing ? 'Processing...' : 'Approve All'}
+            <Button variant="outline" onClick={() => setRejectOpen(false)}>Cancel</Button>
+            <Button variant="destructive" disabled={!rejectReason.trim() || (rejectTarget ? actionLoadingId === rejectTarget.assetId : false)} onClick={reject}>
+              {rejectTarget && actionLoadingId === rejectTarget.assetId ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Reject'}
             </Button>
           </DialogFooter>
         </DialogContent>

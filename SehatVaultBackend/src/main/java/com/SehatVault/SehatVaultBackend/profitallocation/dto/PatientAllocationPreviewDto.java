@@ -11,7 +11,8 @@ public class PatientAllocationPreviewDto {
     private UUID userId;
     private UUID assetId;
     private String patientName;
-    private BigDecimal atHolding;
+    private String walletAddress;
+    private BigDecimal assetContributionPkr;
     private BigDecimal sharePercent;
     private BigDecimal htAmount;
     private BigDecimal pkrValue;

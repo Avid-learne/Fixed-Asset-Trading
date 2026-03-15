@@ -19,32 +19,37 @@ export default function HTWalletPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const loadWallet = async () => {
-      if (!userId) {
-        setLoading(false)
-        setError('User not authenticated')
-        return
-      }
-
-      try {
-        setLoading(true)
-        setError(null)
-        const [summaryData, htTx] = await Promise.all([
-          walletService.getSummary(userId),
-          walletService.getTokenTransactions(userId, 'HT'),
-        ])
-        setSummary(summaryData)
-        setTransactions(htTx)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load HT wallet data')
-      } finally {
-        setLoading(false)
-      }
+  const loadWallet = async () => {
+    if (!userId) {
+      setLoading(false)
+      setError('User not authenticated')
+      return
     }
 
+    try {
+      setLoading(true)
+      setError(null)
+      const [summaryData, htTx] = await Promise.all([
+        walletService.getSummary(userId),
+        walletService.getTokenTransactions(userId, 'HT'),
+      ])
+      setSummary(summaryData)
+      setTransactions(htTx)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load HT wallet data')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
     loadWallet()
   }, [userId])
+
+  const handleTransfer = async (recipientWalletAddress: string, amount: number, note?: string) => {
+    await walletService.transferHT(recipientWalletAddress, amount, note)
+    await loadWallet()
+  }
 
   const totalRedeemed = useMemo(
     () => transactions.filter((t) => t.transactionType === 'DEBIT').reduce((sum, t) => sum + Math.abs(t.amount), 0),
@@ -82,6 +87,7 @@ export default function HTWalletPage() {
         transactions={transactions}
         totalRedeemed={totalRedeemed}
         upcomingBenefits={0}
+        onTransfer={handleTransfer}
       />
     </div>
   )

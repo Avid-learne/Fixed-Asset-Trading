@@ -76,6 +76,18 @@ export function ProfileContactForm({
   const [submitting, setSubmitting] = useState(false)
   const [savedMessage, setSavedMessage] = useState('')
 
+  // Fetch fresh profile from backend on mount so wallet address (not in JWT) is loaded.
+  useEffect(() => {
+    const user = authService.getUser()
+    if (!user?.id) return
+    profileService.getProfile(user.id).then(data => {
+      if (data.walletAddress) {
+        updateProfile({ walletAddress: data.walletAddress })
+      }
+    }).catch(() => { /* non-critical, form still works */ })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   useEffect(() => {
     setForm(initialFormState)
   }, [initialFormState])
