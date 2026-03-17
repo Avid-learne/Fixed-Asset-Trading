@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,146 +10,76 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Plus, Search, Shield, UserCog, Mail, Clock, Activity, Eye, Edit2, Trash2, CheckCircle, XCircle } from 'lucide-react'
-
-interface StaffMember {
-  id: string
-  name: string
-  email: string
-  phone: string
-  role: 'Admin' | 'Medical Officer' | 'Finance Manager' | 'Clerk' | 'Auditor'
-  status: 'active' | 'inactive' | 'pending'
-  joinDate: string
-  lastLogin: string
-  permissions: {
-    viewPatients: boolean
-    approveDeposits: boolean
-    mintTokens: boolean
-    manageStaff: boolean
-    viewReports: boolean
-    allocateProfits: boolean
-    manageSettings: boolean
-  }
-  activityLog: {
-    action: string
-    timestamp: string
-    details: string
-  }[]
-}
-
-const mockStaff: StaffMember[] = [
-  {
-    id: 'STAFF-001',
-    name: 'Dr. Sarah Smith',
-    email: 'sarah.smith@lnh.com',
-    phone: '+92 300 1234567',
-    role: 'Medical Officer',
-    status: 'active',
-    joinDate: '2024-01-15',
-    lastLogin: '2024-12-04 09:30',
-    permissions: {
-      viewPatients: true,
-      approveDeposits: true,
-      mintTokens: false,
-      manageStaff: false,
-      viewReports: true,
-      allocateProfits: false,
-      manageSettings: false
-    },
-    activityLog: [
-      { action: 'Approved Deposit', timestamp: '2024-12-04 09:15', details: 'Deposit DEP-1001 approved' },
-      { action: 'Viewed Patient', timestamp: '2024-12-04 08:45', details: 'Accessed PAT-001 profile' },
-      { action: 'Login', timestamp: '2024-12-04 08:30', details: 'Successful login' },
-    ]
-  },
-  {
-    id: 'STAFF-002',
-    name: 'James Wilson',
-    email: 'j.wilson@lnh.com',
-    phone: '+92 300 2345678',
-    role: 'Finance Manager',
-    status: 'active',
-    joinDate: '2023-08-20',
-    lastLogin: '2024-12-04 10:00',
-    permissions: {
-      viewPatients: true,
-      approveDeposits: true,
-      mintTokens: true,
-      manageStaff: false,
-      viewReports: true,
-      allocateProfits: true,
-      manageSettings: false
-    },
-    activityLog: [
-      { action: 'Allocated Profits', timestamp: '2024-12-03 16:20', details: 'Distributed PKR 5M in HT' },
-      { action: 'Minted Tokens', timestamp: '2024-12-03 14:30', details: 'Minted 5000 AT for DEP-1002' },
-      { action: 'Login', timestamp: '2024-12-04 10:00', details: 'Successful login' },
-    ]
-  },
-  {
-    id: 'STAFF-003',
-    name: 'Emily Chen',
-    email: 'e.chen@lnh.com',
-    phone: '+92 300 3456789',
-    role: 'Clerk',
-    status: 'inactive',
-    joinDate: '2024-03-10',
-    lastLogin: '2024-11-28 15:45',
-    permissions: {
-      viewPatients: true,
-      approveDeposits: false,
-      mintTokens: false,
-      manageStaff: false,
-      viewReports: true,
-      allocateProfits: false,
-      manageSettings: false
-    },
-    activityLog: [
-      { action: 'Viewed Reports', timestamp: '2024-11-28 15:30', details: 'Generated monthly report' },
-      { action: 'Login', timestamp: '2024-11-28 15:00', details: 'Successful login' },
-    ]
-  },
-  {
-    id: 'STAFF-004',
-    name: 'Michael Rodriguez',
-    email: 'm.rodriguez@lnh.com',
-    phone: '+92 300 4567890',
-    role: 'Admin',
-    status: 'active',
-    joinDate: '2023-01-05',
-    lastLogin: '2024-12-04 07:00',
-    permissions: {
-      viewPatients: true,
-      approveDeposits: true,
-      mintTokens: true,
-      manageStaff: true,
-      viewReports: true,
-      allocateProfits: true,
-      manageSettings: true
-    },
-    activityLog: [
-      { action: 'Updated Settings', timestamp: '2024-12-04 06:45', details: 'Modified KYC configuration' },
-      { action: 'Added Staff', timestamp: '2024-12-03 10:15', details: 'Invited new staff member' },
-      { action: 'Login', timestamp: '2024-12-04 07:00', details: 'Successful login' },
-    ]
-  },
-]
+import { Plus, Search, Shield, UserCog, Mail, Clock, Activity, Eye, Edit2, Trash2, CheckCircle, XCircle, Loader2, RefreshCw, AlertCircle } from 'lucide-react'
+import { staffService, StaffMember } from '@/services/staffService'
 
 export default function StaffManagementPage() {
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'pending'>('all')
   const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null)
   const [showInviteDialog, setShowInviteDialog] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [inviting, setInviting] = useState(false)
 
-  const filteredStaff = mockStaff.filter(staff => {
-    const matchesSearch = staff.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         staff.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         staff.role.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === 'all' || staff.status === statusFilter
-    return matchesSearch && matchesStatus
-  })
+  // Fetch staff members on component mount
+  useEffect(() => {
+    loadStaffMembers()
+  }, [])
+
+  const loadStaffMembers = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await staffService.getStaffMembers()
+      setStaffMembers(data)
+    } catch (err) {
+      console.error('Error loading staff:', err)
+      setError('Failed to load staff members. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleInviteStaff = async () => {
+    try {
+      setInviting(true)
+      setError(null)
+      await staffService.inviteStaff(inviteEmail, inviteRole)
+      setSuccessMessage(`Invitation sent to ${inviteEmail}`)
+      setShowInviteDialog(false)
+      setInviteEmail('')
+      setInviteRole('')
+      setTimeout(() => setSuccessMessage(null), 5000)
+      // Reload staff list to show pending member if applicable
+      loadStaffMembers()
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to send invitation'
+      setError(errorMessage)
+    } finally {
+      setInviting(false)
+    }
+  }
+
+  const handleDeactivateStaff = async (staffId: string) => {
+    try {
+      const confirmDeactivate = confirm('Are you sure you want to deactivate this staff member?')
+      if (!confirmDeactivate) return
+
+      await staffService.deactivateStaff(staffId)
+      setSuccessMessage('Staff member deactivated')
+      setSelectedStaff(null)
+      setTimeout(() => setSuccessMessage(null), 5000)
+      loadStaffMembers()
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to deactivate staff'
+      setError(errorMessage)
+    }
+  }
 
   const getStatusBadge = (status: string) => {
     switch(status) {
@@ -160,12 +90,16 @@ export default function StaffManagementPage() {
     }
   }
 
-  const handleInviteStaff = () => {
-    console.log('Inviting staff:', inviteEmail, inviteRole)
-    setShowInviteDialog(false)
-    setInviteEmail('')
-    setInviteRole('')
-  }
+  // Use real staffMembers data, or fallback to empty array
+  const displayStaff = staffMembers.length > 0 ? staffMembers : []
+
+  const filteredStaff = displayStaff.filter(staff => {
+    const matchesSearch = staff.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         staff.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         staff.role.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesStatus = statusFilter === 'all' || staff.status === statusFilter
+    return matchesSearch && matchesStatus
+  })
 
   return (
     <div className="container mx-auto p-8">
@@ -174,64 +108,108 @@ export default function StaffManagementPage() {
           <h1 className="text-3xl font-bold">Staff Management</h1>
           <p className="text-gray-600 mt-1">Manage staff members, roles, and permissions</p>
         </div>
-        <Button onClick={() => setShowInviteDialog(true)} className="bg-blue-600 hover:bg-blue-700">
-          <Mail className="mr-2 h-4 w-4" />
-          Invite Staff
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="icon" 
+            onClick={loadStaffMembers}
+            disabled={loading}
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button onClick={() => setShowInviteDialog(true)} className="bg-blue-600 hover:bg-blue-700">
+            <Mail className="mr-2 h-4 w-4" />
+            Invite Staff
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-4 mb-6">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Staff</p>
-                <p className="text-2xl font-bold">{mockStaff.length}</p>
-              </div>
-              <UserCog className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Active</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {mockStaff.filter(s => s.status === 'active').length}
-                </p>
-              </div>
-              <CheckCircle className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Inactive</p>
-                <p className="text-2xl font-bold text-gray-600">
-                  {mockStaff.filter(s => s.status === 'inactive').length}
-                </p>
-              </div>
-              <XCircle className="h-8 w-8 text-gray-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Pending</p>
-                <p className="text-2xl font-bold text-yellow-600">
-                  {mockStaff.filter(s => s.status === 'pending').length}
-                </p>
-              </div>
-              <Clock className="h-8 w-8 text-yellow-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Error Message */}
+      {error && (
+        <div className="p-4 mb-6 bg-red-50 border border-red-200 rounded-lg flex gap-3">
+          <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-medium text-red-900">{error}</p>
+            <button 
+              onClick={() => setError(null)}
+              className="text-sm text-red-700 hover:text-red-900 mt-1"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Success Message */}
+      {successMessage && (
+        <div className="p-4 mb-6 bg-green-50 border border-green-200 rounded-lg flex gap-3">
+          <CheckCircle className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium text-green-900">{successMessage}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Loading State */}
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-12 space-y-4">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          <p className="text-muted-foreground">Loading staff members...</p>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-4 gap-4 mb-6">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Total Staff</p>
+                    <p className="text-2xl font-bold">{displayStaff.length}</p>
+                  </div>
+                  <UserCog className="h-8 w-8 text-blue-600" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Active</p>
+                    <p className="text-2xl font-bold text-green-600">
+                      {displayStaff.filter(s => s.status === 'active').length}
+                    </p>
+                  </div>
+                  <CheckCircle className="h-8 w-8 text-green-600" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Inactive</p>
+                    <p className="text-2xl font-bold text-gray-600">
+                      {displayStaff.filter(s => s.status === 'inactive').length}
+                    </p>
+                  </div>
+                  <XCircle className="h-8 w-8 text-gray-600" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Pending</p>
+                    <p className="text-2xl font-bold text-yellow-600">
+                      {displayStaff.filter(s => s.status === 'pending').length}
+                    </p>
+                  </div>
+                  <Clock className="h-8 w-8 text-yellow-600" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
       <Card>
         <CardHeader>
@@ -259,50 +237,56 @@ export default function StaffManagementPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Last Login</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredStaff.map((staff) => (
-                <TableRow key={staff.id}>
-                  <TableCell>
-                    <div className="font-medium">{staff.name}</div>
-                    <div className="text-sm text-gray-600">{staff.id}</div>
-                  </TableCell>
-                  <TableCell>{staff.email}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="gap-1">
-                      <Shield className="h-3 w-3" />
-                      {staff.role}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{getStatusBadge(staff.status)}</TableCell>
-                  <TableCell>
-                    <div className="text-sm">{staff.lastLogin}</div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setSelectedStaff(staff)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+          {displayStaff.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <p>No staff members found. Click "Invite Staff" to add members.</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Last Login</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredStaff.map((staff) => (
+                  <TableRow key={staff.id}>
+                    <TableCell>
+                      <div className="font-medium">{staff.name}</div>
+                      <div className="text-sm text-gray-600">{staff.id}</div>
+                    </TableCell>
+                    <TableCell>{staff.email}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="gap-1">
+                        <Shield className="h-3 w-3" />
+                        {staff.role}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{getStatusBadge(staff.status)}</TableCell>
+                    <TableCell>
+                      <div className="text-sm">{staff.lastLogin}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedStaff(staff)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
@@ -385,7 +369,11 @@ export default function StaffManagementPage() {
                     <Edit2 className="mr-2 h-4 w-4" />
                     Edit Profile
                   </Button>
-                  <Button variant="outline" className="text-red-600 hover:text-red-700">
+                  <Button 
+                    variant="outline" 
+                    className="text-red-600 hover:text-red-700"
+                    onClick={() => handleDeactivateStaff(selectedStaff.id)}
+                  >
                     <Trash2 className="mr-2 h-4 w-4" />
                     Deactivate
                   </Button>
@@ -513,16 +501,30 @@ export default function StaffManagementPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowInviteDialog(false)}>
+            <Button variant="outline" onClick={() => setShowInviteDialog(false)} disabled={inviting}>
               Cancel
             </Button>
-            <Button onClick={handleInviteStaff} disabled={!inviteEmail || !inviteRole}>
-              <Mail className="mr-2 h-4 w-4" />
-              Send Invitation
+            <Button 
+              onClick={handleInviteStaff} 
+              disabled={!inviteEmail || !inviteRole || inviting}
+            >
+              {inviting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Mail className="mr-2 h-4 w-4" />
+                  Send Invitation
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+        </>
+      )}
     </div>
   )
 }

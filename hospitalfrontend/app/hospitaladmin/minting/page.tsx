@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -9,86 +9,11 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
-import { Coins, Search, Plus, CheckCircle, Clock, AlertCircle, Filter, Loader2 } from 'lucide-react'
-
-interface MintRecord {
-  id: string
-  depositId: string
-  patientId: string
-  patientName: string
-  patientEmail: string
-  assetType: 'Gold' | 'Silver'
-  weight: number // in grams
-  assetValue: number // in PKR
-  tokensMinted: number // AT tokens
-  status: 'pending' | 'minted' | 'processing' | 'failed'
-  mintedDate: string
-  txHash?: string
-  hospitalName: string
-}
-
-const mockMintRecords: MintRecord[] = [
-  { 
-    id: 'MINT-001', 
-    depositId: 'DEP-1001', 
-    patientId: 'PAT-001', 
-    patientName: 'John Patient', 
-    patientEmail: 'john.patient@example.com',
-    assetType: 'Gold', 
-    weight: 50,
-    assetValue: 750000, // 50g * 15000
-    tokensMinted: 7500, // 750000 / 100
-    status: 'pending', 
-    mintedDate: '',
-    hospitalName: 'Liaquat National Hospital'
-  },
-  { 
-    id: 'MINT-002', 
-    depositId: 'DEP-1002', 
-    patientId: 'PAT-002', 
-    patientName: 'Sarah Johnson', 
-    patientEmail: 'sarah@example.com',
-    assetType: 'Silver', 
-    weight: 200,
-    assetValue: 50000, // 200g * 250
-    tokensMinted: 500, // 50000 / 100
-    status: 'pending', 
-    mintedDate: '',
-    hospitalName: 'Liaquat National Hospital'
-  },
-  { 
-    id: 'MINT-003', 
-    depositId: 'DEP-1003', 
-    patientId: 'PAT-003', 
-    patientName: 'Michael Brown', 
-    patientEmail: 'michael@example.com',
-    assetType: 'Gold', 
-    weight: 25,
-    assetValue: 375000, // 25g * 15000
-    tokensMinted: 3750, // 375000 / 100
-    status: 'minted', 
-    mintedDate: '2024-12-05', 
-    txHash: '0x7a8c...9d2f',
-    hospitalName: 'Liaquat National Hospital'
-  },
-  { 
-    id: 'MINT-004', 
-    depositId: 'DEP-1005', 
-    patientId: 'PAT-005', 
-    patientName: 'Emily Davis', 
-    patientEmail: 'emily@example.com',
-    assetType: 'Silver', 
-    weight: 400,
-    assetValue: 100000, // 400g * 250
-    tokensMinted: 1000, // 100000 / 100
-    status: 'processing', 
-    mintedDate: '',
-    hospitalName: 'Liaquat National Hospital'
-  },
-]
+import { Coins, Search, Plus, CheckCircle, Clock, AlertCircle, Filter, Loader2, RefreshCw } from 'lucide-react'
+import { mintingService, MintRecord } from '@/services/mintingService'
 
 export default function MintingPage() {
-  const [records, setRecords] = useState<MintRecord[]>(mockMintRecords)
+  const [records, setRecords] = useState<MintRecord[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [selectedRecords, setSelectedRecords] = useState<string[]>([])
@@ -96,6 +21,28 @@ export default function MintingPage() {
   const [showTxDetails, setShowTxDetails] = useState(false)
   const [selectedTx, setSelectedTx] = useState<MintRecord | null>(null)
   const [minting, setMinting] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+
+  // Fetch mint records on component mount
+  useEffect(() => {
+    loadMintRecords()
+  }, [])
+
+  const loadMintRecords = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await mintingService.getMintRecords()
+      setRecords(data)
+    } catch (err) {
+      console.error('Error loading mint records:', err)
+      setError('Failed to load mint records. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const filteredRecords = records.filter((record) => {
     const matchesSearch = record.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -121,18 +68,51 @@ export default function MintingPage() {
     }
   }
 
-  const handleBatchMint = () => {
-    setMinting(true)
-    setTimeout(() => {
-      setRecords(records.map(r => 
-        selectedRecords.includes(r.id) 
-          ? { ...r, status: 'minted' as const, mintedDate: new Date().toISOString().split('T')[0], txHash: '0x' + Math.random().toString(16).slice(2, 8) + '...' + Math.random().toString(16).slice(2, 6) }
-          : r
-      ))
-      setSelectedRecords([])
+  const handleBatchMint = async () => {
+    try {
+      setMinting(true)
+      setError(null)
+      
+      // Get the asset IDs from selected records
+      const selectedAssetIds = records
+        .filter(r => selectedRecords.includes(r.id))
+        .map(r => r.depositId) // Use depositId as the asset identifier
+      
+      if (selectedAssetIds.length === 0) {
+        setError('No records selected for minting')
+        return
+      }
+
+      // Call the batch minting API
+      const result = await mintingService.submitBatchMint(selectedAssetIds)
+      
+      if (result) {
+        // Update records with minting results
+        setRecords(records.map(r => {
+          const mintedRecord = result.mintedRecords?.find(m => m.id === r.id)
+          if (mintedRecord) {
+            return mintedRecord
+          }
+          return r
+        }))
+
+        setSuccessMessage(`Successfully minted tokens for ${result.mintedRecords?.length || selectedAssetIds.length} assets. Transaction: ${result.transactionHash.substring(0, 10)}...`)
+        setSelectedRecords([])
+        setShowBatchMint(false)
+        
+        // Clear success message after 5 seconds
+        setTimeout(() => setSuccessMessage(null), 5000)
+        
+        // Reload records after a brief delay to get updated data from server
+        setTimeout(() => loadMintRecords(), 2000)
+      }
+    } catch (err) {
+      console.error('Error during batch minting:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Failed to mint tokens. Please try again.'
+      setError(errorMessage)
+    } finally {
       setMinting(false)
-      setShowBatchMint(false)
-    }, 2000)
+    }
   }
 
   const getStatusColor = (status: string) => {
@@ -178,15 +158,54 @@ export default function MintingPage() {
           <h1 className="text-3xl font-bold text-foreground">Token Minting</h1>
           <p className="text-muted-foreground mt-1">Mint Asset Tokens (AT) from approved deposits.</p>
         </div>
-        {selectedRecords.length > 0 && (
-          <Button className="gap-2" onClick={() => setShowBatchMint(true)}>
-            <Coins className="w-4 h-4" />
-            Mint Selected ({selectedRecords.length})
+        <div className="flex gap-2">
+          <Button variant="outline" size="icon" onClick={loadMintRecords} disabled={loading}>
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
-        )}
+          {selectedRecords.length > 0 && (
+            <Button className="gap-2" onClick={() => setShowBatchMint(true)}>
+              <Coins className="w-4 h-4" />
+              Mint Selected ({selectedRecords.length})
+            </Button>
+          )}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      {/* Error Message */}
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex gap-3">
+          <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-medium text-red-900">{error}</p>
+            <button 
+              onClick={() => setError(null)}
+              className="text-sm text-red-700 hover:text-red-900 mt-1"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Success Message */}
+      {successMessage && (
+        <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex gap-3">
+          <CheckCircle className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium text-green-900">{successMessage}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Loading State */}
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-12 space-y-4">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          <p className="text-muted-foreground">Loading mint records...</p>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
@@ -313,11 +332,11 @@ export default function MintingPage() {
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className={
-                        record.assetType === 'Gold' 
+                        record.assetType.toLowerCase() === 'gold' 
                           ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
                           : 'bg-slate-50 text-slate-700 border-slate-200'
                       }>
-                        {record.assetType}
+                        {record.assetType.charAt(0).toUpperCase() + record.assetType.slice(1)}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm">{record.weight}g</TableCell>
@@ -518,11 +537,11 @@ export default function MintingPage() {
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Asset Type:</span>
                     <Badge variant="outline" className={
-                      selectedTx.assetType === 'Gold' 
+                      selectedTx.assetType?.toLowerCase() === 'gold' 
                         ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
                         : 'bg-slate-50 text-slate-700 border-slate-200'
                     }>
-                      {selectedTx.assetType}
+                      {selectedTx.assetType?.charAt(0).toUpperCase() + selectedTx.assetType?.slice(1)}
                     </Badge>
                   </div>
                   <div className="flex justify-between">
@@ -582,6 +601,8 @@ export default function MintingPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+        </>
+      )}
     </div>
   )
 }

@@ -43,6 +43,21 @@ export type HospitalDashboardSummary = {
   totalProfitDistributed: number
 }
 
+export type SuperAdminDashboardSummary = {
+  totalHospitals: number
+  activeHospitals: number
+  pendingHospitals: number
+  totalBanks: number
+  activeBanks: number
+  totalPatients: number
+  activePatients: number
+  totalATMinted: number
+  totalHTIssued: number
+  totalRevenue: number
+  totalTransactionVolume: number
+  systemUptime: number
+}
+
 const getAuthHeaders = (): HeadersInit => {
   const token = authService.getToken()
   return {
@@ -62,4 +77,5 @@ export const dashboardService = {
   getPatientSummary: () => getJson<PatientDashboardSummary>('/patient'),
   getBankSummary: () => getJson<BankDashboardSummary>('/bank'),
   getHospitalSummary: () => getJson<HospitalDashboardSummary>('/hospital'),
+  getSuperAdminSummary: () => getJson<SuperAdminDashboardSummary>('/super-admin'),
 }

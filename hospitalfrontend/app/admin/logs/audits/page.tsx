@@ -1,13 +1,15 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { FileDown, Search, Calendar } from 'lucide-react'
+import { FileDown, Search, Calendar, Loader } from 'lucide-react'
 import { DataTable, StatusBadge, AuditTimeline } from '../../components'
+import { auditLogService } from '@/services/auditLogService'
+import type { AuditLog as AuditLogType } from '@/types/auditLog'
 
 interface AuditLog {
   id: string
@@ -22,101 +24,86 @@ interface AuditLog {
   details: string
 }
 
-const mockAuditLogs: AuditLog[] = [
-  {
-    id: 'AUD-001',
-    timestamp: '2024-12-04 14:30:22',
-    user: 'admin@superadmin.com',
-    userRole: 'Super Admin',
-    action: 'Created Hospital',
-    category: 'Hospital Management',
-    resource: 'HOS-004',
-    status: 'success',
-    ipAddress: '192.168.1.100',
-    details: 'Created new hospital: Sunrise Medical Institute'
-  },
-  {
-    id: 'AUD-002',
-    timestamp: '2024-12-04 13:15:45',
-    user: 'admin@metrogeneral.com',
-    userRole: 'Hospital Admin',
-    action: 'Minted Tokens',
-    category: 'Token Operations',
-    resource: 'MINT-1234',
-    status: 'success',
-    ipAddress: '192.168.1.101',
-    details: 'Minted 50,000 AT tokens for Q4 operations'
-  },
-  {
-    id: 'AUD-003',
-    timestamp: '2024-12-04 12:45:18',
-    user: 'admin@superadmin.com',
-    userRole: 'Super Admin',
-    action: 'Suspended Hospital',
-    category: 'Hospital Management',
-    resource: 'HOS-003',
-    status: 'warning',
-    ipAddress: '192.168.1.100',
-    details: 'Suspended hospital: Regional Health Network due to compliance issues'
-  },
-  {
-    id: 'AUD-004',
-    timestamp: '2024-12-04 11:20:33',
-    user: 'officer@ctbank.com',
-    userRole: 'Bank Officer',
-    action: 'Verified Document',
-    category: 'Verification',
-    resource: 'DOC-5678',
-    status: 'success',
-    ipAddress: '192.168.1.102',
-    details: 'Approved asset verification for HOS-001'
-  },
-  {
-    id: 'AUD-005',
-    timestamp: '2024-12-04 10:05:12',
-    user: 'admin@superadmin.com',
-    userRole: 'Super Admin',
-    action: 'Updated System Config',
-    category: 'System Configuration',
-    resource: 'CONFIG-001',
-    status: 'error',
-    ipAddress: '192.168.1.100',
-    details: 'Failed to update gas limit configuration - invalid value'
-  },
-  {
-    id: 'AUD-006',
-    timestamp: '2024-12-04 09:30:55',
-    user: 'admin@citymedical.com',
-    userRole: 'Hospital Admin',
-    action: 'Added Patient',
-    category: 'Patient Management',
-    resource: 'PAT-7890',
-    status: 'success',
-    ipAddress: '192.168.1.103',
-    details: 'Registered new patient: John Smith'
-  }
-]
-
 export default function AuditLogsPage() {
-  const [logs] = useState<AuditLog[]>(mockAuditLogs)
+  const [auditLogs, setAuditLogs] = useState<AuditLogType[]>([])
+  const [displayLogs, setDisplayLogs] = useState<AuditLog[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [dateRange, setDateRange] = useState('today')
   const [categoryFilter, setCategoryFilter] = useState('all')
 
-  const handleExport = () => {
-    const csv = [
-      ['ID', 'Timestamp', 'User', 'Role', 'Action', 'Category', 'Resource', 'Status', 'IP Address', 'Details'],
-      ...logs.map(log => [
-        log.id, log.timestamp, log.user, log.userRole, log.action, 
-        log.category, log.resource, log.status, log.ipAddress, log.details
-      ])
-    ].map(row => row.join(',')).join('\n')
+  // Fetch audit logs on component mount
+  useEffect(() => {
+    const fetchAuditLogs = async () => {
+      try {
+        setIsLoading(true)
+        // Fetch both patient and hospital logs
+        const [patientData, hospitalData] = await Promise.all([
+          auditLogService.getAllPatientAuditLogs(100),
+          auditLogService.getHospitalAuditLogs(100),
+        ])
+        setAuditLogs([...patientData, ...hospitalData].sort((a, b) => {
+          const dateA = new Date(a.timestamp).getTime()
+          const dateB = new Date(b.timestamp).getTime()
+          return dateB - dateA
+        }))
+      } catch (err) {
+        console.error('Error fetching audit logs:', err)
+        setError(err instanceof Error ? err.message : 'Failed to fetch audit logs')
+      } finally {
+        setIsLoading(false)
+      }
+    }
 
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `audit-logs-${new Date().toISOString()}.csv`
-    a.click()
+    fetchAuditLogs()
+  }, [])
+
+  // Convert AuditLogType to AuditLog format for display
+  useEffect(() => {
+    const converted = auditLogs.map((log) => ({
+      id: log.id,
+      timestamp: log.timestamp,
+      user: log.user || 'Unknown User',
+      userRole: log.userRole || 'User',
+      action: log.action,
+      category: log.category,
+      resource: log.id,
+      status: (log.status === 'warning' ? 'warning' : log.status === 'failure' || log.status === 'error' ? 'error' : 'success') as 'success' | 'error' | 'warning',
+      ipAddress: log.ipAddress,
+      details: log.details,
+    } as AuditLog))
+    setDisplayLogs(converted)
+  }, [auditLogs])
+
+  const handleExport = () => {
+    try {
+      const csv = [
+        ['ID', 'Timestamp', 'User', 'Role', 'Action', 'Category', 'Resource', 'Status', 'IP Address', 'Details'],
+        ...displayLogs.map((log) => [
+          log.id,
+          log.timestamp,
+          log.user,
+          log.userRole,
+          log.action,
+          log.category,
+          log.resource,
+          log.status,
+          log.ipAddress,
+          log.details,
+        ]),
+      ]
+        .map((row) => row.join(','))
+        .join('\n')
+
+      const blob = new Blob([csv], { type: 'text/csv' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `audit-logs-${new Date().toISOString()}.csv`
+      a.click()
+    } catch (err) {
+      console.error('Error exporting CSV:', err)
+    }
   }
 
   const columns = [
@@ -129,7 +116,7 @@ export default function AuditLogsPage() {
           <div className="font-medium text-gray-900">{value.split(' ')[0]}</div>
           <div className="text-gray-600">{value.split(' ')[1]}</div>
         </div>
-      )
+      ),
     },
     {
       key: 'user',
@@ -140,48 +127,38 @@ export default function AuditLogsPage() {
           <div className="text-sm font-medium text-gray-900">{value}</div>
           <div className="text-xs text-gray-600">{row.userRole}</div>
         </div>
-      )
+      ),
     },
     {
       key: 'action',
       label: 'Action',
       sortable: true,
-      render: (value: string) => (
-        <span className="text-sm font-medium text-gray-900">{value}</span>
-      )
+      render: (value: string) => <span className="text-sm font-medium text-gray-900">{value}</span>,
     },
     {
       key: 'category',
       label: 'Category',
-      render: (value: string) => (
-        <Badge variant="outline">{value}</Badge>
-      )
+      render: (value: string) => <Badge variant="outline">{value}</Badge>,
     },
     {
       key: 'resource',
       label: 'Resource',
-      render: (value: string) => (
-        <code className="text-xs bg-gray-100 px-2 py-1 rounded">{value}</code>
-      )
+      render: (value: string) => <code className="text-xs bg-gray-100 px-2 py-1 rounded">{value}</code>,
     },
     {
       key: 'status',
       label: 'Status',
       sortable: true,
-      render: (value: string) => (
-        <StatusBadge status={value as any} size="sm" />
-      )
+      render: (value: string) => <StatusBadge status={value as any} size="sm" />,
     },
     {
       key: 'ipAddress',
       label: 'IP Address',
-      render: (value: string) => (
-        <span className="text-xs text-gray-600">{value}</span>
-      )
-    }
+      render: (value: string) => <span className="text-xs text-gray-600">{value}</span>,
+    },
   ]
 
-  const timelineEvents = logs.slice(0, 10).map(log => ({
+  const timelineEvents = displayLogs.slice(0, 10).map((log) => ({
     id: log.id,
     type: log.status,
     title: log.action,
@@ -191,9 +168,15 @@ export default function AuditLogsPage() {
     metadata: {
       category: log.category,
       resource: log.resource,
-      ipAddress: log.ipAddress
-    }
+      ipAddress: log.ipAddress,
+    },
   }))
+
+  const stats = {
+    success: displayLogs.filter((l) => l.status === 'success').length,
+    error: displayLogs.filter((l) => l.status === 'error').length,
+    warning: displayLogs.filter((l) => l.status === 'warning').length,
+  }
 
   return (
     <div className="space-y-6">
@@ -203,11 +186,19 @@ export default function AuditLogsPage() {
           <h1 className="text-3xl font-bold text-gray-900">Audit Logs</h1>
           <p className="text-gray-600 mt-1">Complete audit trail of all system activities</p>
         </div>
-        <Button onClick={handleExport} className="gap-2">
+        <Button onClick={handleExport} className="gap-2" disabled={isLoading || displayLogs.length === 0}>
           <FileDown className="h-4 w-4" />
           Export CSV
         </Button>
       </div>
+
+      {error && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <p className="text-sm text-red-700">{error}</p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filters */}
       <Card>
@@ -215,7 +206,7 @@ export default function AuditLogsPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="text-sm font-medium text-gray-700 mb-2 block">Date Range</label>
-              <Select value={dateRange} onValueChange={setDateRange}>
+              <Select value={dateRange} onValueChange={setDateRange} disabled={isLoading}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -231,7 +222,7 @@ export default function AuditLogsPage() {
 
             <div>
               <label className="text-sm font-medium text-gray-700 mb-2 block">Category</label>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter} disabled={isLoading}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -251,21 +242,15 @@ export default function AuditLogsPage() {
               <div className="flex gap-2">
                 <div className="flex-1 p-2 bg-green-50 border border-green-200 rounded">
                   <div className="text-xs text-green-600">Success</div>
-                  <div className="text-lg font-bold text-green-700">
-                    {logs.filter(l => l.status === 'success').length}
-                  </div>
+                  <div className="text-lg font-bold text-green-700">{stats.success}</div>
                 </div>
                 <div className="flex-1 p-2 bg-red-50 border border-red-200 rounded">
                   <div className="text-xs text-red-600">Errors</div>
-                  <div className="text-lg font-bold text-red-700">
-                    {logs.filter(l => l.status === 'error').length}
-                  </div>
+                  <div className="text-lg font-bold text-red-700">{stats.error}</div>
                 </div>
                 <div className="flex-1 p-2 bg-yellow-50 border border-yellow-200 rounded">
                   <div className="text-xs text-yellow-600">Warnings</div>
-                  <div className="text-lg font-bold text-yellow-700">
-                    {logs.filter(l => l.status === 'warning').length}
-                  </div>
+                  <div className="text-lg font-bold text-yellow-700">{stats.warning}</div>
                 </div>
               </div>
             </div>
@@ -274,30 +259,41 @@ export default function AuditLogsPage() {
       </Card>
 
       {/* Timeline View */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Activity Timeline</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <AuditTimeline events={timelineEvents} />
-        </CardContent>
-      </Card>
+      {isLoading ? (
+        <Card>
+          <CardContent className="pt-6 flex items-center justify-center py-12">
+            <Loader className="w-6 h-6 animate-spin text-muted-foreground mr-2" />
+            <span className="text-muted-foreground">Loading audit logs...</span>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Activity Timeline</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AuditTimeline events={timelineEvents} />
+            </CardContent>
+          </Card>
 
-      {/* Table View */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Detailed Logs</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <DataTable
-            data={logs}
-            columns={columns}
-            searchPlaceholder="Search logs..."
-            pageSize={10}
-            emptyMessage="No audit logs found"
-          />
-        </CardContent>
-      </Card>
+          {/* Table View */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Detailed Logs</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <DataTable
+                data={displayLogs}
+                columns={columns}
+                searchPlaceholder="Search logs..."
+                pageSize={10}
+                emptyMessage="No audit logs found"
+              />
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   )
 }
