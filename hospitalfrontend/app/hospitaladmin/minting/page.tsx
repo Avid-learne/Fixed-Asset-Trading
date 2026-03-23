@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -9,7 +9,9 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
-import { Coins, Search, Plus, CheckCircle, Clock, AlertCircle, Filter, Loader2 } from 'lucide-react'
+import { Coins, Search, CheckCircle, Clock, AlertCircle, Filter, Loader2, RefreshCw } from 'lucide-react'
+import { depositRequestService, type AssetDepositItem } from '@/services/depositRequestService'
+import { useToast } from '@/hooks/use-toast'
 
 interface MintRecord {
   id: string
@@ -17,85 +19,90 @@ interface MintRecord {
   patientId: string
   patientName: string
   patientEmail: string
-  assetType: 'Gold' | 'Silver'
-  weight: number // in grams
-  assetValue: number // in PKR
-  tokensMinted: number // AT tokens
+  assetType: string
+  weight: number
+  assetValue: number
+  tokensMinted: number
   status: 'pending' | 'minted' | 'processing' | 'failed'
-  mintedDate: string
-  txHash?: string
+  mintedDate?: string
+  submittedAt: string
+  bankApprovalStatus?: string
+  rejectionReason?: string
+  bankRejectionReason?: string
   hospitalName: string
 }
 
-const mockMintRecords: MintRecord[] = [
-  { 
-    id: 'MINT-001', 
-    depositId: 'DEP-1001', 
-    patientId: 'PAT-001', 
-    patientName: 'John Patient', 
-    patientEmail: 'john.patient@example.com',
-    assetType: 'Gold', 
-    weight: 50,
-    assetValue: 750000, // 50g * 15000
-    tokensMinted: 7500, // 750000 / 100
-    status: 'pending', 
-    mintedDate: '',
-    hospitalName: 'Liaquat National Hospital'
-  },
-  { 
-    id: 'MINT-002', 
-    depositId: 'DEP-1002', 
-    patientId: 'PAT-002', 
-    patientName: 'Sarah Johnson', 
-    patientEmail: 'sarah@example.com',
-    assetType: 'Silver', 
-    weight: 200,
-    assetValue: 50000, // 200g * 250
-    tokensMinted: 500, // 50000 / 100
-    status: 'pending', 
-    mintedDate: '',
-    hospitalName: 'Liaquat National Hospital'
-  },
-  { 
-    id: 'MINT-003', 
-    depositId: 'DEP-1003', 
-    patientId: 'PAT-003', 
-    patientName: 'Michael Brown', 
-    patientEmail: 'michael@example.com',
-    assetType: 'Gold', 
-    weight: 25,
-    assetValue: 375000, // 25g * 15000
-    tokensMinted: 3750, // 375000 / 100
-    status: 'minted', 
-    mintedDate: '2024-12-05', 
-    txHash: '0x7a8c...9d2f',
-    hospitalName: 'Liaquat National Hospital'
-  },
-  { 
-    id: 'MINT-004', 
-    depositId: 'DEP-1005', 
-    patientId: 'PAT-005', 
-    patientName: 'Emily Davis', 
-    patientEmail: 'emily@example.com',
-    assetType: 'Silver', 
-    weight: 400,
-    assetValue: 100000, // 400g * 250
-    tokensMinted: 1000, // 100000 / 100
-    status: 'processing', 
-    mintedDate: '',
-    hospitalName: 'Liaquat National Hospital'
-  },
-]
+const toNumber = (value: number | string | undefined | null) => Number(value || 0)
+
+const mapToMintRecord = (item: AssetDepositItem): MintRecord => {
+  const requestStatus = (item.status || '').toLowerCase()
+  const bankStatus = (item.bankApprovalStatus || '').toLowerCase()
+
+  let status: MintRecord['status'] = 'pending'
+  if (requestStatus === 'approved' && bankStatus === 'approved') {
+    status = 'minted'
+  } else if (requestStatus === 'approved' && bankStatus === 'pending') {
+    status = 'processing'
+  } else if (requestStatus === 'approved' && bankStatus === 'rejected') {
+    status = 'failed'
+  } else if (requestStatus === 'rejected') {
+    status = 'failed'
+  }
+
+  return {
+    id: item.assetId,
+    depositId: item.assetId,
+    patientId: item.patientId,
+    patientName: item.patientName,
+    patientEmail: item.patientEmail,
+    assetType: item.assetType,
+    weight: toNumber(item.weight),
+    assetValue: toNumber(item.assetValue),
+    tokensMinted: toNumber(item.expectedTokens),
+    status,
+    mintedDate: item.bankApprovedAt,
+    submittedAt: item.submittedAt,
+    bankApprovalStatus: item.bankApprovalStatus,
+    rejectionReason: item.rejectionReason,
+    bankRejectionReason: item.bankRejectionReason,
+    hospitalName: item.hospitalName,
+  }
+}
+
+const canForwardToMinting = (record: MintRecord): boolean => {
+  const bankStatus = (record.bankApprovalStatus || '').toLowerCase()
+  return record.status === 'pending' && !bankStatus
+}
 
 export default function MintingPage() {
-  const [records, setRecords] = useState<MintRecord[]>(mockMintRecords)
+  const { toast } = useToast()
+  const [records, setRecords] = useState<MintRecord[]>([])
+  const [loading, setLoading] = useState(true)
+  const [minting, setMinting] = useState(false)
+  const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [selectedRecords, setSelectedRecords] = useState<string[]>([])
   const [showBatchMint, setShowBatchMint] = useState(false)
-  const [showTxDetails, setShowTxDetails] = useState(false)
-  const [selectedTx, setSelectedTx] = useState<MintRecord | null>(null)
-  const [minting, setMinting] = useState(false)
+  const [showDetails, setShowDetails] = useState(false)
+  const [selectedRecord, setSelectedRecord] = useState<MintRecord | null>(null)
+
+  const loadRecords = async () => {
+    try {
+      setLoading(true)
+      setError('')
+      const data = await depositRequestService.getHospitalRequests('all')
+      setRecords(data.map(mapToMintRecord))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load minting data')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadRecords()
+  }, [])
 
   const filteredRecords = records.filter((record) => {
     const matchesSearch = record.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -107,7 +114,7 @@ export default function MintingPage() {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedRecords(filteredRecords.filter(r => r.status === 'pending').map(r => r.id))
+      setSelectedRecords(filteredRecords.filter(canForwardToMinting).map(r => r.id))
     } else {
       setSelectedRecords([])
     }
@@ -121,18 +128,27 @@ export default function MintingPage() {
     }
   }
 
-  const handleBatchMint = () => {
-    setMinting(true)
-    setTimeout(() => {
-      setRecords(records.map(r => 
-        selectedRecords.includes(r.id) 
-          ? { ...r, status: 'minted' as const, mintedDate: new Date().toISOString().split('T')[0], txHash: '0x' + Math.random().toString(16).slice(2, 8) + '...' + Math.random().toString(16).slice(2, 6) }
-          : r
-      ))
+  const handleBatchMint = async () => {
+    if (selectedRecords.length === 0) {
+      return
+    }
+
+    try {
+      setMinting(true)
+      setError('')
+      await Promise.all(selectedRecords.map((id) => depositRequestService.approve(id)))
       setSelectedRecords([])
-      setMinting(false)
       setShowBatchMint(false)
-    }, 2000)
+      toast({
+        title: 'Forwarded to minting queue',
+        description: 'Selected deposits were approved and forwarded for bank minting.',
+      })
+      await loadRecords()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to forward selected records for minting')
+    } finally {
+      setMinting(false)
+    }
   }
 
   const getStatusColor = (status: string) => {
@@ -165,7 +181,7 @@ export default function MintingPage() {
     }
   }
 
-  const pendingRecords = records.filter(r => r.status === 'pending')
+  const pendingRecords = records.filter(canForwardToMinting)
   const totalTokensMinted = records.filter(r => r.status === 'minted').reduce((sum, record) => sum + record.tokensMinted, 0)
   const totalValue = records.filter(r => r.status === 'minted').reduce((sum, record) => sum + record.assetValue, 0)
   const selectedTotalTokens = records.filter(r => selectedRecords.includes(r.id)).reduce((sum, r) => sum + r.tokensMinted, 0)
@@ -176,15 +192,17 @@ export default function MintingPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Token Minting</h1>
-          <p className="text-muted-foreground mt-1">Mint Asset Tokens (AT) from approved deposits.</p>
+          <p className="text-muted-foreground mt-1">Forward approved deposits into minting queue and track bank-approved minted tokens.</p>
         </div>
         {selectedRecords.length > 0 && (
           <Button className="gap-2" onClick={() => setShowBatchMint(true)}>
             <Coins className="w-4 h-4" />
-            Mint Selected ({selectedRecords.length})
+            Forward Selected ({selectedRecords.length})
           </Button>
         )}
       </div>
+
+      {error && <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
@@ -237,6 +255,13 @@ export default function MintingPage() {
         </Card>
       </div>
 
+      <div className="flex justify-end">
+        <Button variant="outline" onClick={loadRecords} disabled={loading || minting}>
+          {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+          Refresh
+        </Button>
+      </div>
+
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -273,7 +298,7 @@ export default function MintingPage() {
               <TableRow>
                 <TableHead className="w-12">
                   <Checkbox 
-                    checked={selectedRecords.length === filteredRecords.filter(r => r.status === 'pending').length && filteredRecords.filter(r => r.status === 'pending').length > 0}
+                    checked={selectedRecords.length === filteredRecords.filter(canForwardToMinting).length && filteredRecords.filter(canForwardToMinting).length > 0}
                     onCheckedChange={handleSelectAll}
                   />
                 </TableHead>
@@ -301,7 +326,7 @@ export default function MintingPage() {
                       <Checkbox 
                         checked={selectedRecords.includes(record.id)}
                         onCheckedChange={(checked) => handleSelectRecord(record.id, checked as boolean)}
-                        disabled={record.status !== 'pending'}
+                        disabled={!canForwardToMinting(record)}
                       />
                     </TableCell>
                     <TableCell className="font-mono text-xs">{record.depositId}</TableCell>
@@ -331,24 +356,24 @@ export default function MintingPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex gap-2 justify-end">
-                        {record.status === 'pending' && (
+                        {canForwardToMinting(record) && (
                           <Button size="sm" className="bg-success hover:bg-success/90" onClick={() => {
                             setSelectedRecords([record.id])
                             setShowBatchMint(true)
                           }}>
-                            Mint
+                            Forward
                           </Button>
                         )}
-                        {record.status === 'minted' && record.txHash && (
+                        {(record.status === 'minted' || record.status === 'processing' || record.status === 'failed') && (
                           <Button 
                             size="sm" 
                             variant="outline"
                             onClick={() => {
-                              setSelectedTx(record)
-                              setShowTxDetails(true)
+                              setSelectedRecord(record)
+                              setShowDetails(true)
                             }}
                           >
-                            View TX
+                            View Details
                           </Button>
                         )}
                       </div>
@@ -364,9 +389,9 @@ export default function MintingPage() {
       <Dialog open={showBatchMint} onOpenChange={setShowBatchMint}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Confirm Token Minting</DialogTitle>
+            <DialogTitle>Confirm Forwarding to Minting Queue</DialogTitle>
             <DialogDescription>
-              Review the details before minting tokens to the blockchain.
+              Selected pending requests will be hospital-approved and forwarded to bank for minting.
             </DialogDescription>
           </DialogHeader>
           
@@ -384,20 +409,19 @@ export default function MintingPage() {
 
             <div className="p-4 border-2 border-primary bg-primary/5 rounded-lg">
               <div className="flex justify-between items-center mb-2">
-                <p className="text-sm font-medium">Total Tokens to Mint</p>
+                <p className="text-sm font-medium">Tokens Expected for Minting</p>
                 <Coins className="w-5 h-5 text-primary" />
               </div>
               <p className="text-3xl font-bold text-primary">{selectedTotalTokens.toLocaleString()} AT</p>
-              <p className="text-sm text-muted-foreground mt-1">Asset Tokens</p>
+              <p className="text-sm text-muted-foreground mt-1">Final minting occurs after bank approval</p>
             </div>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex gap-2">
               <AlertCircle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-blue-900">Blockchain Transaction</p>
+                <p className="text-sm font-medium text-blue-900">Approval Pipeline</p>
                 <p className="text-xs text-blue-700 mt-1">
-                  This will initiate blockchain transactions for minting tokens. 
-                  Gas fees will be calculated and deducted from the hospital wallet.
+                  This page uses backend workflow: hospital approval forwards the request, and minting is completed when bank approves.
                 </p>
               </div>
             </div>
@@ -434,12 +458,12 @@ export default function MintingPage() {
               {minting ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Minting...
+                  Forwarding...
                 </>
               ) : (
                 <>
                   <Coins className="w-4 h-4 mr-2" />
-                  Confirm Minting
+                  Confirm Forwarding
                 </>
               )}
             </Button>
@@ -447,68 +471,49 @@ export default function MintingPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Transaction Details Dialog */}
-      <Dialog open={showTxDetails} onOpenChange={setShowTxDetails}>
+      <Dialog open={showDetails} onOpenChange={setShowDetails}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Transaction Details</DialogTitle>
+            <DialogTitle>Minting Record Details</DialogTitle>
             <DialogDescription>
-              Complete information about the minting transaction
+              Backend status for this request in the minting pipeline
             </DialogDescription>
           </DialogHeader>
           
-          {selectedTx && (
+          {selectedRecord && (
             <div className="space-y-6 py-4">
-              {/* Transaction Status */}
-              <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-lg">
                 <div className="flex items-center gap-3">
-                  <CheckCircle className="w-8 h-8 text-green-600" />
+                  {selectedRecord.status === 'minted' ? <CheckCircle className="w-8 h-8 text-green-600" /> : <Clock className="w-8 h-8 text-amber-600" />}
                   <div>
-                    <p className="font-semibold text-green-900">Transaction Successful</p>
-                    <p className="text-sm text-green-700">Tokens minted successfully</p>
+                    <p className="font-semibold text-slate-900">{selectedRecord.status === 'minted' ? 'Minting Completed' : 'Minting In Progress'}</p>
+                    <p className="text-sm text-slate-600">Current backend state: {selectedRecord.status}</p>
                   </div>
                 </div>
-                <Badge className="bg-green-600">
-                  Confirmed
+                <Badge className={selectedRecord.status === 'minted' ? 'bg-green-600' : 'bg-amber-600'}>
+                  {selectedRecord.status === 'minted' ? 'Completed' : 'Pending Bank'}
                 </Badge>
               </div>
 
-              {/* Transaction Hash */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-muted-foreground">Transaction Hash</label>
-                <div className="flex items-center gap-2 p-3 bg-muted rounded-lg font-mono text-sm">
-                  <span className="flex-1 break-all">{selectedTx.txHash}</span>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => navigator.clipboard.writeText(selectedTx.txHash || '')}
-                  >
-                    Copy
-                  </Button>
-                </div>
-              </div>
-
-              {/* Patient & Asset Details */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">Patient Name</label>
-                  <p className="text-sm font-medium">{selectedTx.patientName}</p>
+                  <p className="text-sm font-medium">{selectedRecord.patientName}</p>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">Patient Email</label>
-                  <p className="text-sm">{selectedTx.patientEmail}</p>
+                  <p className="text-sm">{selectedRecord.patientEmail}</p>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">Deposit ID</label>
-                  <p className="text-sm font-mono">{selectedTx.depositId}</p>
+                  <p className="text-sm font-mono">{selectedRecord.depositId}</p>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-muted-foreground">Minted Date</label>
-                  <p className="text-sm">{selectedTx.mintedDate}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Submitted Date</label>
+                  <p className="text-sm">{new Date(selectedRecord.submittedAt).toLocaleString()}</p>
                 </div>
               </div>
 
-              {/* Asset Information */}
               <div className="p-4 border rounded-lg space-y-3">
                 <h4 className="font-semibold flex items-center gap-2">
                   <Coins className="w-4 h-4" />
@@ -518,34 +523,33 @@ export default function MintingPage() {
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Asset Type:</span>
                     <Badge variant="outline" className={
-                      selectedTx.assetType === 'Gold' 
+                      selectedRecord.assetType.toUpperCase() === 'GOLD' 
                         ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
                         : 'bg-slate-50 text-slate-700 border-slate-200'
                     }>
-                      {selectedTx.assetType}
+                      {selectedRecord.assetType}
                     </Badge>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Weight:</span>
-                    <span className="font-medium">{selectedTx.weight} grams</span>
+                    <span className="font-medium">{selectedRecord.weight} grams</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Asset Value:</span>
-                    <span className="font-medium">PKR {selectedTx.assetValue.toLocaleString()}</span>
+                    <span className="font-medium">PKR {selectedRecord.assetValue.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Hospital:</span>
-                    <span className="font-medium">{selectedTx.hospitalName}</span>
+                    <span className="font-medium">{selectedRecord.hospitalName}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Tokens Minted */}
               <div className="p-4 border-2 border-accent bg-accent/5 rounded-lg">
                 <div className="flex justify-between items-center">
                   <div>
-                    <p className="text-sm text-muted-foreground">Tokens Minted</p>
-                    <p className="text-3xl font-bold text-accent mt-1">{selectedTx.tokensMinted.toLocaleString()} AT</p>
+                    <p className="text-sm text-muted-foreground">Expected Tokens</p>
+                    <p className="text-3xl font-bold text-accent mt-1">{selectedRecord.tokensMinted.toLocaleString()} AT</p>
                   </div>
                   <Coins className="w-12 h-12 text-accent" />
                 </div>
@@ -554,30 +558,40 @@ export default function MintingPage() {
                 </div>
               </div>
 
-              {/* Blockchain Details */}
               <div className="p-4 bg-muted/50 rounded-lg space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Block Confirmations:</span>
-                  <span className="font-medium">12</span>
+                  <span className="text-muted-foreground">Hospital Approval:</span>
+                  <span className="font-medium">{selectedRecord.status === 'pending' ? 'Pending' : 'Approved'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Gas Used:</span>
-                  <span className="font-medium">0.00234 ETH</span>
+                  <span className="text-muted-foreground">Bank Approval:</span>
+                  <span className="font-medium">{selectedRecord.bankApprovalStatus || 'Not forwarded'}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Network:</span>
-                  <span className="font-medium">Ethereum Sepolia</span>
-                </div>
+                {selectedRecord.mintedDate && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Minted At:</span>
+                    <span className="font-medium">{new Date(selectedRecord.mintedDate).toLocaleString()}</span>
+                  </div>
+                )}
+                {selectedRecord.rejectionReason && (
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground">Hospital Rejection:</span>
+                    <span className="font-medium text-right">{selectedRecord.rejectionReason}</span>
+                  </div>
+                )}
+                {selectedRecord.bankRejectionReason && (
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground">Bank Rejection:</span>
+                    <span className="font-medium text-right">{selectedRecord.bankRejectionReason}</span>
+                  </div>
+                )}
               </div>
             </div>
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowTxDetails(false)}>
+            <Button variant="outline" onClick={() => setShowDetails(false)}>
               Close
-            </Button>
-            <Button onClick={() => window.open(`https://sepolia.etherscan.io/tx/${selectedTx?.txHash}`, '_blank')}>
-              View on Explorer
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { authService } from '@/lib/authService'
-import { marketplaceService, type MarketplaceTrade, type TradeStatus } from '@/services/marketplaceService'
+import { marketplaceService, type HospitalAtPool, type MarketplaceTrade, type TradeStatus } from '@/services/marketplaceService'
 import { useToast } from '@/hooks/use-toast'
 
 const assetTypeOptions = ['Real Estate', 'Bonds', 'Machinery', 'Equipment', 'Other']
@@ -48,13 +48,27 @@ const compactNumber = (value: number) => new Intl.NumberFormat('en', {
 
 const formatATCompact = (pkr: number) => `${compactNumber(convertPKRtoAT(pkr))} AT`
 
+const emptyPool: HospitalAtPool = {
+  hospitalId: '',
+  patientCount: 0,
+  openTrades: 0,
+  totalAtPool: 0,
+  totalAtPoolPkr: 0,
+  allocatedAt: 0,
+  allocatedPkr: 0,
+  availableAt: 0,
+  availablePkr: 0,
+}
+
 export default function HospitalAdminMarketplace() {
   const { toast } = useToast()
   const currentUser = authService.getUser()
   const hospitalId = currentUser?.hospitalId || ''
 
   const [trades, setTrades] = useState<MarketplaceTrade[]>([])
+  const [atPool, setAtPool] = useState<HospitalAtPool>(emptyPool)
   const [loading, setLoading] = useState(true)
+  const [poolLoading, setPoolLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -67,27 +81,34 @@ export default function HospitalAdminMarketplace() {
   const [currentValueByTrade, setCurrentValueByTrade] = useState<Record<string, string>>({})
   const [exitValueByTrade, setExitValueByTrade] = useState<Record<string, string>>({})
 
-  const loadTrades = async () => {
+  const loadMarketplaceData = async () => {
     if (!hospitalId) {
       setError('Hospital is not linked to this account. Contact admin.')
       setLoading(false)
+      setPoolLoading(false)
       return
     }
 
     try {
       setLoading(true)
+      setPoolLoading(true)
       setError('')
-      const data = await marketplaceService.getHospitalTrades(hospitalId)
+      const [data, pool] = await Promise.all([
+        marketplaceService.getHospitalTrades(hospitalId),
+        marketplaceService.getHospitalAtPool(hospitalId),
+      ])
       setTrades(data)
+      setAtPool(pool)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load trades')
     } finally {
       setLoading(false)
+      setPoolLoading(false)
     }
   }
 
   useEffect(() => {
-    loadTrades()
+    loadMarketplaceData()
   }, [hospitalId])
 
   const portfolio = useMemo(() => {
@@ -144,6 +165,11 @@ export default function HospitalAdminMarketplace() {
       const investedAmount = buyPrice * quantity
       const currentValue = form.currentValue ? asNumber(form.currentValue) : investedAmount
 
+      if (!poolLoading && investedAmount > atPool.availablePkr) {
+        setError(`Insufficient pooled AT. Available: ${formatAT(atPool.availablePkr)}, required: ${formatAT(investedAmount)}.`)
+        return
+      }
+
       await marketplaceService.createTrade({
         hospitalId,
         tradeType: 'BUY',
@@ -169,7 +195,7 @@ export default function HospitalAdminMarketplace() {
         description: `${form.assetName} has been logged as active trade.`,
       })
       setForm(initialForm)
-      await loadTrades()
+      await loadMarketplaceData()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add trade')
     } finally {
@@ -211,7 +237,7 @@ export default function HospitalAdminMarketplace() {
         title: 'Current value updated',
         description: `${trade.assetName} current value has been updated.`,
       })
-      await loadTrades()
+      await loadMarketplaceData()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update current value')
     } finally {
@@ -254,7 +280,7 @@ export default function HospitalAdminMarketplace() {
         title: 'Trade closed',
         description: `${trade.assetName} has been closed and realized P&L computed.`,
       })
-      await loadTrades()
+      await loadMarketplaceData()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to close trade')
     } finally {
@@ -266,12 +292,13 @@ export default function HospitalAdminMarketplace() {
     <div className="mx-auto max-w-7xl space-y-5 px-4 pb-8 pt-2 lg:px-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Hospital Admin Trade Management</h1>
-        <p className="mt-1 text-sm text-slate-600">Admin enters amounts in PKR. All displayed trade values and P&amp;L are shown in AT.</p>
+        <p className="mt-1 text-sm text-slate-600">All patient AT is combined into one hospital pool, then traded centrally. Admin enters amounts in PKR; values are shown in AT.</p>
       </div>
 
       {error && <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <Card className="shadow-sm"><CardHeader className="pb-2"><CardTitle className="text-xs font-medium uppercase tracking-wide text-slate-500">AT Pool Available</CardTitle></CardHeader><CardContent><p className="text-xl font-semibold text-emerald-700">{poolLoading ? '...' : formatATCompact(atPool.availablePkr)}</p><p className="mt-1 text-xs text-slate-500">{poolLoading ? 'Loading pool' : `${atPool.patientCount} patients pooled`}</p></CardContent></Card>
         <Card className="shadow-sm"><CardHeader className="pb-2"><CardTitle className="text-xs font-medium uppercase tracking-wide text-slate-500">Total Invested</CardTitle></CardHeader><CardContent><p className="text-xl font-semibold text-slate-900">{formatATCompact(portfolio.totalInvested)}</p><p className="mt-1 text-xs text-slate-500">{formatAT(portfolio.totalInvested)}</p></CardContent></Card>
         <Card className="shadow-sm"><CardHeader className="pb-2"><CardTitle className="text-xs font-medium uppercase tracking-wide text-slate-500">Total Current Value</CardTitle></CardHeader><CardContent><p className="text-xl font-semibold text-slate-900">{formatATCompact(portfolio.totalCurrent)}</p><p className="mt-1 text-xs text-slate-500">{formatAT(portfolio.totalCurrent)}</p></CardContent></Card>
         <Card className="shadow-sm"><CardHeader className="pb-2"><CardTitle className="text-xs font-medium uppercase tracking-wide text-slate-500">Total Realized P&amp;L</CardTitle></CardHeader><CardContent><p className={`text-xl font-semibold ${portfolio.totalRealized >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{portfolio.totalRealized >= 0 ? '+' : '-'}{formatATCompact(Math.abs(portfolio.totalRealized))}</p><p className="mt-1 text-xs text-slate-500">{formatAT(Math.abs(portfolio.totalRealized))}</p></CardContent></Card>
@@ -287,7 +314,10 @@ export default function HospitalAdminMarketplace() {
           <div className="space-y-2"><Label>Buy Price (PKR)</Label><Input type="number" value={form.buyPrice} onChange={(e) => setForm((p) => ({ ...p, buyPrice: e.target.value }))} /><p className="text-xs text-slate-500">Display: {formatAT(asNumber(form.buyPrice))}</p></div>
           <div className="space-y-2"><Label>Quantity</Label><Input type="number" value={form.quantity} onChange={(e) => setForm((p) => ({ ...p, quantity: e.target.value }))} /></div>
           <div className="space-y-2"><Label>Current Value (PKR, Optional)</Label><Input type="number" value={form.currentValue} onChange={(e) => setForm((p) => ({ ...p, currentValue: e.target.value }))} /><p className="text-xs text-slate-500">Display: {formatAT(asNumber(form.currentValue))}</p></div>
-          <div className="md:col-span-3"><Button disabled={saving} onClick={handleAddTrade} className="bg-emerald-600 hover:bg-emerald-700">Add Trade</Button></div>
+          <div className="md:col-span-3 space-y-2">
+            <Button disabled={saving || poolLoading} onClick={handleAddTrade} className="bg-emerald-600 hover:bg-emerald-700">Add Trade</Button>
+            <p className="text-xs text-slate-500">Pool available for new trades: {poolLoading ? 'Loading...' : formatAT(atPool.availablePkr)}</p>
+          </div>
         </CardContent>
       </Card>
 

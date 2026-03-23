@@ -42,6 +42,18 @@ export interface PatientMarketplaceTrade {
   pnl: number
 }
 
+export interface HospitalAtPool {
+  hospitalId: string
+  patientCount: number
+  openTrades: number
+  totalAtPool: number
+  totalAtPoolPkr: number
+  allocatedAt: number
+  allocatedPkr: number
+  availableAt: number
+  availablePkr: number
+}
+
 export interface OrderBookLevel {
   price: number
   volume: number
@@ -104,6 +116,18 @@ interface BackendOrderBook {
   bids: BackendOrderBookLevel[]
   asks: BackendOrderBookLevel[]
   spread: number
+}
+
+interface BackendHospitalAtPool {
+  hospitalId: string
+  patientCount?: number
+  openTrades?: number
+  totalAtPool?: number
+  totalAtPoolPkr?: number
+  allocatedAt?: number
+  allocatedPkr?: number
+  availableAt?: number
+  availablePkr?: number
 }
 
 interface CreateTradePayload {
@@ -295,5 +319,31 @@ export const marketplaceService = {
       currentValue: Number(trade.currentValue || 0),
       pnl: Number(trade.pnl || 0),
     }))
+  },
+
+  async getHospitalAtPool(hospitalId: string): Promise<HospitalAtPool> {
+    const response = await fetch(`${API_BASE}/marketplace/pools/hospital/${hospitalId}/at`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch hospital AT pool')
+    }
+
+    const result: ApiResponse<BackendHospitalAtPool> = await response.json()
+    const data = result.data || ({} as BackendHospitalAtPool)
+
+    return {
+      hospitalId: data.hospitalId || hospitalId,
+      patientCount: Number(data.patientCount || 0),
+      openTrades: Number(data.openTrades || 0),
+      totalAtPool: Number(data.totalAtPool || 0),
+      totalAtPoolPkr: Number(data.totalAtPoolPkr || 0),
+      allocatedAt: Number(data.allocatedAt || 0),
+      allocatedPkr: Number(data.allocatedPkr || 0),
+      availableAt: Number(data.availableAt || 0),
+      availablePkr: Number(data.availablePkr || 0),
+    }
   },
 }

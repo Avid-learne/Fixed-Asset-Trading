@@ -1,6 +1,7 @@
 package com.SehatVault.SehatVaultBackend.marketplace.service;
 
 import com.SehatVault.SehatVaultBackend.marketplace.dto.CreateTradeRequest;
+import com.SehatVault.SehatVaultBackend.marketplace.dto.HospitalAtPoolDto;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.OrderBookDto;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.OrderBookLevelDto;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.PatientTradeDto;
@@ -8,6 +9,10 @@ import com.SehatVault.SehatVaultBackend.marketplace.dto.TradeDto;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.UpdateTradeRequest;
 import com.SehatVault.SehatVaultBackend.marketplace.entity.MarketplaceTrade;
 import com.SehatVault.SehatVaultBackend.marketplace.repository.MarketplaceTradeRepository;
+import com.SehatVault.SehatVaultBackend.patient.entity.Patient;
+import com.SehatVault.SehatVaultBackend.patient.repository.PatientRepository;
+import com.SehatVault.SehatVaultBackend.wallet.entity.PatientTokenBalance;
+import com.SehatVault.SehatVaultBackend.wallet.repository.PatientTokenBalanceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -20,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.math.RoundingMode;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -29,7 +35,11 @@ import java.util.stream.Collectors;
 @Slf4j
 public class MarketplaceService {
 
+    private static final BigDecimal AT_TO_PKR = BigDecimal.TEN;
+
     private final MarketplaceTradeRepository marketplaceTradeRepository;
+    private final PatientRepository patientRepository;
+    private final PatientTokenBalanceRepository patientTokenBalanceRepository;
 
     public List<TradeDto> getTradesByHospital(UUID hospitalId) {
         return marketplaceTradeRepository.findByHospitalIdOrderByStartTimeDesc(hospitalId)
@@ -43,6 +53,22 @@ public class MarketplaceService {
                 .stream()
                 .map(this::toPatientDto)
                 .collect(Collectors.toList());
+    }
+
+    public HospitalAtPoolDto getHospitalAtPool(UUID hospitalId) {
+        HospitalPoolSnapshot snapshot = buildHospitalPoolSnapshot(hospitalId);
+
+        HospitalAtPoolDto dto = new HospitalAtPoolDto();
+        dto.setHospitalId(hospitalId);
+        dto.setPatientCount(snapshot.patientCount);
+        dto.setOpenTrades(snapshot.openTrades);
+        dto.setTotalAtPool(snapshot.totalAtPool);
+        dto.setTotalAtPoolPkr(snapshot.totalAtPoolPkr);
+        dto.setAllocatedPkr(snapshot.allocatedPkr);
+        dto.setAvailablePkr(snapshot.availablePkr);
+        dto.setAllocatedAt(toAt(snapshot.allocatedPkr));
+        dto.setAvailableAt(toAt(snapshot.availablePkr));
+        return dto;
     }
 
     public OrderBookDto getOrderBook(UUID hospitalId, String investment) {
@@ -116,6 +142,15 @@ public class MarketplaceService {
         trade.setAmountBeforeTrade(BigDecimal.ZERO);
 
         BigDecimal amountInvested = trade.getOpeningPrice().multiply(trade.getVolume());
+        HospitalPoolSnapshot poolSnapshot = buildHospitalPoolSnapshot(request.getHospitalId());
+        if (amountInvested.compareTo(poolSnapshot.availablePkr) > 0) {
+            throw new IllegalArgumentException("Insufficient hospital AT pool. Available: "
+                + toAt(poolSnapshot.availablePkr).toPlainString()
+                + " AT, required: "
+                + toAt(amountInvested).toPlainString()
+                + " AT");
+        }
+
         BigDecimal amountAfterTrade = trade.getClosingPrice().multiply(trade.getVolume());
         BigDecimal profitLoss = amountAfterTrade.subtract(amountInvested);
 
@@ -369,6 +404,43 @@ public class MarketplaceService {
         return value == null ? BigDecimal.ZERO : value;
     }
 
+    private BigDecimal toAt(BigDecimal pkr) {
+        return nz(pkr).divide(AT_TO_PKR, 2, RoundingMode.HALF_UP);
+    }
+
+    private HospitalPoolSnapshot buildHospitalPoolSnapshot(UUID hospitalId) {
+        List<Patient> patients = patientRepository.findByHospitalId(hospitalId);
+        BigDecimal totalAtPool = BigDecimal.ZERO;
+
+        for (Patient patient : patients) {
+            PatientTokenBalance balance = patientTokenBalanceRepository.findByPatientId(patient.getId()).orElse(null);
+            totalAtPool = totalAtPool.add(balance == null ? BigDecimal.ZERO : nz(balance.getTotalAt()));
+        }
+
+        List<MarketplaceTrade> activeTrades = marketplaceTradeRepository
+            .findByHospitalIdAndStatusOrderByOpeningPriceDesc(hospitalId, MarketplaceTrade.TradeStatus.ACTIVE);
+
+        BigDecimal allocatedPkr = activeTrades.stream()
+            .map(MarketplaceTrade::getAmountInvested)
+            .map(this::nz)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalAtPoolPkr = totalAtPool.multiply(AT_TO_PKR);
+        BigDecimal availablePkr = totalAtPoolPkr.subtract(allocatedPkr);
+        if (availablePkr.compareTo(BigDecimal.ZERO) < 0) {
+            availablePkr = BigDecimal.ZERO;
+        }
+
+        return new HospitalPoolSnapshot(
+            patients.size(),
+            activeTrades.size(),
+            totalAtPool,
+            totalAtPoolPkr,
+            allocatedPkr,
+            availablePkr
+        );
+    }
+
     private List<OrderBookLevelDto> toOrderBookLevels(Map<BigDecimal, BigDecimal> side, String type, int maxLevels) {
         List<OrderBookLevelDto> levels = new ArrayList<>();
         int count = 0;
@@ -435,6 +507,31 @@ public class MarketplaceService {
             this.investment = investment;
             this.location = location;
             this.notes = notes;
+        }
+    }
+
+    private static class HospitalPoolSnapshot {
+        private final int patientCount;
+        private final int openTrades;
+        private final BigDecimal totalAtPool;
+        private final BigDecimal totalAtPoolPkr;
+        private final BigDecimal allocatedPkr;
+        private final BigDecimal availablePkr;
+
+        private HospitalPoolSnapshot(
+            int patientCount,
+            int openTrades,
+            BigDecimal totalAtPool,
+            BigDecimal totalAtPoolPkr,
+            BigDecimal allocatedPkr,
+            BigDecimal availablePkr
+        ) {
+            this.patientCount = patientCount;
+            this.openTrades = openTrades;
+            this.totalAtPool = totalAtPool;
+            this.totalAtPoolPkr = totalAtPoolPkr;
+            this.allocatedPkr = allocatedPkr;
+            this.availablePkr = availablePkr;
         }
     }
 }
