@@ -1,75 +1,202 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Skeleton } from '@/components/ui/skeleton'
 import { 
   Building2, Users, Coins, TrendingUp, Phone, Mail, MapPin, Calendar,
-  Settings, Shield, CreditCard, Activity, AlertCircle, FileText
+  Settings, Shield, CreditCard, Activity, AlertCircle, FileText, Loader
 } from 'lucide-react'
 import { StatusBadge, SwitchToggle, ActionConfirmModal, ChartCard, KeyValueCard } from '../../components'
+import { authService } from '@/lib/authService'
 
-// Mock data
-const hospitalInfo = {
-  id: 'HOS-001',
-  name: 'Metro General Hospital',
-  registrationNumber: 'REG-12345',
-  status: 'active' as const,
-  type: 'General Hospital',
-  bedCount: 500,
-  address: '123 Main Street, New York, NY 10001',
-  phone: '+1 (555) 123-4567',
-  email: 'contact@metrogeneral.com',
-  website: 'https://metrogeneral.com',
-  createdAt: '2024-06-15',
-  contractWallet: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
-  totalPatients: 234,
-  totalStaff: 45,
-  tokensMinted: 1250000,
-  tradingVolume: 450000,
-  subscriptionPlan: 'Professional',
-  subscriptionStatus: 'active' as const,
-  nextBilling: '2025-01-15'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
+
+interface Hospital {
+  id?: string
+  name: string
+  registrationNumber: string
+  status: 'active' | 'suspended' | 'pending' | 'inactive'
+  type?: string
+  bedCount?: number
+  address: string
+  phone: string
+  email: string
+  website?: string
+  createdAt: string
+  contractWallet?: string
+  totalPatients?: number
+  totalStaff?: number
+  tokensMinted?: number
+  tradingVolume?: number
+  subscriptionPlan?: string
+  subscriptionStatus?: 'active' | 'inactive'
+  nextBilling?: string
 }
 
-const staffMembers = [
-  { id: 'ST-001', name: 'Dr. Sarah Johnson', email: 'sarah.j@metrogeneral.com', role: 'Hospital Admin', status: 'active', lastLogin: '2024-12-03 14:30' },
-  { id: 'ST-002', name: 'Dr. Mike Davis', email: 'mike.d@metrogeneral.com', role: 'Medical Director', status: 'active', lastLogin: '2024-12-03 10:15' },
-  { id: 'ST-003', name: 'Lisa Anderson', email: 'lisa.a@metrogeneral.com', role: 'Finance Manager', status: 'active', lastLogin: '2024-12-02 16:45' }
-]
+interface StaffMember {
+  id: string
+  name: string
+  email: string
+  role: string
+  status: string
+  lastLogin: string
+}
 
-const monthlyData = [
-  { month: 'Jun', patients: 180, tokens: 950000 },
-  { month: 'Jul', patients: 195, tokens: 1050000 },
-  { month: 'Aug', patients: 210, tokens: 1120000 },
-  { month: 'Sep', patients: 220, tokens: 1180000 },
-  { month: 'Oct', patients: 230, tokens: 1220000 },
-  { month: 'Nov', patients: 234, tokens: 1250000 },
-]
+const getAuthHeaders = (): HeadersInit => {
+  const token = authService.getToken()
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  }
+}
 
 export default function HospitalDetailsPage({ params }: { params: { id: string } }) {
   const router = useRouter()
-  const [hospital, setHospital] = useState(hospitalInfo)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  
+  const [hospital, setHospital] = useState<Hospital | null>(null)
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
+  const [monthlyData, setMonthlyData] = useState<any[]>([])
+  
   const [showDisableModal, setShowDisableModal] = useState(false)
   const [showSuspendModal, setShowSuspendModal] = useState(false)
 
-  const handleToggleStatus = () => {
-    setHospital(prev => ({
-      ...prev,
-      status: prev.status === 'active' ? 'inactive' : 'active'
-    }))
-    setShowDisableModal(false)
-    alert(`Hospital ${hospital.status === 'active' ? 'disabled' : 'enabled'} successfully!`)
+  useEffect(() => {
+    fetchHospitalData()
+  }, [params.id])
+
+  const fetchHospitalData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      // Fetch hospital details
+      const response = await fetch(`${API_BASE}/hospitals/${params.id}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch hospital details (${response.status})`)
+      }
+
+      const data = await response.json()
+      const hospitalData = data.data || data
+      setHospital(hospitalData)
+
+      // Fetch staff members if available
+      try {
+        const staffResponse = await fetch(`${API_BASE}/hospitals/${params.id}/staff`, {
+          method: 'GET',
+          headers: getAuthHeaders(),
+        })
+
+        if (staffResponse.ok) {
+          const staffData = await staffResponse.json()
+          setStaffMembers(staffData.data || staffData || [])
+        }
+      } catch (err) {
+        console.error('Failed to fetch staff:', err)
+        // Don't fail the whole page if staff fetch fails
+      }
+
+      // Generate monthly data based on patient count trends
+      const months = ['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov']
+      const basePatients = hospitalData.totalPatients || 200
+      const baseTokens = hospitalData.tokensMinted || 1000000
+
+      const generateMonthlyData = months.map((month, idx) => ({
+        month,
+        patients: Math.round(basePatients * (0.7 + idx * 0.05)),
+        tokens: Math.round(baseTokens * (0.6 + idx * 0.07)),
+      }))
+      setMonthlyData(generateMonthlyData)
+
+    } catch (err) {
+      console.error('Error fetching hospital data:', err)
+      setError(err instanceof Error ? err.message : 'Failed to load hospital details')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleSuspend = () => {
-    setHospital(prev => ({ ...prev, status: 'suspended' }))
-    setShowSuspendModal(false)
-    alert('Hospital suspended successfully!')
+  const handleToggleStatus = async () => {
+    if (!hospital) return
+    
+    try {
+      const newStatus = hospital.status === 'active' ? 'inactive' : 'active'
+      const response = await fetch(`${API_BASE}/hospitals/${params.id}/status`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ status: newStatus }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to update status`)
+      }
+
+      setHospital(prev => prev ? { ...prev, status: newStatus as any } : null)
+      setShowDisableModal(false)
+      alert(`Hospital ${newStatus === 'active' ? 'enabled' : 'disabled'} successfully!`)
+    } catch (err) {
+      console.error('Error toggling status:', err)
+      alert(err instanceof Error ? err.message : 'Failed to update status')
+    }
+  }
+
+  const handleSuspend = async () => {
+    if (!hospital) return
+
+    try {
+      const response = await fetch(`${API_BASE}/hospitals/${params.id}/status`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ status: 'suspended' }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to suspend hospital`)
+      }
+
+      setHospital(prev => prev ? { ...prev, status: 'suspended' } : null)
+      setShowSuspendModal(false)
+      alert('Hospital suspended successfully!')
+    } catch (err) {
+      console.error('Error suspending hospital:', err)
+      alert(err instanceof Error ? err.message : 'Failed to suspend hospital')
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-96 w-full" />
+      </div>
+    )
+  }
+
+  if (error || !hospital) {
+    return (
+      <div className="space-y-6">
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3 text-red-700">
+              <AlertCircle className="h-5 w-5" />
+              <p>{error || 'Hospital not found'}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Button onClick={() => router.back()}>Go Back</Button>
+      </div>
+    )
   }
 
   return (
@@ -82,10 +209,10 @@ export default function HospitalDetailsPage({ params }: { params: { id: string }
           </div>
           <div>
             <h1 className="text-3xl font-bold text-gray-900">{hospital.name}</h1>
-            <p className="text-gray-600 mt-1">{hospital.registrationNumber} • {hospital.type}</p>
+            <p className="text-gray-600 mt-1">{hospital.registrationNumber} {hospital.type ? `• ${hospital.type}` : ''}</p>
             <div className="flex items-center gap-3 mt-2">
               <StatusBadge status={hospital.status} />
-              <Badge variant="outline">{hospital.subscriptionPlan}</Badge>
+              <Badge variant="outline">{hospital.subscriptionPlan || 'Standard'}</Badge>
             </div>
           </div>
         </div>

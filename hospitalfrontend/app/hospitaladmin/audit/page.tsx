@@ -1,43 +1,15 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { Search, Filter, Download, Eye, Shield, Activity, Lock } from 'lucide-react'
+import { Search, Filter, Download, Eye, Shield, Activity, Lock, Loader } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-
-// Patient Audit Logs - Patient-initiated interactions
-const patientAuditLogs = [
-  { id: 'PAT-001', action: 'Deposited Asset', user: 'John Doe (Patient ID: PAT-2024-001)', details: 'Deposited vehicle (Tesla Model 3) for minting, 1000 AT generated', ip: '203.45.67.89', timestamp: '2 mins ago', category: 'deposit', status: 'success' },
-  { id: 'PAT-002', action: 'Traded Tokens', user: 'Jane Smith (Patient ID: PAT-2024-002)', details: 'Exchanged 500 AT for 250 HT in marketplace', ip: '192.168.45.23', timestamp: '8 mins ago', category: 'trading', status: 'success' },
-  { id: 'PAT-003', action: 'Viewed Portfolio', user: 'Ahmed Hassan (Patient ID: PAT-2024-003)', details: 'Accessed portfolio dashboard, viewed 8 assets', ip: '10.20.30.45', timestamp: '12 mins ago', category: 'view', status: 'success' },
-  { id: 'PAT-004', action: 'Login', user: 'Sarah Johnson (Patient ID: PAT-2024-004)', details: 'Successful login from mobile device', ip: '172.16.0.50', timestamp: '28 mins ago', category: 'auth', status: 'success' },
-  { id: 'PAT-005', action: 'Updated Profile', user: 'Michael Brown (Patient ID: PAT-2024-005)', details: 'Updated personal information and contact details', ip: '192.168.1.100', timestamp: '45 mins ago', category: 'profile', status: 'success' },
-  { id: 'PAT-006', action: 'Downloaded Statement', user: 'Lisa Wong (Patient ID: PAT-2024-006)', details: 'Downloaded quarterly asset statement (PDF)', ip: '203.0.113.45', timestamp: '1 hour ago', category: 'download', status: 'success' },
-  { id: 'PAT-007', action: 'Failed Login', user: 'Unknown (Patient ID: Unknown)', details: 'Failed login attempt - incorrect credentials', ip: '198.51.100.78', timestamp: '2 hours ago', category: 'auth', status: 'failure' },
-  { id: 'PAT-008', action: 'Redeemed Benefit', user: 'Robert Davis (Patient ID: PAT-2024-007)', details: 'Redeemed health benefit package worth 200 HT', ip: '192.168.88.1', timestamp: '3 hours ago', category: 'benefit', status: 'success' },
-  { id: 'PAT-009', action: 'Transferred Tokens', user: 'Emma Wilson (Patient ID: PAT-2024-008)', details: 'Transferred 300 AT to another patient account', ip: '10.0.20.15', timestamp: '4 hours ago', category: 'transfer', status: 'success' },
-  { id: 'PAT-010', action: 'Requested Withdrawal', user: 'David Lee (Patient ID: PAT-2024-009)', details: 'Submitted withdrawal request for 500 AT to bank account', ip: '172.31.0.100', timestamp: '5 hours ago', category: 'withdrawal', status: 'pending' },
-]
-
-// Hospital Audit Logs - Hospital/Admin-initiated interactions and system events
-const hospitalAuditLogs = [
-  { id: 'HSP-001', action: 'Approved Deposit', user: 'Admin (Hospital Staff)', details: 'Approved deposit request #DEP-2024-405 (PAT-2024-001), created 1000 AT tokens', ip: '192.168.1.1', timestamp: '3 mins ago', category: 'approval', status: 'success' },
-  { id: 'HSP-002', action: 'Updated Settings', user: 'System Administrator', details: 'Changed KYC provider configuration and updated verification thresholds', ip: '192.168.1.1', timestamp: '15 mins ago', category: 'system', status: 'success' },
-  { id: 'HSP-003', action: 'Minted Tokens', user: 'Admin (Hospital Staff)', details: 'Minted 5000 HT for benefit distribution program', ip: '192.168.1.1', timestamp: '45 mins ago', category: 'minting', status: 'success' },
-  { id: 'HSP-004', action: 'Generated Report', user: 'Hospital Manager', details: 'Generated monthly financial report (Dec 2024), 847 transactions analyzed', ip: '192.168.1.50', timestamp: '1 hour ago', category: 'reporting', status: 'success' },
-  { id: 'HSP-005', action: 'User Suspended', user: 'Security Officer', details: 'Suspended patient account PAT-2024-010 due to suspicious activity', ip: '192.168.1.100', timestamp: '1.5 hours ago', category: 'security', status: 'success' },
-  { id: 'HSP-006', action: 'Database Backup', user: 'System Process', details: 'Automatic backup completed - 2.3 GB backed up successfully', ip: '127.0.0.1', timestamp: '2 hours ago', category: 'backup', status: 'success' },
-  { id: 'HSP-007', action: 'Security Alert', user: 'Security System', details: 'Detected 45 failed login attempts from IP 45.22.11.90 - IP blocked', ip: '192.168.1.200', timestamp: '2.5 hours ago', category: 'security', status: 'warning' },
-  { id: 'HSP-008', action: 'Bulk Asset Update', user: 'Hospital Admin', details: 'Updated valuation for 23 assets in custody, total value: 450000 PKR', ip: '192.168.1.25', timestamp: '3 hours ago', category: 'admin', status: 'success' },
-  { id: 'HSP-009', action: 'System Maintenance', user: 'System Administrator', details: 'Completed blockchain network synchronization, all nodes updated to v1.2.4', ip: '192.168.1.1', timestamp: '4 hours ago', category: 'system', status: 'success' },
-  { id: 'HSP-010', action: 'Compliance Check', user: 'Compliance Officer', details: 'Monthly AML/KYC compliance audit completed, 0 violations found', ip: '192.168.1.75', timestamp: '5 hours ago', category: 'compliance', status: 'success' },
-  { id: 'HSP-011', action: 'Staff Permission Change', user: 'System Administrator', details: 'Updated permissions for user admin@hospital.com - added approval authority', ip: '192.168.1.1', timestamp: '6 hours ago', category: 'admin', status: 'success' },
-  { id: 'HSP-012', action: 'Smart Contract Deployed', user: 'Developer', details: 'Deployed new HealthToken smart contract v2.0 to blockchain', ip: '10.0.0.50', timestamp: '8 hours ago', category: 'system', status: 'success' },
-]
+import { auditLogService } from '@/services/auditLogService'
+import type { AuditLog } from '@/types/auditLog'
 
 const getActionIcon = (category: string) => {
   switch (category) {
@@ -71,7 +43,7 @@ const getStatusColor = (status: string) => {
   }
 }
 
-const AuditTable = ({ logs, searchTerm }: { logs: any[]; searchTerm: string }) => {
+const AuditTable = ({ logs, searchTerm, isLoading }: { logs: AuditLog[]; searchTerm: string; isLoading: boolean }) => {
   const filteredLogs = logs.filter(
     (log) =>
       log.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -79,6 +51,15 @@ const AuditTable = ({ logs, searchTerm }: { logs: any[]; searchTerm: string }) =
       log.user.toLowerCase().includes(searchTerm.toLowerCase()) ||
       log.details.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader className="w-6 h-6 animate-spin text-muted-foreground mr-2" />
+        <span className="text-muted-foreground">Loading audit logs...</span>
+      </div>
+    )
+  }
 
   return (
     <Table>
@@ -106,7 +87,7 @@ const AuditTable = ({ logs, searchTerm }: { logs: any[]; searchTerm: string }) =
               </TableCell>
               <TableCell className="text-sm">{log.user}</TableCell>
               <TableCell className="text-muted-foreground text-sm max-w-xs truncate">{log.details}</TableCell>
-              <TableCell className="font-mono text-xs">{log.ip}</TableCell>
+              <TableCell className="font-mono text-xs">{log.ipAddress}</TableCell>
               <TableCell>
                 <Badge className={getStatusColor(log.status)} variant="secondary">
                   {log.status.charAt(0).toUpperCase() + log.status.slice(1)}
@@ -130,11 +111,71 @@ const AuditTable = ({ logs, searchTerm }: { logs: any[]; searchTerm: string }) =
 export default function AuditTrailPage() {
   const [activeTab, setActiveTab] = useState('patient')
   const [searchTerm, setSearchTerm] = useState('')
+  const [patientLogs, setPatientLogs] = useState<AuditLog[]>([])
+  const [hospitalLogs, setHospitalLogs] = useState<AuditLog[]>([])
+  const [isLoadingPatient, setIsLoadingPatient] = useState(true)
+  const [isLoadingHospital, setIsLoadingHospital] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const currentLogs = activeTab === 'patient' ? patientAuditLogs : hospitalAuditLogs
-  const totalLogs = currentLogs.length
-  const successLogs = currentLogs.filter(log => log.status === 'success').length
-  const failureLogs = currentLogs.filter(log => log.status === 'failure' || log.status === 'error').length
+  // Fetch audit logs on component mount
+  useEffect(() => {
+    const fetchAuditLogs = async () => {
+      try {
+        // Fetch patient audit logs
+        setIsLoadingPatient(true)
+        const patientData = await auditLogService.getAllPatientAuditLogs(100)
+        setPatientLogs(patientData)
+        setIsLoadingPatient(false)
+
+        // Fetch hospital audit logs
+        setIsLoadingHospital(true)
+        const hospitalData = await auditLogService.getHospitalAuditLogs(100)
+        setHospitalLogs(hospitalData)
+        setIsLoadingHospital(false)
+      } catch (err) {
+        console.error('Error fetching audit logs:', err)
+        setError(err instanceof Error ? err.message : 'Failed to fetch audit logs')
+        setIsLoadingPatient(false)
+        setIsLoadingHospital(false)
+      }
+    }
+
+    fetchAuditLogs()
+  }, [])
+
+  const currentLogs = activeTab === 'patient' ? patientLogs : hospitalLogs
+  const isLoading = activeTab === 'patient' ? isLoadingPatient : isLoadingHospital
+  const stats = auditLogService.getStatistics(currentLogs)
+
+  const handleExportCSV = () => {
+    try {
+      const headers = ['Log ID', 'Action', 'User', 'Details', 'IP Address', 'Status', 'Timestamp']
+      const rows = currentLogs.map((log) => [
+        log.id,
+        log.action,
+        log.user,
+        log.details,
+        log.ipAddress,
+        log.status,
+        log.timestamp,
+      ])
+
+      const csvContent = [
+        headers.join(','),
+        ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')),
+      ].join('\n')
+
+      const blob = new Blob([csvContent], { type: 'text/csv' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `audit-logs-${activeTab}-${new Date().toISOString().split('T')[0]}.csv`
+      a.click()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Error exporting CSV:', err)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -143,10 +184,18 @@ export default function AuditTrailPage() {
           <h1 className="text-3xl font-bold text-foreground">Audit Trail</h1>
           <p className="text-muted-foreground mt-1">Comprehensive log of all system interactions and activities.</p>
         </div>
-        <Button variant="outline">
+        <Button variant="outline" onClick={handleExportCSV} disabled={isLoading || currentLogs.length === 0}>
           <Download className="w-4 h-4 mr-2" /> Export CSV
         </Button>
       </div>
+
+      {error && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <p className="text-sm text-red-700">{error}</p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -154,7 +203,7 @@ export default function AuditTrailPage() {
           <CardContent className="pt-6">
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">Total Logs ({activeTab})</p>
-              <p className="text-2xl font-bold">{totalLogs}</p>
+              <p className="text-2xl font-bold">{stats.total}</p>
             </div>
           </CardContent>
         </Card>
@@ -162,7 +211,7 @@ export default function AuditTrailPage() {
           <CardContent className="pt-6">
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">Successful</p>
-              <p className="text-2xl font-bold text-success">{successLogs}</p>
+              <p className="text-2xl font-bold text-success">{stats.successful}</p>
             </div>
           </CardContent>
         </Card>
@@ -170,7 +219,7 @@ export default function AuditTrailPage() {
           <CardContent className="pt-6">
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">Failed/Errors</p>
-              <p className="text-2xl font-bold text-error">{failureLogs}</p>
+              <p className="text-2xl font-bold text-error">{stats.failed}</p>
             </div>
           </CardContent>
         </Card>
@@ -178,9 +227,7 @@ export default function AuditTrailPage() {
           <CardContent className="pt-6">
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">Success Rate</p>
-              <p className="text-2xl font-bold text-primary">
-                {totalLogs > 0 ? Math.round((successLogs / totalLogs) * 100) : 0}%
-              </p>
+              <p className="text-2xl font-bold text-primary">{stats.successRate}%</p>
             </div>
           </CardContent>
         </Card>
@@ -215,7 +262,7 @@ export default function AuditTrailPage() {
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
-                <Button variant="outline">
+                <Button variant="outline" disabled>
                   <Filter className="w-4 h-4 mr-2" /> Filter
                 </Button>
               </div>
@@ -223,7 +270,7 @@ export default function AuditTrailPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <AuditTable logs={currentLogs} searchTerm={searchTerm} />
+          <AuditTable logs={currentLogs} searchTerm={searchTerm} isLoading={isLoading} />
         </CardContent>
       </Card>
     </div>

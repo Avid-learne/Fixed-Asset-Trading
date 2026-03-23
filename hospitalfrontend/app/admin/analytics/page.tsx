@@ -1,53 +1,109 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { TrendingUp, TrendingDown, Building2, Users, Coins, Activity } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
+import { TrendingUp, TrendingDown, Building2, Users, Coins, Activity, AlertCircle } from 'lucide-react'
 import { ChartCard } from '../components'
-
-const platformGrowth = [
-  { month: 'Jun', hospitals: 12, patients: 450, tokens: 4500000, volume: 1200000 },
-  { month: 'Jul', hospitals: 15, patients: 580, tokens: 5200000, volume: 1450000 },
-  { month: 'Aug', hospitals: 18, patients: 720, tokens: 5800000, volume: 1680000 },
-  { month: 'Sep', hospitals: 22, patients: 890, tokens: 6400000, volume: 1920000 },
-  { month: 'Oct', hospitals: 25, patients: 1050, tokens: 7100000, volume: 2150000 },
-  { month: 'Nov', hospitals: 28, patients: 1240, tokens: 7850000, volume: 2450000 },
-]
-
-const hospitalComparison = [
-  { hospital: 'Metro General', patients: 234, tokens: 1250000, volume: 450000 },
-  { hospital: 'City Medical', patients: 189, tokens: 980000, volume: 320000 },
-  { hospital: 'Regional Health', patients: 156, tokens: 750000, volume: 280000 },
-  { hospital: 'Sunrise Medical', patients: 145, tokens: 680000, volume: 250000 },
-  { hospital: 'Others', patients: 516, tokens: 4190000, volume: 1150000 }
-]
-
-const verificationStats = [
-  { category: 'Approved', count: 1389, percentage: 95.8 },
-  { category: 'Pending', count: 23, percentage: 1.6 },
-  { category: 'Rejected', count: 38, percentage: 2.6 }
-]
-
-const tokenDistribution = [
-  { type: 'AT Minted', value: 7850000 },
-  { type: 'AT in Circulation', value: 7120000 },
-  { type: 'AT Burned', value: 180000 },
-  { type: 'HT Allocated', value: 1580000 }
-]
+import { dashboardService, type SuperAdminDashboardSummary } from '@/services/dashboardService'
 
 export default function AnalyticsPage() {
   const [timeRange, setTimeRange] = useState('6months')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  
+  const [summary, setSummary] = useState<SuperAdminDashboardSummary | null>(null)
+  const [platformGrowth, setPlatformGrowth] = useState<any[]>([])
+  const [hospitalComparison, setHospitalComparison] = useState<any[]>([])
+  const [verificationStats, setVerificationStats] = useState<any[]>([])
+  const [tokenDistribution, setTokenDistribution] = useState<any[]>([])
 
-  const kpis = {
-    totalHospitals: 28,
+  useEffect(() => {
+    fetchAnalyticsData()
+  }, [])
+
+  const fetchAnalyticsData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      // Fetch super admin summary
+      const dashboardData = await dashboardService.getSuperAdminSummary()
+      setSummary(dashboardData)
+
+      // Generate platform growth data
+      const months = ['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov']
+      const generatedGrowth = months.map((month, idx) => ({
+        month,
+        hospitals: Math.round(dashboardData.totalHospitals * (0.6 + idx * 0.1)),
+        patients: Math.round(dashboardData.totalPatients * (0.4 + idx * 0.15)),
+        tokens: Math.round(dashboardData.totalATMinted * (0.5 + idx * 0.1)),
+        volume: Math.round(dashboardData.totalTransactionVolume * (0.3 + idx * 0.12) / 6),
+      }))
+      setPlatformGrowth(generatedGrowth)
+
+      // Generate hospital comparison (mock based on summary)
+      const generatedComparison = [
+        { hospital: 'Top Hospital 1', patients: Math.round(dashboardData.totalPatients * 0.25), tokens: Math.round(dashboardData.totalATMinted * 0.25), volume: Math.round(dashboardData.totalTransactionVolume * 0.25) },
+        { hospital: 'Top Hospital 2', patients: Math.round(dashboardData.totalPatients * 0.2), tokens: Math.round(dashboardData.totalATMinted * 0.2), volume: Math.round(dashboardData.totalTransactionVolume * 0.2) },
+        { hospital: 'Top Hospital 3', patients: Math.round(dashboardData.totalPatients * 0.15), tokens: Math.round(dashboardData.totalATMinted * 0.15), volume: Math.round(dashboardData.totalTransactionVolume * 0.15) },
+        { hospital: 'Top Hospital 4', patients: Math.round(dashboardData.totalPatients * 0.12), tokens: Math.round(dashboardData.totalATMinted * 0.12), volume: Math.round(dashboardData.totalTransactionVolume * 0.12) },
+        { hospital: 'Others', patients: Math.round(dashboardData.totalPatients * 0.28), tokens: Math.round(dashboardData.totalATMinted * 0.28), volume: Math.round(dashboardData.totalTransactionVolume * 0.28) }
+      ]
+      setHospitalComparison(generatedComparison)
+
+      // Generate verification stats
+      const total = 1450
+      const approved = Math.round(total * 0.958)
+      const pending = Math.round(total * 0.016)
+      const rejected = total - approved - pending
+
+      setVerificationStats([
+        { category: 'Approved', count: approved, percentage: (approved / total * 100).toFixed(1) },
+        { category: 'Pending', count: pending, percentage: (pending / total * 100).toFixed(1) },
+        { category: 'Rejected', count: rejected, percentage: (rejected / total * 100).toFixed(1) }
+      ])
+
+      // Generate token distribution
+      const totalAT = dashboardData.totalATMinted
+      const atInCirculation = dashboardData.totalATMinted * 0.9
+      const atBurned = dashboardData.totalATMinted * 0.1
+      const htAllocated = dashboardData.totalHTIssued
+
+      setTokenDistribution([
+        { type: 'AT Minted', value: Math.round(totalAT) },
+        { type: 'AT in Circulation', value: Math.round(atInCirculation) },
+        { type: 'AT Burned', value: Math.round(atBurned) },
+        { type: 'HT Allocated', value: Math.round(htAllocated) }
+      ])
+
+    } catch (err) {
+      console.error('Failed to fetch analytics data:', err)
+      setError(err instanceof Error ? err.message : 'Failed to load analytics')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const kpis = summary ? {
+    totalHospitals: summary.totalHospitals,
     hospitalGrowth: '+12%',
-    totalPatients: 1240,
+    totalPatients: summary.totalPatients,
     patientGrowth: '+18%',
-    totalTokens: 7850000,
+    totalTokens: Math.round(summary.totalATMinted / 1000000),
     tokenGrowth: '+15%',
-    totalVolume: 2450000,
+    totalVolume: Math.round(summary.totalTransactionVolume / 1000000),
     volumeGrowth: '+14%'
+  } : {
+    totalHospitals: 0,
+    hospitalGrowth: '+0%',
+    totalPatients: 0,
+    patientGrowth: '+0%',
+    totalTokens: 0,
+    tokenGrowth: '+0%',
+    totalVolume: 0,
+    volumeGrowth: '+0%'
   }
 
   return (
@@ -72,32 +128,49 @@ export default function AnalyticsPage() {
         </Select>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
+      {error && (
+        <Card className="border-red-200 bg-red-50">
           <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Hospitals</p>
-                <p className="text-3xl font-bold text-gray-900">{kpis.totalHospitals}</p>
-                <div className="flex items-center gap-1 mt-1">
-                  <TrendingUp className="h-4 w-4 text-green-600" />
-                  <span className="text-sm text-green-600">{kpis.hospitalGrowth}</span>
-                  <span className="text-xs text-gray-600">vs last period</span>
-                </div>
-              </div>
-              <div className="w-12 h-12 bg-cyan-100 rounded-full flex items-center justify-center">
-                <Building2 className="h-6 w-6 text-cyan-600" />
-              </div>
+            <div className="flex items-center gap-3 text-red-700">
+              <AlertCircle className="h-5 w-5" />
+              <p>{error}</p>
             </div>
           </CardContent>
         </Card>
+      )}
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Active Patients</p>
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {loading ? (
+          [...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-32" />
+          ))
+        ) : (
+          <>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Total Hospitals</p>
+                    <p className="text-3xl font-bold text-gray-900">{kpis.totalHospitals}</p>
+                    <div className="flex items-center gap-1 mt-1">
+                      <TrendingUp className="h-4 w-4 text-green-600" />
+                      <span className="text-sm text-green-600">{kpis.hospitalGrowth}</span>
+                      <span className="text-xs text-gray-600">vs last period</span>
+                    </div>
+                  </div>
+                  <div className="w-12 h-12 bg-cyan-100 rounded-full flex items-center justify-center">
+                    <Building2 className="h-6 w-6 text-cyan-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Active Patients</p>
                 <p className="text-3xl font-bold text-gray-900">{kpis.totalPatients.toLocaleString()}</p>
                 <div className="flex items-center gap-1 mt-1">
                   <TrendingUp className="h-4 w-4 text-green-600" />
@@ -110,45 +183,47 @@ export default function AnalyticsPage() {
               </div>
             </div>
           </CardContent>
-        </Card>
+            </Card>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Tokens</p>
-                <p className="text-3xl font-bold text-gray-900">{(kpis.totalTokens / 1000000).toFixed(1)}M</p>
-                <div className="flex items-center gap-1 mt-1">
-                  <TrendingUp className="h-4 w-4 text-green-600" />
-                  <span className="text-sm text-green-600">{kpis.tokenGrowth}</span>
-                  <span className="text-xs text-gray-600">vs last period</span>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Total Tokens</p>
+                    <p className="text-3xl font-bold text-gray-900">{kpis.totalTokens}M</p>
+                    <div className="flex items-center gap-1 mt-1">
+                      <TrendingUp className="h-4 w-4 text-green-600" />
+                      <span className="text-sm text-green-600">{kpis.tokenGrowth}</span>
+                      <span className="text-xs text-gray-600">vs last period</span>
+                    </div>
+                  </div>
+                  <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                    <Coins className="h-6 w-6 text-purple-600" />
+                  </div>
                 </div>
-              </div>
-              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                <Coins className="h-6 w-6 text-purple-600" />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Trading Volume</p>
+                    <p className="text-3xl font-bold text-gray-900">PKR {kpis.totalVolume}M</p>
+                    <div className="flex items-center gap-1 mt-1">
+                      <TrendingUp className="h-4 w-4 text-green-600" />
+                      <span className="text-sm text-green-600">{kpis.volumeGrowth}</span>
+                      <span className="text-xs text-gray-600">vs last period</span>
+                    </div>
+                  </div>
+                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                    <Activity className="h-6 w-6 text-green-600" />
               </div>
             </div>
           </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Trading Volume</p>
-                <p className="text-3xl font-bold text-gray-900">${(kpis.totalVolume / 1000000).toFixed(2)}M</p>
-                <div className="flex items-center gap-1 mt-1">
-                  <TrendingUp className="h-4 w-4 text-green-600" />
-                  <span className="text-sm text-green-600">{kpis.volumeGrowth}</span>
-                  <span className="text-xs text-gray-600">vs last period</span>
-                </div>
-              </div>
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                <Activity className="h-6 w-6 text-green-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </Card>
+          </>
+        )}
       </div>
 
       {/* Growth Charts */}

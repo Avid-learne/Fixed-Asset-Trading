@@ -12,9 +12,10 @@ import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/com
 import { FormField } from '@/components/ui/form-field'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Building2, Plus, Users, Coins, TrendingUp, Eye, CheckCircle, Search, List, UserPlus } from 'lucide-react'
+import { Building2, Plus, Users, Coins, TrendingUp, Eye, CheckCircle, Search, List, UserPlus, Loader } from 'lucide-react'
 import { DataTable, StatusBadge } from '../components'
 import { formatNumber, formatDate } from '@/lib/utils'
+import { authService } from '@/lib/authService'
 
 interface Hospital {
   id: string
@@ -30,25 +31,20 @@ interface Hospital {
   subscriptionPlan: string
 }
 
-const mockHospitals: Hospital[] = [
-  {
-    id: 'H-001',
-    name: 'City General Hospital',
-    address: '123 Medical Center Dr, New York, NY 10001',
-    contactEmail: 'admin@cityhospital.com',
-    contactPhone: '+1-555-0100',
-    registrationNumber: 'CGH-2024-001',
-    status: 'active',
-    totalPatients: 1250,
-    tokensMinted: 12500,
-    createdAt: '2024-01-15T08:00:00Z',
-    subscriptionPlan: 'Enterprise',
-  },
-]
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
+
+const getAuthHeaders = (): HeadersInit => {
+  const token = authService.getToken()
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  }
+}
 
 export default function HospitalsManagementPage() {
-  const [hospitals, setHospitals] = useState<Hospital[]>(mockHospitals)
-  const [loading, setLoading] = useState(false)
+  const [hospitals, setHospitals] = useState<Hospital[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -68,32 +64,64 @@ export default function HospitalsManagementPage() {
 
   const fetchHospitals = async () => {
     try {
-      // Service call will be implemented when API is connected
-      // const response = await adminService.getHospitals()
-      // setHospitals(response.data)
-      // For now, data is already set via useState with mockHospitals
-    } catch (error) {
-      console.error('Error fetching hospitals:', error)
+      setLoading(true)
+      setError(null)
+      const response = await fetch(`${API_BASE}/hospitals`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      })
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch hospitals (${response.status})`)
+      }
+      
+      const data = await response.json()
+      const hospitalsList = data.data || data || []
+      setHospitals(Array.isArray(hospitalsList) ? hospitalsList : [])
+    } catch (err) {
+      console.error('Error fetching hospitals:', err)
+      setError(err instanceof Error ? err.message : 'Failed to load hospitals')
+      setHospitals([])
+    } finally {
+      setLoading(false)
     }
   }
 
   const handleCreateHospital = async () => {
     try {
-      // await adminService.createHospital(formData)
+      const response = await fetch(`${API_BASE}/hospitals`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(formData),
+      })
+      
+      if (!response.ok) {
+        throw new Error(`Failed to create hospital (${response.status})`)
+      }
+      
       alert('Hospital created successfully!')
       setShowCreateModal(false)
       setFormData({ name: '', address: '', contactEmail: '', contactPhone: '', registrationNumber: '' })
       fetchHospitals()
     } catch (error) {
       console.error('Error creating hospital:', error)
-      alert('Failed to create hospital. Please try again.')
+      alert(error instanceof Error ? error.message : 'Failed to create hospital. Please try again.')
     }
   }
 
   const handleToggleStatus = async (hospital: Hospital) => {
     try {
       const newStatus = hospital.status === 'active' ? 'suspended' : 'active'
-      // await adminService.updateHospitalStatus(hospital.id, newStatus)
+      const response = await fetch(`${API_BASE}/hospitals/${hospital.id}/status`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ status: newStatus }),
+      })
+      
+      if (!response.ok) {
+        throw new Error(`Failed to update status (${response.status})`)
+      }
+      
       alert(`Hospital ${newStatus === 'active' ? 'activated' : 'suspended'} successfully!`)
       fetchHospitals()
     } catch (error) {
@@ -118,21 +146,20 @@ export default function HospitalsManagementPage() {
     return config[status as keyof typeof config] || 'bg-gray-100 text-gray-800'
   }
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-96 w-full" />
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Hospital Management</h1>
         <p className="text-gray-500 mt-1">Manage registered hospitals and register new ones</p>
       </div>
+
+      {error && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <p className="text-red-700">{error}</p>
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="list" className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-2">
@@ -149,57 +176,65 @@ export default function HospitalsManagementPage() {
         <TabsContent value="list" className="space-y-6 mt-6">
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Hospitals</CardTitle>
-            <Building2 className="w-4 h-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">
-              {formatNumber(hospitals.length)}
-            </div>
-            <p className="text-xs text-gray-500 mt-1">Registered facilities</p>
-          </CardContent>
-        </Card>
+        {loading ? (
+          [...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-24" />
+          ))
+        ) : (
+          <>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-gray-600">Total Hospitals</CardTitle>
+                <Building2 className="w-4 h-4 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-gray-900">
+                  {formatNumber(hospitals.length)}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Registered facilities</p>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Active</CardTitle>
-            <CheckCircle className="w-4 h-4 text-success" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-success">
-              {formatNumber(hospitals.filter(h => h.status === 'active').length)}
-            </div>
-            <p className="text-xs text-gray-500 mt-1">Operational hospitals</p>
-          </CardContent>
-        </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-gray-600">Active</CardTitle>
+                <CheckCircle className="w-4 h-4 text-success" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-success">
+                  {formatNumber(hospitals.filter(h => h.status === 'active').length)}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Operational hospitals</p>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Patients</CardTitle>
-            <Users className="w-4 h-4 text-accent" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">
-              {formatNumber(hospitals.reduce((sum, h) => sum + h.totalPatients, 0))}
-            </div>
-            <p className="text-xs text-gray-500 mt-1">Across all hospitals</p>
-          </CardContent>
-        </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-gray-600">Total Patients</CardTitle>
+                <Users className="w-4 h-4 text-accent" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-gray-900">
+                  {formatNumber(hospitals.reduce((sum, h) => sum + h.totalPatients, 0))}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Across all hospitals</p>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Tokens Minted</CardTitle>
-            <Coins className="w-4 h-4 text-warning" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">
-              {formatNumber(hospitals.reduce((sum, h) => sum + h.tokensMinted, 0))}
-            </div>
-            <p className="text-xs text-gray-500 mt-1">Platform-wide total</p>
-          </CardContent>
-        </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-gray-600">Tokens Minted</CardTitle>
+                <Coins className="w-4 h-4 text-warning" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-gray-900">
+                  {formatNumber(hospitals.reduce((sum, h) => sum + h.tokensMinted, 0))}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Platform-wide total</p>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
       <Card>
@@ -230,7 +265,13 @@ export default function HospitalsManagementPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {filteredHospitals.length === 0 ? (
+          {loading ? (
+            <div className="space-y-2">
+              {[...Array(5)].map((_, i) => (
+                <Skeleton key={i} className="h-12" />
+              ))}
+            </div>
+          ) : filteredHospitals.length === 0 ? (
             <div className="text-center py-12">
               <Building2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500">No hospitals found</p>

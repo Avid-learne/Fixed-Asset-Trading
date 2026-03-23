@@ -1,11 +1,17 @@
 package com.SehatVault.SehatVaultBackend.hospital.entity;
 
-import jakarta.persistence.*;
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import java.time.LocalDateTime;
-import java.util.UUID;
 
 /**
  * Hospital Entity
@@ -20,7 +26,7 @@ public class Hospital {
     
     @Id
     @Column(name = "h_id")
-    private UUID hospitalId;
+    private UUID id;
     
     @Column(name = "hospital_name", nullable = false)
     private String hospitalName;
@@ -61,6 +67,22 @@ public class Hospital {
     
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+    
+    /**
+     * Backward compatible getter for hospitalId
+     * Maps to the id field (h_id column)
+     */
+    public UUID getHospitalId() {
+        return this.id;
+    }
+    
+    /**
+     * Backward compatible setter for hospitalId
+     * Maps to the id field (h_id column)
+     */
+    public void setHospitalId(UUID hospitalId) {
+        this.id = hospitalId;
+    }
     
     public enum VerificationStatus {
         PENDING, VERIFIED, REJECTED
