@@ -4,18 +4,24 @@ import com.SehatVault.SehatVaultBackend.assetdeposit.dto.AssetDepositDto;
 import com.SehatVault.SehatVaultBackend.assetdeposit.dto.HospitalOptionDto;
 import com.SehatVault.SehatVaultBackend.assetdeposit.dto.SubmitAssetDepositRequest;
 import com.SehatVault.SehatVaultBackend.assetdeposit.entity.AssetDeposit;
+import com.SehatVault.SehatVaultBackend.assetdeposit.entity.MintRecord;
 import com.SehatVault.SehatVaultBackend.assetdeposit.repository.AssetDepositRepository;
+import com.SehatVault.SehatVaultBackend.assetdeposit.repository.MintRecordRepository;
 import com.SehatVault.SehatVaultBackend.auth.entity.Role;
 import com.SehatVault.SehatVaultBackend.auth.entity.User;
 import com.SehatVault.SehatVaultBackend.auth.repository.UserRepository;
 import com.SehatVault.SehatVaultBackend.bank.entity.Bank;
 import com.SehatVault.SehatVaultBackend.bank.repository.BankRepository;
+import com.SehatVault.SehatVaultBackend.blockchain.dto.BlockchainMintRequest;
+import com.SehatVault.SehatVaultBackend.blockchain.dto.BlockchainMintResponse;
+import com.SehatVault.SehatVaultBackend.blockchain.service.BlockchainService;
 import com.SehatVault.SehatVaultBackend.healthcard.entity.Card;
 import com.SehatVault.SehatVaultBackend.healthcard.entity.HealthCard;
 import com.SehatVault.SehatVaultBackend.healthcard.repository.CardRepository;
 import com.SehatVault.SehatVaultBackend.healthcard.repository.HealthCardRepository;
 import com.SehatVault.SehatVaultBackend.hospital.entity.Hospital;
 import com.SehatVault.SehatVaultBackend.hospital.repository.HospitalRepository;
+import com.SehatVault.SehatVaultBackend.marketplace.service.HospitalAtPoolService;
 import com.SehatVault.SehatVaultBackend.patient.entity.Patient;
 import com.SehatVault.SehatVaultBackend.patient.repository.PatientRepository;
 import com.SehatVault.SehatVaultBackend.wallet.entity.PatientTokenBalance;
@@ -47,6 +53,9 @@ public class AssetDepositService {
     private final UserRepository userRepository;
     private final HospitalRepository hospitalRepository;
     private final BankRepository bankRepository;
+    private final MintRecordRepository mintRecordRepository;
+    private final HospitalAtPoolService hospitalAtPoolService;
+    private final BlockchainService blockchainService;
 
     @Transactional(readOnly = true)
     public List<HospitalOptionDto> getHospitalOptions() {
@@ -320,6 +329,25 @@ public class AssetDepositService {
         // Mint AT and HT from approved asset value.
         BigDecimal atTokens = nzNum(saved.getAssetValue()).divide(TOKEN_RATIO, 2, RoundingMode.DOWN);
         BigDecimal htTokens = atTokens;
+
+        validateMintCap(saved, atTokens);
+
+        String patientWalletAddress = nz(patient.getWalletAddress()).trim();
+        if (patientWalletAddress.isBlank()) {
+            throw new IllegalArgumentException("Patient wallet address is missing. Please update patient wallet before minting.");
+        }
+
+        // Submit AT mint on-chain first so DB 'minted' status always has a real blockchain tx hash.
+        BlockchainMintResponse mintResponse = blockchainService.mintAssetToken(
+            BlockchainMintRequest.builder()
+                .patientAddress(patientWalletAddress)
+                .amount(atTokens.toBigInteger())
+                .tokenType("AT")
+                .depositId(saved.getAssetId().getMostSignificantBits())
+                .metadata("asset-id:" + saved.getAssetId())
+                .build()
+        );
+
         PatientTokenBalance balance = patientTokenBalanceRepository
             .findByPatientId(patient.getId())
             .orElseGet(() -> {
@@ -334,6 +362,9 @@ public class AssetDepositService {
         balance.setTotalHt(nzNum(balance.getTotalHt()).add(htTokens));
         balance.setLastUpdated(LocalDateTime.now());
         patientTokenBalanceRepository.save(balance);
+
+        recordMint(saved, patient.getId(), bankUser.getUserId(), atTokens, mintResponse);
+        hospitalAtPoolService.addToPool(hospitalId, patient.getId(), saved.getAssetId(), atTokens);
 
         // Auto-create/update Asset Health Card and move approved HT into the card balance.
         creditAssetHealthCard(patient.getId(), htTokens);
@@ -447,6 +478,49 @@ public class AssetDepositService {
 
     private String nz(String value) {
         return value == null ? "" : value;
+    }
+
+    private void validateMintCap(AssetDeposit deposit, BigDecimal newAtMintAmount) {
+        BigDecimal maxMintableAt = nzNum(deposit.getAssetValue()).divide(TOKEN_RATIO, 8, RoundingMode.DOWN);
+        BigDecimal alreadyMintedAt = nzNum(mintRecordRepository.sumTokensMintedByAssetId(deposit.getAssetId()));
+        BigDecimal cumulativeAt = alreadyMintedAt.add(nzNum(newAtMintAmount));
+
+        if (cumulativeAt.compareTo(maxMintableAt) > 0) {
+            throw new IllegalArgumentException(
+                "Over-tokenization blocked for asset " + deposit.getAssetId()
+                    + ". maxMintableAT=" + maxMintableAt.toPlainString()
+                    + ", alreadyMintedAT=" + alreadyMintedAt.toPlainString()
+                    + ", requestedAT=" + newAtMintAmount.toPlainString()
+            );
+        }
+    }
+
+    private void recordMint(
+        AssetDeposit deposit,
+        UUID patientId,
+        UUID minterId,
+        BigDecimal atTokens,
+        BlockchainMintResponse mintResponse
+    ) {
+        MintRecord mintRecord = new MintRecord();
+        mintRecord.setAssetId(deposit.getAssetId());
+        mintRecord.setPatientId(patientId);
+        mintRecord.setMinterId(minterId);
+        mintRecord.setTokensMinted(atTokens);
+        mintRecord.setAmount(atTokens.multiply(TOKEN_RATIO));
+        mintRecord.setStatus("PENDING");
+        if (mintResponse != null) {
+            mintRecord.setTransactionHash(mintResponse.getTransactionHash());
+            if (mintResponse.getBlockNumber() != null && !mintResponse.getBlockNumber().isBlank()) {
+                try {
+                    mintRecord.setBlockNumber(Long.parseLong(mintResponse.getBlockNumber()));
+                } catch (NumberFormatException ignored) {
+                    mintRecord.setBlockNumber(null);
+                }
+            }
+        }
+        mintRecord.setTimestamp(LocalDateTime.now());
+        mintRecordRepository.save(mintRecord);
     }
 
     private void creditAssetHealthCard(UUID patientId, BigDecimal htCredit) {

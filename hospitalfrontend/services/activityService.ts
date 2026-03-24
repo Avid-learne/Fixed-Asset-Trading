@@ -21,7 +21,7 @@ type ActivityTransactionResponse = {
   fromAddress?: string
   toAddress?: string
   source?: string
-  transactionType?: 'DEBIT' | 'CREDIT'
+  transactionType?: 'DEBIT' | 'CREDIT' | 'AT_BURN' | 'HT_MINT'
   blockNumber?: number
 }
 
@@ -53,6 +53,17 @@ const toRelativeTime = (isoDate: string) => {
   return `${days} day${days === 1 ? '' : 's'} ago`
 }
 
+const mapTransactionViewType = (transactionType?: string): 'ISSUED' | 'REDEEMED' => {
+  if (!transactionType) return 'REDEEMED'
+
+  const type = transactionType.toUpperCase()
+  if (type === 'CREDIT' || type === 'HT_MINT') {
+    return 'ISSUED'
+  }
+
+  return 'REDEEMED'
+}
+
 export const activityService = {
   async getTransactions(userId: string): Promise<Tx[]> {
     const res = await fetch(`${API_URL}/patient/${userId}/transactions`, {
@@ -77,7 +88,7 @@ export const activityService = {
       from_address: row.fromAddress,
       to_address: row.toAddress,
       source: row.source,
-      type: row.transactionType === 'CREDIT' ? 'ISSUED' : 'REDEEMED',
+      type: mapTransactionViewType(row.transactionType),
       block_number: row.blockNumber,
     }))
   },

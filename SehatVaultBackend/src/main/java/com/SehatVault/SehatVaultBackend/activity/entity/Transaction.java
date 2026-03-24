@@ -64,6 +64,8 @@ public class Transaction {
 
     public enum TransactionType {
         DEBIT,
-        CREDIT
+        CREDIT,
+        AT_BURN,
+        HT_MINT
     }
 }

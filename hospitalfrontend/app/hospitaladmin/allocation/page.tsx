@@ -151,12 +151,19 @@ export default function ProfitAllocationPage() {
                 />
                 <p className="text-xs text-slate-500 mt-1">Minted HT = Profit / {htConversionRate}. Distribution is one-time against available undistributed profit.</p>
               </div>
-              <div className="grid grid-cols-2 gap-2 items-end">
+              <div className="grid grid-cols-3 gap-2 items-end">
                 <Button variant="outline" onClick={handleRefresh} disabled={refreshing}>
                   {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                 </Button>
-                <Button onClick={handleReview}>
+                <Button variant="outline" onClick={handleReview}>
                   Review
+                </Button>
+                <Button
+                  className="bg-green-600 hover:bg-green-700"
+                  onClick={() => setShowConfirmation(true)}
+                  disabled={allocating || availableProfit <= 0 || recipients <= 0}
+                >
+                  Distribute Profit
                 </Button>
               </div>
             </div>

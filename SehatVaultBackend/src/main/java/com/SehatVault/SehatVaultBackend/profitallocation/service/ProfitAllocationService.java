@@ -1,5 +1,6 @@
 package com.SehatVault.SehatVaultBackend.profitallocation.service;
 
+import com.SehatVault.SehatVaultBackend.activity.entity.Transaction;
 import com.SehatVault.SehatVaultBackend.auth.entity.Role;
 import com.SehatVault.SehatVaultBackend.auth.entity.User;
 import com.SehatVault.SehatVaultBackend.auth.repository.UserRepository;
@@ -19,6 +20,7 @@ import com.SehatVault.SehatVaultBackend.profitallocation.repository.ProfitAlloca
 import com.SehatVault.SehatVaultBackend.profitallocation.repository.ProfitDistributionRepository;
 import com.SehatVault.SehatVaultBackend.wallet.entity.PatientTokenBalance;
 import com.SehatVault.SehatVaultBackend.wallet.repository.PatientTokenBalanceRepository;
+import com.SehatVault.SehatVaultBackend.wallet.repository.WalletTransactionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +30,7 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.UUID;
 
 @Service
@@ -45,6 +48,7 @@ public class ProfitAllocationService {
     private final ProfitDistributionRepository profitDistributionRepository;
     private final ProfitAllocationRepository profitAllocationRepository;
     private final AssetDepositRefRepository assetDepositRefRepository;
+    private final WalletTransactionRepository walletTransactionRepository;
 
     @Transactional(readOnly = true)
     public ProfitAllocationPreviewResponse getPreview(String email, BigDecimal requestedProfit) {
@@ -105,6 +109,11 @@ public class ProfitAllocationService {
         distribution.setCreatedAt(LocalDateTime.now());
         distribution = profitDistributionRepository.save(distribution);
 
+        UUID htTokenId = walletTransactionRepository.findTokenIdBySymbol("HT");
+        if (htTokenId == null) {
+            throw new IllegalArgumentException("HT token is not configured in tokens table");
+        }
+
         for (PatientAllocationPreviewDto item : preview.getAllocations()) {
             ProfitAllocation allocation = new ProfitAllocation();
             allocation.setProfitDistributionId(distribution.getProfitDistributionId());
@@ -128,6 +137,20 @@ public class ProfitAllocationService {
             balance.setTotalHt(nz(balance.getTotalHt()).add(nz(item.getHtAmount())));
             balance.setLastUpdated(LocalDateTime.now());
             patientTokenBalanceRepository.save(balance);
+
+            Transaction tx = new Transaction();
+            tx.setUserId(item.getUserId());
+            tx.setTokenId(htTokenId);
+            tx.setType(Transaction.TransactionType.HT_MINT);
+            tx.setAmount(nz(item.getHtAmount()));
+            tx.setDescription("HT minted from profit distribution " + distribution.getProfitDistributionId());
+            tx.setSenderWalletAddress("HOSPITAL-TREASURY");
+            tx.setReceiverWalletAddress(item.getWalletAddress());
+            tx.setBlockNumber(Math.abs(new Random().nextLong(9_000_000L)) + 1_000_000L);
+            tx.setTransactionHash("ALLOC-" + UUID.randomUUID().toString().replace("-", ""));
+            tx.setStatus("SUCCESS");
+            tx.setTimestamp(LocalDateTime.now());
+            walletTransactionRepository.save(tx);
         }
 
         ExecuteProfitAllocationResponse response = new ExecuteProfitAllocationResponse();

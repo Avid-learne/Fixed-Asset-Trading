@@ -40,6 +40,7 @@ const asNumber = (value: string | number | undefined | null): number => {
 const convertPKRtoAT = (pkr: number) => pkr / AT_TO_PKR
 
 const formatAT = (pkr: number) => `${convertPKRtoAT(pkr).toLocaleString(undefined, { maximumFractionDigits: 2 })} AT`
+const formatPKR = (value: number) => `PKR ${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
 
 const compactNumber = (value: number) => new Intl.NumberFormat('en', {
   notation: 'compact',
@@ -163,7 +164,7 @@ export default function HospitalAdminMarketplace() {
       const buyPrice = asNumber(form.buyPrice)
       const quantity = asNumber(form.quantity)
       const investedAmount = buyPrice * quantity
-      const currentValue = form.currentValue ? asNumber(form.currentValue) : investedAmount
+      const currentValue = form.currentValue ? asNumber(form.currentValue) : buyPrice
 
       if (!poolLoading && investedAmount > atPool.availablePkr) {
         setError(`Insufficient pooled AT. Available: ${formatAT(atPool.availablePkr)}, required: ${formatAT(investedAmount)}.`)
@@ -246,34 +247,18 @@ export default function HospitalAdminMarketplace() {
   }
 
   const handleCloseTrade = async (trade: MarketplaceTrade) => {
-    const exitValue = asNumber(exitValueByTrade[trade.id])
-    if (exitValue <= 0) {
-      setError('Enter a valid sell/exit value before closing.')
+    const exitPerUnit = asNumber(exitValueByTrade[trade.id])
+    if (exitPerUnit <= 0) {
+      setError('Enter a valid per-unit sell/exit value before closing.')
       return
     }
 
     try {
       setSaving(true)
       setError('')
-      await marketplaceService.updateTrade(trade.id, {
-        tradeType: trade.type,
-        status: 'CLOSED',
-        assetName: trade.assetName,
-        assetType: trade.assetType,
-        buyPrice: trade.buyPrice,
-        quantity: trade.quantity,
-        tradeDate: trade.tradeDate,
-        currentValue: exitValue,
-        exitValue,
-        title: trade.title,
-        description: trade.description,
-        investment: trade.assetType,
-        location: trade.location,
-        openingPrice: trade.buyPrice,
-        high: trade.high,
-        low: trade.low,
-        closingPrice: trade.close,
-        notes: trade.notes,
+      await marketplaceService.closeTrade(trade.id, {
+        currentValue: exitPerUnit,
+        exitValue: exitPerUnit,
       })
 
       toast({
@@ -313,7 +298,7 @@ export default function HospitalAdminMarketplace() {
           <div className="space-y-2"><Label>Trade Date</Label><Input type="date" value={form.tradeDate} onChange={(e) => setForm((p) => ({ ...p, tradeDate: e.target.value }))} /></div>
           <div className="space-y-2"><Label>Buy Price (PKR)</Label><Input type="number" value={form.buyPrice} onChange={(e) => setForm((p) => ({ ...p, buyPrice: e.target.value }))} /><p className="text-xs text-slate-500">Display: {formatAT(asNumber(form.buyPrice))}</p></div>
           <div className="space-y-2"><Label>Quantity</Label><Input type="number" value={form.quantity} onChange={(e) => setForm((p) => ({ ...p, quantity: e.target.value }))} /></div>
-          <div className="space-y-2"><Label>Current Value (PKR, Optional)</Label><Input type="number" value={form.currentValue} onChange={(e) => setForm((p) => ({ ...p, currentValue: e.target.value }))} /><p className="text-xs text-slate-500">Display: {formatAT(asNumber(form.currentValue))}</p></div>
+          <div className="space-y-2"><Label>Current Value Per Unit (PKR, Optional)</Label><Input type="number" value={form.currentValue} onChange={(e) => setForm((p) => ({ ...p, currentValue: e.target.value }))} /><p className="text-xs text-slate-500">Per unit: {formatAT(asNumber(form.currentValue))}</p><p className="text-xs text-slate-500">Total: {formatAT(asNumber(form.currentValue) * asNumber(form.quantity))}</p></div>
           <div className="md:col-span-3 space-y-2">
             <Button disabled={saving || poolLoading} onClick={handleAddTrade} className="bg-emerald-600 hover:bg-emerald-700">Add Trade</Button>
             <p className="text-xs text-slate-500">Pool available for new trades: {poolLoading ? 'Loading...' : formatAT(atPool.availablePkr)}</p>
@@ -348,8 +333,8 @@ export default function HospitalAdminMarketplace() {
                   <div className="grid grid-cols-2 gap-4 md:grid-cols-6 text-sm">
                     <div><p className="text-xs uppercase tracking-wide text-slate-500">Buy Price</p><p className="mt-1 font-semibold text-slate-900">{formatATCompact(asNumber(trade.buyPrice))}</p></div>
                     <div><p className="text-xs uppercase tracking-wide text-slate-500">Quantity</p><p className="mt-1 font-semibold text-slate-900">{compactNumber(asNumber(trade.quantity))}</p></div>
-                    <div><p className="text-xs uppercase tracking-wide text-slate-500">Invested</p><p className="mt-1 font-semibold text-slate-900">{formatATCompact(asNumber(trade.amountInvested))}</p></div>
-                    <div><p className="text-xs uppercase tracking-wide text-slate-500">Current Value</p><p className="mt-1 font-semibold text-slate-900">{formatATCompact(asNumber(trade.currentValue))}</p></div>
+                    <div><p className="text-xs uppercase tracking-wide text-slate-500">Invested</p><p className="mt-1 font-semibold text-slate-900">{formatATCompact(asNumber(trade.amountInvested))}</p><p className="text-xs text-slate-500">{formatPKR(asNumber(trade.amountInvested))}</p></div>
+                    <div><p className="text-xs uppercase tracking-wide text-slate-500">Current Value</p><p className="mt-1 font-semibold text-slate-900">{formatATCompact(asNumber(trade.currentValueTotal))}</p><p className="text-xs text-slate-500">{formatPKR(asNumber(trade.currentValueTotal))}</p></div>
                     <div><p className="text-xs uppercase tracking-wide text-slate-500">Unrealized P&amp;L</p><p className={`mt-1 font-semibold ${asNumber(trade.unrealizedPnl) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{asNumber(trade.unrealizedPnl) >= 0 ? '+' : '-'}{formatATCompact(Math.abs(asNumber(trade.unrealizedPnl)))}</p></div>
                     <div><p className="text-xs uppercase tracking-wide text-slate-500">Realized P&amp;L</p><p className={`mt-1 font-semibold ${asNumber(trade.realizedPnl) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{asNumber(trade.realizedPnl) >= 0 ? '+' : '-'}{formatATCompact(Math.abs(asNumber(trade.realizedPnl)))}</p></div>
                   </div>
@@ -358,28 +343,30 @@ export default function HospitalAdminMarketplace() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div className="flex items-end gap-2">
                         <div className="flex-1 space-y-2">
-                          <Label>Update Current Value (PKR)</Label>
+                          <Label>Update Current Value Per Unit (PKR)</Label>
                           <Input
                             type="number"
                             value={currentValueByTrade[trade.id] ?? ''}
                             onChange={(e) => setCurrentValueByTrade((p) => ({ ...p, [trade.id]: e.target.value }))}
-                            placeholder="Enter appraisal/depreciated/current value"
+                            placeholder="Enter current value per unit"
                           />
-                          <p className="text-xs text-slate-500">Display: {formatAT(asNumber(currentValueByTrade[trade.id]))}</p>
+                          <p className="text-xs text-slate-500">Per unit: {formatAT(asNumber(currentValueByTrade[trade.id]))}</p>
+                          <p className="text-xs text-slate-500">Total: {formatAT(asNumber(currentValueByTrade[trade.id]) * asNumber(trade.quantity))}</p>
                         </div>
                         <Button disabled={saving} className="bg-emerald-600 hover:bg-emerald-700" onClick={() => handleUpdateCurrentValue(trade)}>Update Value</Button>
                       </div>
 
                       <div className="flex items-end gap-2">
                         <div className="flex-1 space-y-2">
-                          <Label>Sell / Exit Value (PKR)</Label>
+                          <Label>Sell / Exit Value Per Unit (PKR)</Label>
                           <Input
                             type="number"
                             value={exitValueByTrade[trade.id] ?? ''}
                             onChange={(e) => setExitValueByTrade((p) => ({ ...p, [trade.id]: e.target.value }))}
-                            placeholder="Enter exit value to close"
+                            placeholder="Enter per-unit exit value"
                           />
-                          <p className="text-xs text-slate-500">Display: {formatAT(asNumber(exitValueByTrade[trade.id]))}</p>
+                          <p className="text-xs text-slate-500">Per unit: {formatAT(asNumber(exitValueByTrade[trade.id]))}</p>
+                          <p className="text-xs text-slate-500">Total close value: {formatAT(asNumber(exitValueByTrade[trade.id]) * asNumber(trade.quantity))}</p>
                         </div>
                         <Button disabled={saving} variant="outline" className="border-rose-200 text-rose-600 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700" onClick={() => handleCloseTrade(trade)}>Close Trade</Button>
                       </div>

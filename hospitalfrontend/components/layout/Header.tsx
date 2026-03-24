@@ -5,21 +5,23 @@ import React, { useState, useRef, useEffect } from 'react'
 import { Bell, ChevronDown, LogOut, User as UserIcon, X } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { usePatientProfileStore } from '@/store/patientProfileStore'
-import { useNotificationStore } from '@/store/notificationStore'
 import { authService } from '@/lib/authService'
 import { signOut } from 'next-auth/react'
 import { Badge } from '@/components/ui/badge'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { formatRelativeTime } from '@/lib/utils'
+import { notificationService, type PortalNotification } from '@/services/notificationService'
 
 export const Header: React.FC = () => {
   const { user } = useAuthStore()
   const profile = usePatientProfileStore(state => state.profile)
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotificationStore()
+  const [notifications, setNotifications] = useState<PortalNotification[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
   const [showNotifications, setShowNotifications] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const notificationRef = useRef<HTMLDivElement>(null)
   const profileRef = useRef<HTMLDivElement>(null)
+  const userId = user?.id || (user as any)?.userId
 
   // For patient role, use profile store; otherwise fall back to auth user
   const displayName = user?.role?.toLowerCase() === 'patient' ? profile.fullName : (user?.name || 'User')
@@ -40,6 +42,54 @@ export const Header: React.FC = () => {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  useEffect(() => {
+    const loadNotifications = async () => {
+      if (!userId) {
+        setNotifications([])
+        setUnreadCount(0)
+        return
+      }
+
+      try {
+        const [rows, unread] = await Promise.all([
+          notificationService.getUserNotifications(userId),
+          notificationService.getUnreadCount(userId),
+        ])
+        setNotifications(rows)
+        setUnreadCount(unread)
+      } catch {
+        setNotifications([])
+        setUnreadCount(0)
+      }
+    }
+
+    loadNotifications()
+  }, [userId])
+
+  const markAsRead = async (notificationId: string) => {
+    if (!userId) return
+
+    try {
+      await notificationService.markAsRead(userId, notificationId)
+      setNotifications((prev) => prev.map((n) => n.id === notificationId ? { ...n, status: 'READ' } : n))
+      setUnreadCount((count) => (count > 0 ? count - 1 : 0))
+    } catch {
+      // silent fallback in header dropdown
+    }
+  }
+
+  const markAllAsRead = async () => {
+    if (!userId) return
+
+    try {
+      await notificationService.markAllAsRead(userId)
+      setNotifications((prev) => prev.map((n) => ({ ...n, status: 'READ' })))
+      setUnreadCount(0)
+    } catch {
+      // silent fallback in header dropdown
+    }
+  }
 
   const handleSignOut = async () => {
     const token = authService.getToken()
@@ -117,7 +167,7 @@ export const Header: React.FC = () => {
                       key={notification.id}
                       onClick={() => markAsRead(notification.id)}
                       className={`p-3 rounded-lg border cursor-pointer transition-colors mb-2 ${
-                        notification.read
+                        notification.status === 'READ'
                           ? 'bg-white border-gray-200'
                           : 'bg-blue-50 border-blue-200'
                       }`}
@@ -128,18 +178,18 @@ export const Header: React.FC = () => {
                             <h4 className="text-sm font-medium text-gray-800">
                               {notification.title}
                             </h4>
-                            <Badge variant={notification.type === 'error' ? 'destructive' : 'default'}>
-                              {notification.type}
+                            <Badge variant={notification.status === 'UNREAD' ? 'default' : 'secondary'}>
+                              {notification.status}
                             </Badge>
                           </div>
                           <p className="text-sm text-gray-600 mt-1">
                             {notification.message}
                           </p>
                           <p className="text-xs text-gray-400 mt-2">
-                            {formatRelativeTime(notification.createdAt)}
+                            {formatRelativeTime(notification.timestamp)}
                           </p>
                         </div>
-                        {!notification.read && (
+                        {notification.status === 'UNREAD' && (
                           <div className="w-2 h-2 bg-primary rounded-full mt-1.5" />
                         )}
                       </div>

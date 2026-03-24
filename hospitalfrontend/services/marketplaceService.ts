@@ -171,6 +171,11 @@ interface UpdateTradePayload {
   notes: string
 }
 
+interface CloseTradePayload {
+  currentValue?: number
+  exitValue?: number
+}
+
 const getAuthHeaders = (): HeadersInit => {
   const token = authService.getToken()
   return {
@@ -285,10 +290,11 @@ export const marketplaceService = {
     return mapTrade(result.data)
   },
 
-  async closeTrade(tradeId: string): Promise<MarketplaceTrade> {
+  async closeTrade(tradeId: string, payload?: CloseTradePayload): Promise<MarketplaceTrade> {
     const response = await fetch(`${API_BASE}/marketplace/trades/${tradeId}/close`, {
       method: 'PATCH',
       headers: getAuthHeaders(),
+      body: payload ? JSON.stringify(payload) : undefined,
     })
 
     const result: ApiResponse<BackendTrade> = await response.json()

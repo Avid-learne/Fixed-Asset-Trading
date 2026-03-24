@@ -18,7 +18,7 @@ CREATE TYPE payment_status AS ENUM ('PENDING', 'SUCCESS', 'FAILED');
 CREATE TYPE trade_type AS ENUM ('BUY', 'SELL');
 CREATE TYPE trade_status AS ENUM ('ACTIVE', 'CLOSED', 'CANCELLED');
 CREATE TYPE token_type AS ENUM ('AT', 'HT');
-CREATE TYPE transaction_type AS ENUM ('DEBIT', 'CREDIT');
+CREATE TYPE transaction_type AS ENUM ('DEBIT', 'CREDIT', 'AT_BURN', 'HT_MINT');
 CREATE TYPE notification_status AS ENUM ('READ', 'UNREAD');
 CREATE TYPE verification_status AS ENUM ('PENDING', 'VERIFIED', 'REJECTED');
 CREATE TYPE policy_status AS ENUM ('ACTIVE', 'EXPIRED', 'CANCELLED');
@@ -234,6 +234,25 @@ CREATE TABLE public.patient_token_balances (
     total_at     numeric DEFAULT 0,
     total_ht     numeric DEFAULT 0,
     last_updated timestamptz DEFAULT now()
+);
+
+
+-- =========================
+-- HOSPITAL AT POOL (aggregated by patient-asset)
+-- =========================
+
+CREATE TABLE public.hospital_at_pool_entries (
+    pool_entry_id    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    hospital_id      uuid NOT NULL REFERENCES public.hospitals(h_id),
+    patient_id       uuid NOT NULL REFERENCES public.patients(id),
+    asset_id         uuid NOT NULL REFERENCES public.asset_deposits(asset_id),
+    total_at_added   numeric NOT NULL DEFAULT 0,
+    available_at     numeric NOT NULL DEFAULT 0,
+    total_at_burned  numeric NOT NULL DEFAULT 0,
+    is_active        boolean NOT NULL DEFAULT true,
+    created_at       timestamptz DEFAULT now(),
+    updated_at       timestamptz DEFAULT now(),
+    UNIQUE (hospital_id, patient_id, asset_id)
 );
 
 

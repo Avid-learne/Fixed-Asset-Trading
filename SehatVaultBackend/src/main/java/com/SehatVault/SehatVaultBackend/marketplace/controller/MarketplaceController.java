@@ -2,6 +2,7 @@ package com.SehatVault.SehatVaultBackend.marketplace.controller;
 
 import com.SehatVault.SehatVaultBackend.marketplace.dto.ApiResponse;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.CreateTradeRequest;
+import com.SehatVault.SehatVaultBackend.marketplace.dto.ExecuteTradeRequest;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.HospitalAtPoolDto;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.OrderBookDto;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.PatientTradeDto;
@@ -59,6 +60,16 @@ public class MarketplaceController {
         }
     }
 
+    @PostMapping("/trades/execute")
+    public ResponseEntity<ApiResponse<TradeDto>> executeTrade(@RequestBody ExecuteTradeRequest request) {
+        try {
+            TradeDto created = marketplaceService.executeTrade(request);
+            return ResponseEntity.ok(ApiResponse.success("Trade executed", created));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
     @PutMapping("/trades/{tradeId}")
     public ResponseEntity<ApiResponse<TradeDto>> updateTrade(
             @PathVariable UUID tradeId,
@@ -72,9 +83,11 @@ public class MarketplaceController {
     }
 
     @PatchMapping("/trades/{tradeId}/close")
-    public ResponseEntity<ApiResponse<TradeDto>> closeTrade(@PathVariable UUID tradeId) {
+    public ResponseEntity<ApiResponse<TradeDto>> closeTrade(
+            @PathVariable UUID tradeId,
+            @RequestBody(required = false) UpdateTradeRequest request) {
         try {
-            TradeDto closed = marketplaceService.closeTrade(tradeId);
+            TradeDto closed = marketplaceService.closeTrade(tradeId, request);
             return ResponseEntity.ok(ApiResponse.success("Trade closed", closed));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));

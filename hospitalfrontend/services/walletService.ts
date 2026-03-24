@@ -19,7 +19,7 @@ export type WalletSummary = {
 export type WalletTransaction = {
   transactionId: string
   tokenSymbol: 'AT' | 'HT'
-  transactionType: 'DEBIT' | 'CREDIT'
+  transactionType: 'DEBIT' | 'CREDIT' | 'HT_MINT' | 'AT_BURN'
   amount: number
   description?: string
   senderWalletAddress?: string

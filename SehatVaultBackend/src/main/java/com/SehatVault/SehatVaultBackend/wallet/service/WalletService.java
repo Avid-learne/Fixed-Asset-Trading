@@ -1,6 +1,8 @@
 package com.SehatVault.SehatVaultBackend.wallet.service;
 
+import com.SehatVault.SehatVaultBackend.activity.entity.Notification;
 import com.SehatVault.SehatVaultBackend.activity.entity.Transaction;
+import com.SehatVault.SehatVaultBackend.activity.repository.NotificationRepository;
 import com.SehatVault.SehatVaultBackend.auth.entity.User;
 import com.SehatVault.SehatVaultBackend.auth.repository.UserRepository;
 import com.SehatVault.SehatVaultBackend.patient.entity.Patient;
@@ -28,6 +30,7 @@ public class WalletService {
     private final PatientRepository patientRepository;
         private final UserRepository userRepository;
     private final PatientTokenBalanceRepository patientTokenBalanceRepository;
+    private final NotificationRepository notificationRepository;
     private final WalletTransactionRepository walletTransactionRepository;
 
     public WalletSummaryDto getWalletSummary(UUID userId) {
@@ -116,7 +119,9 @@ public class WalletService {
                         throw new IllegalArgumentException("HT token is not configured in tokens table");
                 }
 
-                String txHash = UUID.randomUUID().toString().replace("-", "");
+                String baseHash = UUID.randomUUID().toString().replace("-", "");
+                String debitHash = baseHash + "00";
+                String creditHash = baseHash + "01";
                 String note = request.getNote() == null || request.getNote().isBlank() ? "HT transfer" : request.getNote().trim();
 
                 Transaction debit = new Transaction();
@@ -127,7 +132,7 @@ public class WalletService {
                 debit.setDescription(note);
                 debit.setSenderWalletAddress(senderPatient.getWalletAddress());
                 debit.setReceiverWalletAddress(recipientPatient.getWalletAddress());
-                debit.setTransactionHash(txHash);
+                debit.setTransactionHash(debitHash);
                 debit.setStatus("SUCCESS");
                 debit.setTimestamp(LocalDateTime.now());
                 walletTransactionRepository.save(debit);
@@ -140,10 +145,20 @@ public class WalletService {
                 credit.setDescription(note);
                 credit.setSenderWalletAddress(senderPatient.getWalletAddress());
                 credit.setReceiverWalletAddress(recipientPatient.getWalletAddress());
-                credit.setTransactionHash(txHash);
+                credit.setTransactionHash(creditHash);
                 credit.setStatus("SUCCESS");
                 credit.setTimestamp(LocalDateTime.now());
                 walletTransactionRepository.save(credit);
+
+                // Send notification to recipient
+                Notification notification = new Notification();
+                notification.setSenderId(senderUser.getUserId());
+                notification.setReceiverId(recipientPatient.getUserId());
+                String senderName = senderPatient.getId().toString().substring(0, Math.min(12, senderPatient.getId().toString().length()));
+                notification.setNotificationText("HT Transfer Received::You received " + request.getAmount() + " HT from patient " + senderName);
+                notification.setStatus(Notification.NotificationStatus.UNREAD);
+                notification.setTimestamp(LocalDateTime.now());
+                notificationRepository.save(notification);
         }
 
     private WalletTransactionDto mapRow(WalletTransactionRepository.WalletTransactionRow row) {

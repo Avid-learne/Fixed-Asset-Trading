@@ -2,15 +2,19 @@ package com.SehatVault.SehatVaultBackend.profile.service;
 
 import com.SehatVault.SehatVaultBackend.auth.entity.User;
 import com.SehatVault.SehatVaultBackend.auth.repository.UserRepository;
+import com.SehatVault.SehatVaultBackend.assetdeposit.repository.AssetDepositRepository;
 import com.SehatVault.SehatVaultBackend.hospital.repository.HospitalRepository;
 import com.SehatVault.SehatVaultBackend.patient.entity.Patient;
 import com.SehatVault.SehatVaultBackend.patient.repository.PatientRepository;
 import com.SehatVault.SehatVaultBackend.profile.dto.ProfileResponse;
 import com.SehatVault.SehatVaultBackend.profile.dto.ProfileUpdateRequest;
+import com.SehatVault.SehatVaultBackend.wallet.entity.PatientTokenBalance;
+import com.SehatVault.SehatVaultBackend.wallet.repository.PatientTokenBalanceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.List;
@@ -28,6 +32,8 @@ public class ProfileService {
     private final UserRepository userRepository;
     private final PatientRepository patientRepository;
     private final HospitalRepository hospitalRepository;
+    private final PatientTokenBalanceRepository patientTokenBalanceRepository;
+    private final AssetDepositRepository assetDepositRepository;
 
     /**
      * Get user profile by user ID
@@ -61,6 +67,7 @@ public class ProfileService {
                 .registrationId(patient.getRegistrationId())
                 .hospitalId(resolvedHospitalId)
                 .hospitalName(resolveHospitalName(resolvedHospitalId));
+            enrichPatientFinancials(responseBuilder, patient);
         } else if (user.getHospitalId() != null) {
             responseBuilder
                 .hospitalId(user.getHospitalId())
@@ -154,6 +161,7 @@ public class ProfileService {
                             .registrationId(patient.getRegistrationId())
                             .hospitalId(resolvedHospitalId)
                             .hospitalName(resolveHospitalName(resolvedHospitalId));
+                        enrichPatientFinancials(responseBuilder, patient);
                         } else if (user.getHospitalId() != null) {
                         responseBuilder
                             .hospitalId(user.getHospitalId())
@@ -196,11 +204,43 @@ public class ProfileService {
                             .registrationId(patient.getRegistrationId())
                             .hospitalId(patient.getHospitalId())
                             .hospitalName(resolveHospitalName(patient.getHospitalId()))
+                                .totalAt(getPatientTotalAt(patient.getId()))
+                                .totalHt(getPatientTotalHt(patient.getId()))
+                                .totalAssets(getPatientApprovedAssetCount(patient.getId()))
                             .build();
                 })
                 .filter(profile -> profile != null)
                 .collect(Collectors.toList());
     }
+
+                    private void enrichPatientFinancials(ProfileResponse.ProfileResponseBuilder builder, Patient patient) {
+                    builder
+                        .totalAt(getPatientTotalAt(patient.getId()))
+                        .totalHt(getPatientTotalHt(patient.getId()))
+                        .totalAssets(getPatientApprovedAssetCount(patient.getId()));
+                    }
+
+                    private BigDecimal getPatientTotalAt(UUID patientId) {
+                    return patientTokenBalanceRepository.findByPatientId(patientId)
+                        .map(PatientTokenBalance::getTotalAt)
+                        .filter(value -> value != null)
+                        .orElse(BigDecimal.ZERO);
+                    }
+
+                    private BigDecimal getPatientTotalHt(UUID patientId) {
+                    return patientTokenBalanceRepository.findByPatientId(patientId)
+                        .map(PatientTokenBalance::getTotalHt)
+                        .filter(value -> value != null)
+                        .orElse(BigDecimal.ZERO);
+                    }
+
+                    private Integer getPatientApprovedAssetCount(UUID patientId) {
+                    return (int) assetDepositRepository.findByPatientIdOrderBySubmittedAtDesc(patientId)
+                        .stream()
+                        .filter(asset -> asset.getBankApprovalStatus() != null
+                            && "approved".equalsIgnoreCase(asset.getBankApprovalStatus()))
+                        .count();
+                    }
 
     private String resolveHospitalName(UUID hospitalId) {
         if (hospitalId == null) {

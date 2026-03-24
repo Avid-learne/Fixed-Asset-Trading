@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -38,4 +39,7 @@ public class ProfileResponse {
     private String registrationId;
     private UUID hospitalId;
     private String hospitalName;
+    private BigDecimal totalAt;
+    private BigDecimal totalHt;
+    private Integer totalAssets;
 }

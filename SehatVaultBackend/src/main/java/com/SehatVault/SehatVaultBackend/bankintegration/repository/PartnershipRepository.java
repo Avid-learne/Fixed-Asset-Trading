@@ -23,4 +23,9 @@ public interface PartnershipRepository extends JpaRepository<Partnership, UUID> 
     Optional<Partnership> findByPartnershipIdAndHospitalId(UUID partnershipId, UUID hospitalId);
 
     Optional<Partnership> findByPartnershipIdAndBankId(UUID partnershipId, UUID bankId);
+
+    Optional<Partnership> findFirstByHospitalIdAndIntegrationStatusOrderByCreatedAtDesc(
+            UUID hospitalId,
+            Partnership.IntegrationStatus integrationStatus
+    );
 }

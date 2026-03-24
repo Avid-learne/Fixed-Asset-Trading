@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,93 +10,125 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Bell, Send, AlertCircle, CheckCircle, Info } from 'lucide-react'
-import { StatusBadge } from '../components'
+import { authService } from '@/lib/authService'
+import { notificationService, type PortalNotification } from '@/services/notificationService'
 
-interface Notification {
-  id: string
-  type: 'announcement' | 'alert' | 'system'
-  title: string
-  message: string
-  priority: 'high' | 'medium' | 'low'
-  status: 'sent' | 'scheduled' | 'draft'
-  recipients: string
-  sentDate?: string
-  scheduledDate?: string
-  readCount?: number
-  totalRecipients?: number
-}
-
-const mockNotifications: Notification[] = [
-  {
-    id: 'NOT-001',
-    type: 'announcement',
-    title: 'Platform Maintenance Scheduled',
-    message: 'The platform will undergo scheduled maintenance on Jan 15, 2025 from 2:00 AM to 4:00 AM EST.',
-    priority: 'high',
-    status: 'sent',
-    recipients: 'All Hospitals',
-    sentDate: '2024-12-01 10:00',
-    readCount: 24,
-    totalRecipients: 28
-  },
-  {
-    id: 'NOT-002',
-    type: 'alert',
-    title: 'Failed Transaction Alert',
-    message: 'Multiple transaction failures detected for HOS-003. Immediate action required.',
-    priority: 'high',
-    status: 'sent',
-    recipients: 'HOS-003 Admins',
-    sentDate: '2024-12-03 14:22',
-    readCount: 2,
-    totalRecipients: 3
-  },
-  {
-    id: 'NOT-003',
-    type: 'system',
-    title: 'New Feature Release',
-    message: 'We are excited to announce the launch of advanced analytics dashboard for all Professional and Enterprise plans.',
-    priority: 'medium',
-    status: 'scheduled',
-    recipients: 'Professional & Enterprise Hospitals',
-    scheduledDate: '2024-12-15 09:00'
-  },
-  {
-    id: 'NOT-004',
-    type: 'announcement',
-    title: 'Q4 Performance Report',
-    message: 'Your quarterly performance report is now available in the dashboard.',
-    priority: 'low',
-    status: 'draft',
-    recipients: 'All Hospitals'
-  }
-]
+type NotificationType = 'announcement' | 'alert' | 'system'
+type NotificationPriority = 'high' | 'medium' | 'low'
 
 export default function NotificationsPage() {
-  const [notifications] = useState<Notification[]>(mockNotifications)
+  const currentUser = authService.getUser()
+  const userId = currentUser?.id || (currentUser as any)?.userId
+
+  const [notifications, setNotifications] = useState<PortalNotification[]>([])
+  const [loading, setLoading] = useState(true)
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState('all')
-  
+
   const [composeForm, setComposeForm] = useState({
-    type: 'announcement',
+    type: 'announcement' as NotificationType,
     title: '',
     message: '',
-    priority: 'medium',
-    recipients: 'all',
+    priority: 'medium' as NotificationPriority,
+    recipients: 'all_users',
+    specificUserId: '',
     scheduleDate: '',
     scheduleTime: ''
   })
 
-  const handleCompose = () => {
-    alert('Notification sent successfully!')
-    setComposeForm({
-      type: 'announcement',
-      title: '',
-      message: '',
-      priority: 'medium',
-      recipients: 'all',
-      scheduleDate: '',
-      scheduleTime: ''
-    })
+  const loadNotifications = async () => {
+    if (!userId) {
+      setError('User not authenticated')
+      setLoading(false)
+      return
+    }
+
+    try {
+      setLoading(true)
+      setError('')
+      const rows = await notificationService.getUserNotifications(userId)
+      setNotifications(rows)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load notifications')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadNotifications()
+  }, [userId])
+
+  const handleCompose = async () => {
+    if (!composeForm.title.trim() || !composeForm.message.trim()) {
+      setError('Title and message are required')
+      return
+    }
+
+    try {
+      setSending(true)
+      setError('')
+
+      if (composeForm.recipients === 'specific_user') {
+        if (!composeForm.specificUserId.trim()) {
+          setError('Specific user ID is required for this recipient selection')
+          return
+        }
+
+        await notificationService.send({
+          title: composeForm.title,
+          message: composeForm.message,
+          targetType: 'USER',
+          receiverUserId: composeForm.specificUserId.trim(),
+        })
+      } else if (composeForm.recipients === 'patients') {
+        await notificationService.send({
+          title: composeForm.title,
+          message: composeForm.message,
+          targetType: 'ROLE',
+          targetRole: 'patient',
+        })
+      } else if (composeForm.recipients === 'hospital_staff') {
+        await notificationService.send({
+          title: composeForm.title,
+          message: composeForm.message,
+          targetType: 'ROLE',
+          targetRole: 'hospital_staff',
+        })
+      } else if (composeForm.recipients === 'hospital_admins') {
+        await notificationService.send({
+          title: composeForm.title,
+          message: composeForm.message,
+          targetType: 'ROLE',
+          targetRole: 'hospital_admin',
+        })
+      } else {
+        await notificationService.send({
+          title: composeForm.title,
+          message: composeForm.message,
+          targetType: 'ALL_USERS',
+        })
+      }
+
+      setComposeForm({
+        type: 'announcement',
+        title: '',
+        message: '',
+        priority: 'medium',
+        recipients: 'all_users',
+        specificUserId: '',
+        scheduleDate: '',
+        scheduleTime: ''
+      })
+
+      await loadNotifications()
+      setActiveTab('all')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send notification')
+    } finally {
+      setSending(false)
+    }
   }
 
   const useTemplate = (templateName: string) => {
@@ -106,28 +138,28 @@ export default function NotificationsPage() {
         title: 'Scheduled Platform Maintenance',
         message: 'The platform will undergo scheduled maintenance on [DATE] from [TIME] to [TIME] [TIMEZONE]. During this period, services may be temporarily unavailable. We apologize for any inconvenience.',
         priority: 'high',
-        recipients: 'all'
+        recipients: 'all_users'
       },
       security: {
         type: 'alert',
         title: 'Security Alert',
         message: 'We have detected [SECURITY_ISSUE]. Please review your account security settings and [RECOMMENDED_ACTION]. If you did not authorize this activity, please contact support immediately.',
         priority: 'high',
-        recipients: 'all'
+        recipients: 'all_users'
       },
       feature: {
         type: 'announcement',
         title: 'New Feature Release',
         message: 'We are excited to announce the launch of [FEATURE_NAME]. This new feature provides [DESCRIPTION] and is available to [PLAN_TYPES]. Learn more in our documentation.',
         priority: 'medium',
-        recipients: 'all'
+        recipients: 'all_users'
       },
       payment: {
         type: 'announcement',
         title: 'Payment Reminder',
         message: 'This is a friendly reminder that your payment of [AMOUNT] is due on [DUE_DATE]. Please ensure timely payment to avoid service interruption. Thank you for your continued partnership.',
         priority: 'medium',
-        recipients: 'all'
+        recipients: 'all_users'
       }
     }
 
@@ -135,48 +167,28 @@ export default function NotificationsPage() {
     if (template) {
       setComposeForm({
         ...composeForm,
-        type: template.type as any,
+        type: template.type as NotificationType,
         title: template.title,
         message: template.message,
-        priority: template.priority as any,
+        priority: template.priority as NotificationPriority,
         recipients: template.recipients
       })
       setActiveTab('compose')
     }
   }
 
+  const unread = useMemo(() => notifications.filter((n) => n.status === 'UNREAD').length, [notifications])
+
   const stats = {
     total: notifications.length,
-    sent: notifications.filter(n => n.status === 'sent').length,
-    scheduled: notifications.filter(n => n.status === 'scheduled').length,
-    drafts: notifications.filter(n => n.status === 'draft').length
+    sent: notifications.filter((n) => n.status === 'READ').length,
+    unread,
   }
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'announcement': return <Bell className="h-4 w-4" />
-      case 'alert': return <AlertCircle className="h-4 w-4" />
-      case 'system': return <Info className="h-4 w-4" />
-      default: return <Bell className="h-4 w-4" />
-    }
-  }
-
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'announcement': return 'bg-blue-100 text-blue-800'
-      case 'alert': return 'bg-red-100 text-red-800'
-      case 'system': return 'bg-purple-100 text-purple-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high': return 'bg-red-100 text-red-800 border-red-200'
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200'
-      case 'low': return 'bg-green-100 text-green-800 border-green-200'
-      default: return 'bg-gray-100 text-gray-800 border-gray-200'
-    }
+  const getStatusBadgeClass = (status: 'READ' | 'UNREAD') => {
+    return status === 'READ'
+      ? 'bg-green-100 text-green-800 border-green-200'
+      : 'bg-yellow-100 text-yellow-800 border-yellow-200'
   }
 
   return (
@@ -184,8 +196,12 @@ export default function NotificationsPage() {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Notifications</h1>
-        <p className="text-gray-600 mt-1">Send announcements and alerts to hospitals</p>
+        <p className="text-gray-600 mt-1">Send announcements and alerts with live backend data</p>
       </div>
+
+      {error && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -217,10 +233,10 @@ export default function NotificationsPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Scheduled</p>
-                <p className="text-2xl font-bold text-blue-600">{stats.scheduled}</p>
+                <p className="text-sm text-gray-600">Unread</p>
+                <p className="text-2xl font-bold text-yellow-600">{stats.unread}</p>
               </div>
-              <Bell className="h-8 w-8 text-blue-400" />
+              <AlertCircle className="h-8 w-8 text-yellow-400" />
             </div>
           </CardContent>
         </Card>
@@ -229,8 +245,10 @@ export default function NotificationsPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Drafts</p>
-                <p className="text-2xl font-bold text-gray-600">{stats.drafts}</p>
+                <p className="text-sm text-gray-600">Delivery Rate</p>
+                <p className="text-2xl font-bold text-gray-600">
+                  {stats.total > 0 ? `${Math.round((stats.sent / stats.total) * 100)}%` : '0%'}
+                </p>
               </div>
               <Info className="h-8 w-8 text-gray-400" />
             </div>
@@ -239,7 +257,7 @@ export default function NotificationsPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="all" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="all">All Notifications</TabsTrigger>
           <TabsTrigger value="compose">Compose</TabsTrigger>
@@ -248,66 +266,61 @@ export default function NotificationsPage() {
 
         {/* All Notifications Tab */}
         <TabsContent value="all" className="space-y-4">
-          {notifications.map((notification) => (
-            <Card key={notification.id}>
-              <CardContent className="pt-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <Badge className={getTypeColor(notification.type)}>
-                        <div className="flex items-center gap-1">
-                          {getTypeIcon(notification.type)}
-                          {notification.type}
-                        </div>
-                      </Badge>
-                      <Badge className={getPriorityColor(notification.priority)}>
-                        {notification.priority} priority
-                      </Badge>
-                      <StatusBadge 
-                        status={notification.status === 'sent' ? 'success' : notification.status === 'scheduled' ? 'pending' : 'inactive'} 
-                        text={notification.status}
-                        size="sm" 
-                      />
-                    </div>
-                    
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{notification.title}</h3>
-                    <p className="text-gray-600 mb-3">{notification.message}</p>
-                    
-                    <div className="flex items-center gap-6 text-sm text-gray-600">
-                      <div>
-                        <span className="font-medium">Recipients:</span> {notification.recipients}
+          {loading ? (
+            <Card>
+              <CardContent className="pt-6 text-sm text-gray-600">Loading notifications...</CardContent>
+            </Card>
+          ) : notifications.length === 0 ? (
+            <Card>
+              <CardContent className="pt-6 text-sm text-gray-600">No notifications available.</CardContent>
+            </Card>
+          ) : (
+            notifications.map((notification) => (
+              <Card key={notification.id}>
+                <CardContent className="pt-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <Badge className="bg-blue-100 text-blue-800">
+                          <div className="flex items-center gap-1">
+                            <Bell className="h-4 w-4" />
+                            notification
+                          </div>
+                        </Badge>
+                        <Badge className={getStatusBadgeClass(notification.status)}>{notification.status.toLowerCase()}</Badge>
                       </div>
-                      {notification.sentDate && (
-                        <div>
-                          <span className="font-medium">Sent:</span> {notification.sentDate}
-                        </div>
-                      )}
-                      {notification.scheduledDate && (
-                        <div>
-                          <span className="font-medium">Scheduled:</span> {notification.scheduledDate}
-                        </div>
-                      )}
-                      {notification.readCount !== undefined && (
-                        <div>
-                          <span className="font-medium">Read:</span> {notification.readCount}/{notification.totalRecipients}
-                        </div>
-                      )}
+
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">{notification.title || 'Notification'}</h3>
+                      <p className="text-gray-600 mb-3">{notification.message}</p>
+
+                      <div className="text-sm text-gray-600">
+                        <span className="font-medium">Time:</span> {new Date(notification.timestamp).toLocaleString()}
+                      </div>
                     </div>
-                  </div>
-                  
-                  <div className="flex gap-2">
-                    <Button variant="ghost" size="sm">View</Button>
-                    {notification.status === 'draft' && (
-                      <Button variant="outline" size="sm" className="gap-1">
-                        <Send className="h-3 w-3" />
-                        Send
+
+                    {notification.status === 'UNREAD' && userId && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1"
+                        onClick={async () => {
+                          try {
+                            await notificationService.markAsRead(userId, notification.id)
+                            await loadNotifications()
+                          } catch (err) {
+                            setError(err instanceof Error ? err.message : 'Failed to mark notification as read')
+                          }
+                        }}
+                      >
+                        <CheckCircle className="h-3 w-3" />
+                        Mark Read
                       </Button>
                     )}
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            ))
+          )}
         </TabsContent>
 
         {/* Compose Tab */}
@@ -320,7 +333,7 @@ export default function NotificationsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Notification Type</Label>
-                  <Select value={composeForm.type} onValueChange={(v) => setComposeForm({...composeForm, type: v})}>
+                  <Select value={composeForm.type} onValueChange={(v: NotificationType) => setComposeForm({...composeForm, type: v})}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -334,7 +347,7 @@ export default function NotificationsPage() {
 
                 <div>
                   <Label>Priority</Label>
-                  <Select value={composeForm.priority} onValueChange={(v) => setComposeForm({...composeForm, priority: v})}>
+                  <Select value={composeForm.priority} onValueChange={(v: NotificationPriority) => setComposeForm({...composeForm, priority: v})}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -353,14 +366,25 @@ export default function NotificationsPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Hospitals</SelectItem>
-                      <SelectItem value="active">Active Hospitals Only</SelectItem>
-                      <SelectItem value="professional">Professional Plan</SelectItem>
-                      <SelectItem value="enterprise">Enterprise Plan</SelectItem>
-                      <SelectItem value="custom">Custom Selection</SelectItem>
+                      <SelectItem value="all_users">All Users</SelectItem>
+                      <SelectItem value="patients">All Patients</SelectItem>
+                      <SelectItem value="hospital_staff">Hospital Staff</SelectItem>
+                      <SelectItem value="hospital_admins">Hospital Admins</SelectItem>
+                      <SelectItem value="specific_user">Specific User</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+
+                {composeForm.recipients === 'specific_user' && (
+                  <div className="col-span-2">
+                    <Label>Specific User ID</Label>
+                    <Input
+                      value={composeForm.specificUserId}
+                      onChange={(e) => setComposeForm({...composeForm, specificUserId: e.target.value})}
+                      placeholder="Enter receiver UUID"
+                    />
+                  </div>
+                )}
 
                 <div className="col-span-2">
                   <Label>Title</Label>
@@ -401,11 +425,24 @@ export default function NotificationsPage() {
               </div>
 
               <div className="flex gap-3 pt-4">
-                <Button onClick={handleCompose} className="gap-2">
+                <Button onClick={handleCompose} className="gap-2" disabled={sending}>
                   <Send className="h-4 w-4" />
-                  {composeForm.scheduleDate ? 'Schedule Notification' : 'Send Now'}
+                  {sending ? 'Sending...' : composeForm.scheduleDate ? 'Schedule Notification' : 'Send Now'}
                 </Button>
-                <Button variant="outline">Save as Draft</Button>
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    if (!userId) return
+                    try {
+                      await notificationService.markAllAsRead(userId)
+                      await loadNotifications()
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : 'Failed to mark all as read')
+                    }
+                  }}
+                >
+                  Mark All As Read
+                </Button>
               </div>
             </CardContent>
           </Card>
