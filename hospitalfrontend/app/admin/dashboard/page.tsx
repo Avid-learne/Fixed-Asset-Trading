@@ -9,8 +9,8 @@ import {
   Building2, Users, Banknote, Coins, TrendingUp, AlertCircle, 
   CheckCircle, Server, Activity, Clock, ArrowUpRight, RefreshCw, Loader
 } from 'lucide-react'
-import { ChartCard } from './components/ChartCard'
-import { StatusBadge } from './components/StatusBadge'
+import { ChartCard } from '../components/ChartCard'
+import { StatusBadge } from '../components/StatusBadge'
 import { KeyValueCard } from './components/KeyValueCard'
 import { dashboardService, type SuperAdminDashboardSummary } from '@/services/dashboardService'
 
@@ -231,8 +231,6 @@ export default function SuperadminDashboard() {
           </Card>
         </div>
       )}
-        </div>
-      )}
 
       {/* System Health Status */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -317,23 +315,6 @@ export default function SuperadminDashboard() {
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">AT in Circulation</span>
               <span className="text-sm font-semibold text-gray-900">{summary?.totalATMinted ? (summary.totalATMinted * 0.9 / 1000000).toFixed(2) : '0'}M</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Burn Rate</span>
-              <span className="text-sm text-gray-600">2.3% monthly</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Avg. Token Value</span>
-              <span className="text-sm font-semibold text-green-600">PKR 198</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-              <span className="text-sm font-semibold text-gray-900">1.58M</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">AT in Circulation</span>
-              <span className="text-sm font-semibold text-gray-900">7.12M</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">Burn Rate</span>

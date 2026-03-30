@@ -1,0 +1,79 @@
+graph TD
+    A["💳 Patient Asset Deposit<br/>Value: 10,000 PKR"] -->|Bank Approves| B["🪙 AT Minting<br/>10,000 ÷ 100 = 100 AT<br/>AT_TO_PKR = 10 PKR/AT<br/>Monetary Value: 100 × 10 = 1000 PKR"]
+    
+    B --> C["📊 HT ISSUANCE POINT 1<br/>Initial HT on Approval<br/>Amount: 100 HT<br/>(1 AT = 1 HT)"]
+    
+    C --> C1["💰 PatientTokenBalance<br/>totalHt: 0 → 100 HT<br/>Health Card Balance Updated"]
+    
+    C1 --> D["🏥 Patient Trades with AT<br/>Trade Duration: 6 months<br/>AT Allocated: 100 AT"]
+    
+    D --> D1["📘 Monthly HT Distribution<br/>Created for months 1-6<br/>Calculation: 1000 PKR × 5% = 50 HT<br/>Per Month: 50 HT"]
+    
+    D1 --> D2["Month 1: 50 HT<br/>(Status: PENDING → DISTRIBUTED)"]
+    
+    D --> D3["📘 Monthly HT Distribution<br/>Month 2: 50 HT"]
+    
+    D --> D4["📘 Monthly HT Distribution<br/>Month 3: 50 HT"]
+    
+    D --> D5["📘 Monthly HT Distribution<br/>Month 4: 50 HT"]
+    
+    D --> D6["📘 Monthly HT Distribution<br/>Month 5: 50 HT"]
+    
+    D --> D7["📘 Monthly HT Distribution<br/>Month 6: 50 HT"]
+    
+    D2 --> E["📤 Monthly Distribution Process<br/>markMonthlyDistributionDistributed"]
+    
+    D3 --> E
+    D4 --> E
+    D5 --> E
+    D6 --> E
+    D7 --> E
+    
+    E --> E1["💰 PatientTokenBalance<br/>Updated during trade<br/>Monthly HT added as distributed"]
+    
+    E1 --> F["⏳ Running Balance:<br/>Month 1: 100 + 50 = 150 HT<br/>Month 2: 150 + 50 = 200 HT<br/>Month 3: 200 + 50 = 250 HT<br/>Month 4: 250 + 50 = 300 HT<br/>Month 5: 300 + 50 = 350 HT<br/>Month 6: 350 + 50 = 400 HT"]
+    
+    F --> G["🏁 Trade Settlement<br/>Trade Result: 2000 PKR Profit"]
+    
+    G --> H["📊 HT ISSUANCE POINT 2<br/>Profit HT on Settlement<br/>Calculation: 2000 PKR × 0.1 = 200 HT<br/>Only issued if profit > 0"]
+    
+    H --> H1["💎 TradeAtSettlement Created<br/>- totalMonthlyHtIssued: 300 HT<br/>- profitHtIssued: 200 HT<br/>- totalHtFromSettlement: 500 HT"]
+    
+    H1 --> I["💰 PatientTokenBalance<br/>totalHt: 400 + 200 = 600 HT"]
+    
+    I --> J["🏥 Hospital Profit Distribution<br/>Total Trade Profit: 2000 PKR"]
+    
+    J --> K["📊 HT ISSUANCE POINT 3<br/>Profit Share HT<br/>Hospital converts profit to HT<br/>2000 PKR × 0.1 = 200 HT"]
+    
+    K --> L["👥 Share Allocation<br/>Patient Share = patientAT/totalAT<br/>Patient 1: 100 AT (of 700 total)<br/>Share: 100/700 = 14.29%<br/>Allocated HT: 200 × 14.29% = 28.58 HT"]
+    
+    L --> M["📝 ProfitAllocation Record<br/>patientId: patient1<br/>allocatedHtAmount: 28.58 HT<br/>status: PENDING → ALLOCATED"]
+    
+    M --> N["💰 PatientTokenBalance<br/>totalHt: 600 + 28.58 = 628.58 HT"]
+    
+    N --> O["🎉 FINAL HT SUMMARY<br/>Patient Received:"]
+    
+    O --> O1["✅ Initial HT: 100 HT<br/>(from asset deposit)"]
+    
+    O --> O2["✅ Monthly HT: 300 HT<br/>(5% × 6 months of 1000 PKR)"]
+    
+    O --> O3["✅ Profit HT: 200 HT<br/>(from trade profit)"]
+    
+    O --> O4["✅ Profit Share HT: 28.58 HT<br/>(from hospital profit distribution)"]
+    
+    O1 --> P["📊 TOTAL HT Holdings: 628.58 HT"]
+    
+    O2 --> P
+    O3 --> P
+    O4 --> P
+    
+    P --> Q["💵 HT Value Equivalence<br/>1 HT = 10 PKR (conversion)<br/>628.58 HT × 10 PKR = 6285.8 PKR"]
+    
+    Q --> R["💾 Transaction Records<br/>created in wallet for audit"]
+    
+    style A fill:#e1f5ff
+    style C fill:#fff3e0
+    style D1 fill:#f1f8e9
+    style H fill:#fce4ec
+    style K fill:#e0f2f1
+    style P fill:#c8e6c9

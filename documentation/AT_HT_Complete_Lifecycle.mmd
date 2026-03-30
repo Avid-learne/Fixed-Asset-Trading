@@ -1,0 +1,91 @@
+graph TD
+    A["🏥 Patient Submits Asset<br/>(PKR Value)"] -->|AssetDepositService.submitRequest| B["Asset Deposit<br/>Status: PENDING"]
+    
+    B -->|Hospital Approves| C["Status: APPROVED<br/>Forwarded to Bank"]
+    
+    C -->|Bank Approves<br/>approveRequestByBank| D["🪙 AT Minting<br/>100 PKR = 1 AT<br/>on-chain"]
+    
+    D --> E["📊 Initial HT Issued<br/>1 AT = 1 HT<br/>to Patient Health Card"]
+    
+    E --> F["💾 PatientTokenBalance<br/>Created/Updated"]
+    
+    F --> G["🏦 HospitalAtPool<br/>Entry Created<br/>availableAt = AT amount"]
+    
+    G --> H["📝 PatientAtAssignment<br/>Created<br/>Status: AVAILABLE"]
+    
+    H -->|MintRecord Created| I["✅ Asset Deposit Complete"]
+    
+    I --> J{{"Trade<br/>Requested?"}}
+    
+    J -->|Yes| K["🔄 MarketplaceService<br/>executeTrade"]
+    
+    K --> L["✔️ Validate Hospital<br/>AT Pool has sufficient AT"]
+    
+    L --> M["🎲 TradingSimulation<br/>generates Price/P&L"]
+    
+    M --> N["🔥 AT BURNING<br/>HospitalAtPoolService<br/>applyBurnAllocations"]
+    
+    N --> O["📉 Hospital Pool AT<br/>Decremented<br/>totalAtBurned +"]
+    
+    O --> P["⛓️ PatientAtAssignment<br/>unavailableAt +=<br/>Status: UNAVAILABLE"]
+    
+    P --> Q["📌 TradeParticipation<br/>Created<br/>Status: ACTIVE"]
+    
+    Q --> R["📅 MonthlyHtDistribution<br/>Created for each month<br/>Amount: AT_value × 5%"]
+    
+    R --> S["⏳ Trade Active<br/>Accumulating HT<br/>Per Month: 50 HT"]
+    
+    S -->|Monthly/on-demand| T["📤 Distribute Monthly HT"]
+    
+    T --> U["💰 PatientTokenBalance<br/>+= Monthly HT<br/>isDistributed = true"]
+    
+    S -->|Trade Ends| V["🏁 TradeSettlement"]
+    
+    V --> W["✏️ Calculate:<br/>- Total Monthly HT<br/>- Profit/Loss in PKR"]
+    
+    W --> X["💎 Issue Profit HT<br/>Profit_PKR × 0.1 = HT<br/>Only if profit > 0"]
+    
+    X --> Y["✅ TradeAtSettlement<br/>Record Created"]
+    
+    Y --> Z["🔄 PatientAtAssignment<br/>Updated:<br/>availableAt += AT<br/>unavailableAt -= AT<br/>Status: AVAILABLE"]
+    
+    Z --> AA["📮 PatientTokenBalance<br/>+= Profit HT"]
+    
+    AA --> AB["✔️ AtWithdrawalRequests<br/>Marked RETRIEVED"]
+    
+    AB --> AC["🏥 ProfitAllocationService<br/>Hospital distributes total profit"]
+    
+    AC --> AD["📊 Profit Share Calculation<br/>patientShare = patientAT/totalAT"]
+    
+    AD --> AE["💵 HT Allocated by Share<br/>patientHT = totalHT × share%"]
+    
+    AE --> AF["📝 ProfitDistribution &<br/>ProfitAllocation Records"]
+    
+    AF --> AG["💰 PatientTokenBalance<br/>+= Profit Share HT"]
+    
+    AG --> AH["🎉 FINAL: Patient has<br/>✅ AT Returned (Available)<br/>✅ Monthly HT<br/>✅ Profit HT<br/>✅ Profit Share HT"]
+    
+    J -->|No| AI["⏸️ AT Remains AVAILABLE"]
+    
+    AI --> AJ{{"Withdrawal<br/>Requested?"}}
+    
+    AJ -->|Yes| AK["📋 PatientAtWithdrawalRequest<br/>Status: PENDING"]
+    
+    AK --> AL["✅ Hospital Approves<br/>Status: APPROVED"]
+    
+    AL --> AM["⏱️ Wait for trade end<br/>canProcess = tradeRemainingDays ≤ 0"]
+    
+    AM --> AN["🔓 AT Returned to Patient<br/>Status: RETRIEVED"]
+    
+    AJ -->|No| AO["🔒 AT Locked until<br/>Withdrawal or Settlement"]
+    
+    style A fill:#e1f5ff
+    style D fill:#fff3e0
+    style E fill:#f3e5f5
+    style K fill:#e8f5e9
+    style N fill:#ffebee
+    style R fill:#f1f8e9
+    style V fill:#ede7f6
+    style X fill:#fce4ec
+    style AC fill:#e0f2f1
+    style AH fill:#c8e6c9

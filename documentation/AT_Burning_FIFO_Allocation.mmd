@@ -1,0 +1,84 @@
+graph TD
+    A["🏦 Hospital AT Pool<br/>Multiple Patient Deposits<br/>Active Entries (FIFO Order)"] -->|HospitalAtPoolService| B["Entry 1: 500 AT<br/>(Available: 500)"]
+    C["Entry 2: 300 AT<br/>(Available: 300)"]
+    D["Entry 3: 200 AT<br/>(Available: 200)"]
+    
+    A --> B
+    A --> C
+    A --> D
+    
+    E["💰 Trade Requested<br/>Amount: 5000 PKR<br/>= 50 AT to burn"] -->|executeTrade| F["🔍 Validate AT Available<br/>Total Available: 1000 AT ≥ 50 AT<br/>✅ PASS"]
+    
+    F --> G["🔥 applyBurnAllocations<br/>uses FIFO strategy<br/>Burns from oldest first"]
+    
+    G --> H["📊 Burning Process:"]
+    
+    H --> H1["<b>FIFO Allocation:</b><br/>Process entries in order"]
+    
+    H1 --> I["Entry 1: Burn 50 AT<br/>(Available: 500 - 50 = 450)"]
+    
+    I --> J["🎯 PatientAtAssignment 1<br/>Updated:<br/>availableAt: 500 → 450<br/>unavailableAt: 0 → 50<br/>Status: UNAVAILABLE"]
+    
+    J --> K["🔄 Proportional Distribution<br/>If burning > Entry 1 available"]
+    
+    K --> K1["Example: Burn 600 AT<br/>Entry 1: Burn 500 (all)"]
+    
+    K1 --> K2["Entry 2: Burn 100 (of 300)"]
+    
+    K2 --> K3["Entry 3: Remaining needed"]
+    
+    K3 --> L["🏦 All Pool Entries Updated:<br/>Entry 1: 500 → 0 (totalAtBurned: 500)<br/>Entry 2: 300 → 200 (totalAtBurned: 100)<br/>Entry 3: 200 → 100 (totalAtBurned: 100)"]
+    
+    L --> M["📝 All Affected Patients<br/>PatientAtAssignment Updated"]
+    
+    M --> N["Patient 1<br/>unavailableAt: 500"]
+    M --> O["Patient 2<br/>unavailableAt: 100"]
+    M --> P["Patient 3<br/>unavailableAt: 100"]
+    
+    N --> Q["💾 Trade Participation<br/>Created for Each Patient<br/>Records AT Allocated"]
+    
+    O --> Q
+    P --> Q
+    
+    Q --> R["📌 TradeParticipation Records:<br/>Patient 1: 500 AT @ 10 PKR = 5000 PKR value<br/>Patient 2: 100 AT @ 10 PKR = 1000 PKR value<br/>Patient 3: 100 AT @ 10 PKR = 1000 PKR value"]
+    
+    R --> S["📅 Monthly HT Scheduled<br/>for Each Participation<br/>Each Month = ATvalue × 5%"]
+    
+    S --> S1["Patient 1: 5000 × 0.05 = 250 HT/month"]
+    S --> S2["Patient 2: 1000 × 0.05 = 50 HT/month"]
+    S --> S3["Patient 3: 1000 × 0.05 = 50 HT/month"]
+    
+    S1 --> T["🎯 If 6-month trade:"]
+    S2 --> T
+    S3 --> T
+    
+    T --> T1["Patient 1: 250 × 6 = 1500 HT"]
+    T --> T2["Patient 2: 50 × 6 = 300 HT"]
+    T --> T3["Patient 3: 50 × 6 = 300 HT"]
+    
+    T1 --> U["⏳ Trade Active"]
+    T2 --> U
+    T3 --> U
+    
+    U -->|Trade Profit: 3000 PKR| V["💎 Settlement"]
+    
+    V --> W["✏️ Profit Distribution<br/>Total AT in trade: 700 AT"]
+    
+    W --> X["Patient 1 Share:<br/>500/700 × 3000 PKR = 2142.86 PKR<br/>HT Profit: 2142.86 × 0.1 = 214.3 HT"]
+    
+    W --> Y["Patient 2 Share:<br/>100/700 × 3000 PKR = 428.57 PKR<br/>HT Profit: 428.57 × 0.1 = 42.86 HT"]
+    
+    W --> Z["Patient 3 Share:<br/>100/700 × 3000 PKR = 428.57 PKR<br/>HT Profit: 428.57 × 0.1 = 42.86 HT"]
+    
+    X --> AA["🔄 AT Returned<br/>Patient 1: 500 AT back to available<br/>Patient 2: 100 AT back to available<br/>Patient 3: 100 AT back to available"]
+    
+    Y --> AA
+    Z --> AA
+    
+    AA --> AB["💰 Final Patient Balances:<br/>Patient 1:<br/>✅ 500 AT (Available)<br/>✅ 1500 HT (Monthly)<br/>✅ 214.3 HT (Profit)<br/>Total HT: 1714.3<br/><br/>Patient 2:<br/>✅ 100 AT (Available)<br/>✅ 300 HT (Monthly)<br/>✅ 42.86 HT (Profit)<br/>Total HT: 342.86<br/><br/>Patient 3:<br/>✅ 100 AT (Available)<br/>✅ 300 HT (Monthly)<br/>✅ 42.86 HT (Profit)<br/>Total HT: 342.86"]
+    
+    style A fill:#e1f5ff
+    style E fill:#fff3e0
+    style G fill:#ffebee
+    style L fill:#f1f8e9
+    style AB fill:#c8e6c9

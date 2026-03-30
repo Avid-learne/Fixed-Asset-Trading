@@ -21,12 +21,14 @@ import com.SehatVault.SehatVaultBackend.healthcard.repository.CardRepository;
 import com.SehatVault.SehatVaultBackend.healthcard.repository.HealthCardRepository;
 import com.SehatVault.SehatVaultBackend.hospital.entity.Hospital;
 import com.SehatVault.SehatVaultBackend.hospital.repository.HospitalRepository;
+import com.SehatVault.SehatVaultBackend.marketplace.service.AtTradingService;
 import com.SehatVault.SehatVaultBackend.marketplace.service.HospitalAtPoolService;
 import com.SehatVault.SehatVaultBackend.patient.entity.Patient;
 import com.SehatVault.SehatVaultBackend.patient.repository.PatientRepository;
 import com.SehatVault.SehatVaultBackend.wallet.entity.PatientTokenBalance;
 import com.SehatVault.SehatVaultBackend.wallet.repository.PatientTokenBalanceRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +43,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AssetDepositService {
 
     private static final BigDecimal TOKEN_RATIO = new BigDecimal("100");
@@ -56,6 +59,7 @@ public class AssetDepositService {
     private final MintRecordRepository mintRecordRepository;
     private final HospitalAtPoolService hospitalAtPoolService;
     private final BlockchainService blockchainService;
+    private final AtTradingService atTradingService;
 
     @Transactional(readOnly = true)
     public List<HospitalOptionDto> getHospitalOptions() {
@@ -94,7 +98,7 @@ public class AssetDepositService {
         }
 
         Hospital hospital = hospitalRepository.findById(resolvedHospitalId)
-            .orElseThrow(() -> new IllegalArgumentException("Assigned hospital was not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Assigned hospital was not found"));
 
         user.setHospitalId(hospital.getHospitalId());
         userRepository.save(user);
@@ -104,7 +108,8 @@ public class AssetDepositService {
 
         UUID bankId = assetDepositRepository.findAnyBankId();
         if (bankId == null) {
-            throw new IllegalArgumentException("No bank is configured yet. Create at least one bank before submitting deposit requests.");
+            throw new IllegalArgumentException(
+                    "No bank is configured yet. Create at least one bank before submitting deposit requests.");
         }
 
         AssetDeposit deposit = new AssetDeposit();
@@ -145,9 +150,11 @@ public class AssetDepositService {
         return deposits.stream()
                 .map(deposit -> {
                     Patient patient = patientRepository.findById(deposit.getPatientId())
-                            .orElseThrow(() -> new IllegalArgumentException("Patient not found for deposit " + deposit.getAssetId()));
+                            .orElseThrow(() -> new IllegalArgumentException(
+                                    "Patient not found for deposit " + deposit.getAssetId()));
                     User patientUser = userRepository.findById(patient.getUserId())
-                            .orElseThrow(() -> new IllegalArgumentException("User not found for patient " + patient.getId()));
+                            .orElseThrow(() -> new IllegalArgumentException(
+                                    "User not found for patient " + patient.getId()));
                     return toDto(deposit, patient, patientUser, hospital);
                 })
                 .toList();
@@ -259,50 +266,54 @@ public class AssetDepositService {
         return toDto(saved, patient, patientUser, hospital);
     }
 
-        @Transactional(readOnly = true)
-        public List<AssetDepositDto> getBankRequests(String email, String bankStatus) {
+    @Transactional(readOnly = true)
+    public List<AssetDepositDto> getBankRequests(String email, String bankStatus) {
         User bankUser = requireUser(email);
         requireRole(bankUser, Role.RoleType.bank_staff, "Only bank staff can view bank deposit requests");
 
         Bank bank = bankRepository.findByEmail(bankUser.getEmail())
-            .orElseThrow(() -> new IllegalArgumentException("No bank profile found for this account"));
+                .orElseThrow(() -> new IllegalArgumentException("No bank profile found for this account"));
 
         List<AssetDeposit> deposits = assetDepositRepository.findByBankIdOrderBySubmittedAtDesc(bank.getBankId())
-            .stream()
-            .filter(item -> "approved".equalsIgnoreCase(nz(item.getStatus())))
-            .toList();
+                .stream()
+                .filter(item -> "approved".equalsIgnoreCase(nz(item.getStatus())))
+                .toList();
 
         if (bankStatus != null && !bankStatus.isBlank() && !"all".equalsIgnoreCase(bankStatus)) {
             String normalized = bankStatus.trim().toLowerCase(Locale.ROOT);
             deposits = deposits.stream()
-                .filter(item -> normalized.equalsIgnoreCase(nz(item.getBankApprovalStatus())))
-                .toList();
+                    .filter(item -> normalized.equalsIgnoreCase(nz(item.getBankApprovalStatus())))
+                    .toList();
         }
 
         return deposits.stream()
-            .map(deposit -> {
-                Patient patient = patientRepository.findById(deposit.getPatientId())
-                    .orElseThrow(() -> new IllegalArgumentException("Patient not found for deposit " + deposit.getAssetId()));
-                User patientUser = userRepository.findById(patient.getUserId())
-                    .orElseThrow(() -> new IllegalArgumentException("User not found for patient " + patient.getId()));
-                UUID hospitalId = patient.getHospitalId() != null ? patient.getHospitalId() : patientUser.getHospitalId();
-                Hospital hospital = hospitalRepository.findById(hospitalId)
-                    .orElseThrow(() -> new IllegalArgumentException("Hospital not found for deposit " + deposit.getAssetId()));
-                return toDto(deposit, patient, patientUser, hospital);
-            })
-            .toList();
-        }
+                .map(deposit -> {
+                    Patient patient = patientRepository.findById(deposit.getPatientId())
+                            .orElseThrow(() -> new IllegalArgumentException(
+                                    "Patient not found for deposit " + deposit.getAssetId()));
+                    User patientUser = userRepository.findById(patient.getUserId())
+                            .orElseThrow(() -> new IllegalArgumentException(
+                                    "User not found for patient " + patient.getId()));
+                    UUID hospitalId = patient.getHospitalId() != null ? patient.getHospitalId()
+                            : patientUser.getHospitalId();
+                    Hospital hospital = hospitalRepository.findById(hospitalId)
+                            .orElseThrow(() -> new IllegalArgumentException(
+                                    "Hospital not found for deposit " + deposit.getAssetId()));
+                    return toDto(deposit, patient, patientUser, hospital);
+                })
+                .toList();
+    }
 
-        @Transactional
-        public AssetDepositDto approveRequestByBank(String email, UUID assetId) {
+    @Transactional
+    public AssetDepositDto approveRequestByBank(String email, UUID assetId) {
         User bankUser = requireUser(email);
         requireRole(bankUser, Role.RoleType.bank_staff, "Only bank staff can approve bank deposit requests");
 
         Bank bank = bankRepository.findByEmail(bankUser.getEmail())
-            .orElseThrow(() -> new IllegalArgumentException("No bank profile found for this account"));
+                .orElseThrow(() -> new IllegalArgumentException("No bank profile found for this account"));
 
         AssetDeposit deposit = assetDepositRepository.findById(assetId)
-            .orElseThrow(() -> new IllegalArgumentException("Deposit request not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Deposit request not found"));
 
         assertSameBank(bank, deposit);
         if (!"approved".equalsIgnoreCase(nz(deposit.getStatus()))) {
@@ -319,12 +330,12 @@ public class AssetDepositService {
 
         AssetDeposit saved = assetDepositRepository.save(deposit);
         Patient patient = patientRepository.findById(saved.getPatientId())
-            .orElseThrow(() -> new IllegalArgumentException("Patient not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Patient not found"));
         User patientUser = userRepository.findById(patient.getUserId())
-            .orElseThrow(() -> new IllegalArgumentException("Patient user not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Patient user not found"));
         UUID hospitalId = patient.getHospitalId() != null ? patient.getHospitalId() : patientUser.getHospitalId();
         Hospital hospital = hospitalRepository.findById(hospitalId)
-            .orElseThrow(() -> new IllegalArgumentException("Hospital not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Hospital not found"));
 
         // Mint AT and HT from approved asset value.
         BigDecimal atTokens = nzNum(saved.getAssetValue()).divide(TOKEN_RATIO, 2, RoundingMode.DOWN);
@@ -334,30 +345,31 @@ public class AssetDepositService {
 
         String patientWalletAddress = nz(patient.getWalletAddress()).trim();
         if (patientWalletAddress.isBlank()) {
-            throw new IllegalArgumentException("Patient wallet address is missing. Please update patient wallet before minting.");
+            throw new IllegalArgumentException(
+                    "Patient wallet address is missing. Please update patient wallet before minting.");
         }
 
-        // Submit AT mint on-chain first so DB 'minted' status always has a real blockchain tx hash.
+        // Submit AT mint on-chain first so DB 'minted' status always has a real
+        // blockchain tx hash.
         BlockchainMintResponse mintResponse = blockchainService.mintAssetToken(
-            BlockchainMintRequest.builder()
-                .patientAddress(patientWalletAddress)
-                .amount(atTokens.toBigInteger())
-                .tokenType("AT")
-                .depositId(saved.getAssetId().getMostSignificantBits())
-                .metadata("asset-id:" + saved.getAssetId())
-                .build()
-        );
+                BlockchainMintRequest.builder()
+                        .patientAddress(patientWalletAddress)
+                        .amount(atTokens.toBigInteger())
+                        .tokenType("AT")
+                        .depositId(saved.getAssetId().getMostSignificantBits())
+                        .metadata("asset-id:" + saved.getAssetId())
+                        .build());
 
         PatientTokenBalance balance = patientTokenBalanceRepository
-            .findByPatientId(patient.getId())
-            .orElseGet(() -> {
-                PatientTokenBalance b = new PatientTokenBalance();
-                b.setPatientId(patient.getId());
-                b.setTotalAt(BigDecimal.ZERO);
-                b.setTotalHt(BigDecimal.ZERO);
-                b.setLastUpdated(LocalDateTime.now());
-                return b;
-            });
+                .findByPatientId(patient.getId())
+                .orElseGet(() -> {
+                    PatientTokenBalance b = new PatientTokenBalance();
+                    b.setPatientId(patient.getId());
+                    b.setTotalAt(BigDecimal.ZERO);
+                    b.setTotalHt(BigDecimal.ZERO);
+                    b.setLastUpdated(LocalDateTime.now());
+                    return b;
+                });
         balance.setTotalAt(nzNum(balance.getTotalAt()).add(atTokens));
         balance.setTotalHt(nzNum(balance.getTotalHt()).add(htTokens));
         balance.setLastUpdated(LocalDateTime.now());
@@ -366,14 +378,20 @@ public class AssetDepositService {
         recordMint(saved, patient.getId(), bankUser.getUserId(), atTokens, mintResponse);
         hospitalAtPoolService.addToPool(hospitalId, patient.getId(), saved.getAssetId(), atTokens);
 
-        // Auto-create/update Asset Health Card and move approved HT into the card balance.
+        // Initialize AT assignment for AT Trading System
+        atTradingService.initializeAtAssignment(patient.getId(), saved.getAssetId(), hospitalId, atTokens);
+        log.info("AT assignment initialized for patient {} with {} AT from approved asset {}",
+                patient.getId(), atTokens, saved.getAssetId());
+
+        // Auto-create/update Asset Health Card and move approved HT into the card
+        // balance.
         creditAssetHealthCard(patient.getId(), htTokens);
 
         return toDto(saved, patient, patientUser, hospital);
-        }
+    }
 
-        @Transactional
-        public AssetDepositDto rejectRequestByBank(String email, UUID assetId, String reason) {
+    @Transactional
+    public AssetDepositDto rejectRequestByBank(String email, UUID assetId, String reason) {
         User bankUser = requireUser(email);
         requireRole(bankUser, Role.RoleType.bank_staff, "Only bank staff can reject bank deposit requests");
 
@@ -382,10 +400,10 @@ public class AssetDepositService {
         }
 
         Bank bank = bankRepository.findByEmail(bankUser.getEmail())
-            .orElseThrow(() -> new IllegalArgumentException("No bank profile found for this account"));
+                .orElseThrow(() -> new IllegalArgumentException("No bank profile found for this account"));
 
         AssetDeposit deposit = assetDepositRepository.findById(assetId)
-            .orElseThrow(() -> new IllegalArgumentException("Deposit request not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Deposit request not found"));
 
         assertSameBank(bank, deposit);
         if (!"approved".equalsIgnoreCase(nz(deposit.getStatus()))) {
@@ -405,14 +423,14 @@ public class AssetDepositService {
 
         AssetDeposit saved = assetDepositRepository.save(deposit);
         Patient patient = patientRepository.findById(saved.getPatientId())
-            .orElseThrow(() -> new IllegalArgumentException("Patient not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Patient not found"));
         User patientUser = userRepository.findById(patient.getUserId())
-            .orElseThrow(() -> new IllegalArgumentException("Patient user not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Patient user not found"));
         UUID hospitalId = patient.getHospitalId() != null ? patient.getHospitalId() : patientUser.getHospitalId();
         Hospital hospital = hospitalRepository.findById(hospitalId)
-            .orElseThrow(() -> new IllegalArgumentException("Hospital not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Hospital not found"));
         return toDto(saved, patient, patientUser, hospital);
-        }
+    }
 
     private AssetDepositDto toDto(AssetDeposit deposit, Patient patient, User patientUser, Hospital hospital) {
         AssetDepositDto dto = new AssetDepositDto();
@@ -487,21 +505,19 @@ public class AssetDepositService {
 
         if (cumulativeAt.compareTo(maxMintableAt) > 0) {
             throw new IllegalArgumentException(
-                "Over-tokenization blocked for asset " + deposit.getAssetId()
-                    + ". maxMintableAT=" + maxMintableAt.toPlainString()
-                    + ", alreadyMintedAT=" + alreadyMintedAt.toPlainString()
-                    + ", requestedAT=" + newAtMintAmount.toPlainString()
-            );
+                    "Over-tokenization blocked for asset " + deposit.getAssetId()
+                            + ". maxMintableAT=" + maxMintableAt.toPlainString()
+                            + ", alreadyMintedAT=" + alreadyMintedAt.toPlainString()
+                            + ", requestedAT=" + newAtMintAmount.toPlainString());
         }
     }
 
     private void recordMint(
-        AssetDeposit deposit,
-        UUID patientId,
-        UUID minterId,
-        BigDecimal atTokens,
-        BlockchainMintResponse mintResponse
-    ) {
+            AssetDeposit deposit,
+            UUID patientId,
+            UUID minterId,
+            BigDecimal atTokens,
+            BlockchainMintResponse mintResponse) {
         MintRecord mintRecord = new MintRecord();
         mintRecord.setAssetId(deposit.getAssetId());
         mintRecord.setPatientId(patientId);
@@ -554,7 +570,8 @@ public class AssetDepositService {
         Random rng = new Random();
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < 16; i++) {
-            if (i > 0 && i % 4 == 0) sb.append('-');
+            if (i > 0 && i % 4 == 0)
+                sb.append('-');
             sb.append(rng.nextInt(10));
         }
         String num = sb.toString();

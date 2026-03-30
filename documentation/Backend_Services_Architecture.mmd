@@ -1,0 +1,96 @@
+graph LR
+    A["📋 KEY BACKEND SERVICES<br/>& RESPONSIBILITIES"] 
+    
+    B["🔐 AssetDepositService<br/>—<br/>• Deposit submission<br/>• Hospital approval<br/>• Bank approval<br/>• AT minting on-chain<br/>• Initial HT allocation<br/>• Health card mgmt<br/><br/>File: AssetDepositService.java"]
+    
+    C["🎯 AtTradingService<br/>—<br/>• AT assignment mgmt<br/>• Trade participation<br/>• Monthly HT scheduling<br/>• Trade settlement<br/>• AT return processing<br/>• Withdrawal requests<br/><br/>File: AtTradingService.java"]
+    
+    D["🏪 MarketplaceService<br/>—<br/>• Trade creation<br/>• Trade execution<br/>• AT burning trigger<br/>• Trade simulation<br/>• Order book mgmt<br/><br/>File: MarketplaceService.java"]
+    
+    E["🏦 HospitalAtPoolService<br/>—<br/>• AT pool management<br/>• Available AT tracking<br/>• FIFO burn allocation<br/>• Pool entry updates<br/><br/>File: HospitalAtPoolService.java"]
+    
+    F["💰 ProfitAllocationService<br/>—<br/>• Hospital profit dist.<br/>• Patient share calc.<br/>• HT allocation<br/>• Distribution records<br/><br/>File: ProfitAllocationService.java"]
+    
+    G["⛓️ BlockchainService<br/>—<br/>• AT minting on-chain<br/>• HT minting<br/>• Tx signing<br/>• Blockchain persist.<br/><br/>File: BlockchainService.java"]
+    
+    H["👛 WalletService<br/>—<br/>• Token balance track<br/>• Wallet queries<br/>• Balance updates<br/><br/>File: WalletService.java"]
+    
+    A --> B
+    A --> C
+    A --> D
+    A --> E
+    A --> F
+    A --> G
+    A --> H
+    
+    I["📊 CONVERSION RATES & FORMULAS"]
+    
+    J["<b>Asset to AT</b><br/>100 PKR = 1 AT<br/>(TOKEN_RATIO)"]
+    
+    K["<b>AT to PKR Value</b><br/>1 AT = 10 PKR<br/>(AT_TO_PKR)"]
+    
+    L["<b>Monthly HT</b><br/>AT_value × 5%<br/>Per month of trade"]
+    
+    M["<b>Profit HT</b><br/>Profit_PKR × 0.1<br/>Only if profit > 0"]
+    
+    N["<b>HT to PKR</b><br/>1 HT = 10 PKR<br/>(HT_CONVERSION_RATE)"]
+    
+    O["<b>Profit Share</b><br/>patientShare% = <br/>patientAT / totalAT × 100"]
+    
+    I --> J
+    I --> K
+    I --> L
+    I --> M
+    I --> N
+    I --> O
+    
+    P["🔄 ENTITY RELATIONSHIPS"]
+    
+    Q["🏥 PatientAtAssignment<br/>Tracks AT availability<br/>- availableAt (not in trade)<br/>- unavailableAt (locked)<br/>- Status: AVAILABLE/UNAVAILABLE"]
+    
+    R["🎪 TradeParticipation<br/>Patient in trade record<br/>- atAllocated<br/>- atMonetaryValuePkr<br/>- Status: ACTIVE/SETTLED"]
+    
+    S["📅 MonthlyHtDistribution<br/>Monthly HT pending<br/>- calculatedHtAmount<br/>- isDistributed flag<br/>- For each trade month"]
+    
+    T["💎 TradeAtSettlement<br/>Trade final results<br/>- totalMonthlyHt<br/>- profitHt<br/>- origAtAllocated<br/>- atReturned"]
+    
+    U["📋 PatientAtWithdrawal<br/>Withdrawal requests<br/>- Status: PENDING/APPROVED<br/>- tradeRemainingDays<br/>- Auto-processes on settlement"]
+    
+    V["🏦 HospitalAtPoolEntry<br/>Hospital's AT inventory<br/>- totalAtAdded<br/>- availableAt<br/>- totalAtBurned"]
+    
+    P --> Q
+    P --> R
+    P --> S
+    P --> T
+    P --> U
+    P --> V
+    
+    B --> I
+    C --> I
+    D --> I
+    E --> I
+    F --> I
+    G --> I
+    
+    style A fill:#e3f2fd
+    style B fill:#fff3e0
+    style C fill:#e8f5e9
+    style D fill:#f3e5f5
+    style E fill:#fce4ec
+    style F fill:#e0f2f1
+    style G fill:#fff9c4
+    style H fill:#f0f4c3
+    style I fill:#e3f2fd
+    style J fill:#fff3e0
+    style K fill:#fff3e0
+    style L fill:#f1f8e9
+    style M fill:#fce4ec
+    style N fill:#e0f2f1
+    style O fill:#fff9c4
+    style P fill:#e3f2fd
+    style Q fill:#fff3e0
+    style R fill:#e8f5e9
+    style S fill:#f1f8e9
+    style T fill:#ede7f6
+    style U fill:#fce4ec
+    style V fill:#e0f2f1

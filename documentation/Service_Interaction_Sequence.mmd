@@ -1,0 +1,102 @@
+sequenceDiagram
+    participant Patient
+    participant Hospital as Hospital Admin
+    participant Bank
+    participant BlockchainService as Blockchain
+    participant AssetDepositService as Deposit Service
+    participant MarketplaceService as Marketplace
+    participant HospitalAtPoolService as AT Pool Service
+    participant AtTradingService as AT Trading
+    participant ProfitAllocationService as Profit Service
+
+    rect rgb(200, 230, 255)
+    Note over Patient,BlockchainService: PHASE 1: Asset Deposit & AT Minting
+    
+    Patient->>AssetDepositService: Submit asset deposit (10,000 PKR)
+    AssetDepositService->>Hospital: Request approval
+    Hospital->>AssetDepositService: Approve request
+    
+    AssetDepositService->>Bank: Forward for bank approval
+    Bank->>BlockchainService: Mint 100 AT (10,000÷100)
+    BlockchainService->>BlockchainService: Create AT on-chain
+    
+    BlockchainService->>BlockchainService: Mint 100 HT (1 AT = 1 HT)
+    BlockchainService->>AssetDepositService: ✅ AT/HT minted
+    
+    AssetDepositService->>AssetDepositService: Update PatientTokenBalance
+    AssetDepositService->>AssetDepositService: Create PatientAtAssignment
+    AssetDepositService->>HospitalAtPoolService: Add to AT pool
+    AssetDepositService->>Patient: ✅ Deposit approved
+    Note right of Patient: Balance: 100 HT, 100 AT (available)
+    end
+
+    rect rgb(240, 255, 240)
+    Note over Patient,ProfitAllocationService: PHASE 2: Trade Execution & AT Burning
+    
+    Hospital->>MarketplaceService: Create trade (BUY, 700 AT needed)
+    MarketplaceService->>HospitalAtPoolService: Check available AT
+    HospitalAtPoolService->>MarketplaceService: ✅ 700 AT available
+    
+    MarketplaceService->>MarketplaceService: Simulate trade (price, duration, P&L)
+    
+    MarketplaceService->>HospitalAtPoolService: Burn 700 AT (FIFO allocation)
+    HospitalAtPoolService->>HospitalAtPoolService: Patient1: Burn 100 AT
+    HospitalAtPoolService->>HospitalAtPoolService: Patient2: Burn 300 AT
+    HospitalAtPoolService->>HospitalAtPoolService: Patient3: Burn 200 AT
+    HospitalAtPoolService->>HospitalAtPoolService: Update all PatientAtAssignments
+    
+    HospitalAtPoolService->>AtTradingService: ✅ AT burned, create participations
+    AtTradingService->>AtTradingService: Create TradeParticipation (per patient)
+    AtTradingService->>AtTradingService: Create MonthlyHtDistribution (6 months)
+    Note right of AtTradingService: P1: 500 HT/month, P2: 150 HT/mo, P3: 100 HT/mo
+    
+    MarketplaceService->>MarketplaceService: Create MarketplaceTrade (ACTIVE)
+    MarketplaceService->>Patient: ✅ Trade started
+    end
+
+    rect rgb(255, 240, 245)
+    Note over Patient,AtTradingService: PHASE 3: Monthly HT Distribution (ongoing)
+    
+    loop For Each Month (1-6 months)
+        AtTradingService->>AtTradingService: markMonthlyDistributionDistributed()
+        AtTradingService->>Patient: ✅ Monthly HT distributed
+        Note right of Patient: Month 1: +500 HT (P1), +150 HT (P2), +100 HT (P3)
+    end
+    end
+
+    rect rgb(255, 250, 205)
+    Note over Patient,ProfitAllocationService: PHASE 4: Trade Settlement & Profit Distribution
+    
+    Hospital->>MarketplaceService: Close trade
+    MarketplaceService->>MarketplaceService: MarketplaceTrade status = CLOSED
+    MarketplaceService->>MarketplaceService: Calculate profit: 3000 PKR
+    
+    MarketplaceService->>AtTradingService: Settle trade (3000 PKR profit)
+    
+    AtTradingService->>AtTradingService: For each TradeParticipation:
+    AtTradingService->>AtTradingService: Collect monthly HT (Patient1: 3000, P2: 900, P3: 600)
+    AtTradingService->>AtTradingService: Calculate profit HT (P1: 2143×0.1=214, P2: 428×0.1=42.8, P3: 428×0.1=42.8)
+    
+    AtTradingService->>AtTradingService: Create TradeAtSettlement records
+    AtTradingService->>AtTradingService: Return AT to PatientAtAssignment (available)
+    Note right of AtTradingService: availableAt restored, unavailableAt = 0
+    
+    AtTradingService->>Patient: ✅ Trade settled, AT returned + Profit HT issued
+    Note right of Patient: P1 gets: 100 AT + 3214 HT, P2: 300 AT + 942.8 HT, P3: 200 AT + 642.8 HT
+    
+    AtTradingService->>ProfitAllocationService: Distribute hospital profit
+    ProfitAllocationService->>ProfitAllocationService: Calculate patient shares
+    ProfitAllocationService->>ProfitAllocationService: P1 share: 100/700 × 3000 = 2142.86 PKR
+    ProfitAllocationService->>ProfitAllocationService: Convert to HT: 2142.86 × 0.1 = 214.3 HT
+    
+    ProfitAllocationService->>ProfitAllocationService: Create ProfitDistribution & ProfitAllocation records
+    ProfitAllocationService->>Patient: ✅ Profit share allocated
+    Note right of Patient: P1 +214.3 HT, P2: +42.86 HT, P3: +42.86 HT
+    end
+
+    rect rgb(240, 248, 245)
+    Note over Patient,ProfitAllocationService: FINAL STATE: Patient Holdings
+    
+    Patient->>Patient: SUMMARY<br/>P1: 100 AT + 3428.3 HT<br/>P2: 300 AT + 985.66 HT<br/>P3: 200 AT + 685.66 HT
+    Note right of Patient: All AT returned (AVAILABLE)<br/>HT = Initial + Monthly + Profit + Share
+    end

@@ -2,6 +2,28 @@
 import { api } from '@/lib/api'
 import { Asset, ApiResponse, PaginatedResponse, FilterOptions } from '@/types'
 
+export interface AssetDeposit {
+  assetId: string
+  patientId: string
+  patientName: string
+  patientEmail: string
+  hospitalId: string
+  hospitalName: string
+  assetType: 'GOLD' | 'SILVER' | 'CASH' | 'PROPERTY'
+  weight?: number
+  assetValue: number
+  expectedTokens: number
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'MINTED'
+  bankApprovalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED'
+  submittedAt: string
+  approvedAt?: string
+  rejectedAt?: string
+  rejectionReason?: string
+  bankApprovedAt?: string
+  bankRejectedAt?: string
+  bankRejectionReason?: string
+}
+
 export const assetService = {
   async getAssets(filters?: FilterOptions): Promise<PaginatedResponse<Asset>> {
     const params = new URLSearchParams()
@@ -37,5 +59,16 @@ export const assetService = {
 
   async deleteAsset(id: string): Promise<ApiResponse<void>> {
     return api.delete<ApiResponse<void>>(`/assets/${id}`)
+  },
+
+  // Patient-specific endpoints for viewing linked deposits
+  async getPatientDeposits(status?: string): Promise<ApiResponse<AssetDeposit[]>> {
+    const params = new URLSearchParams()
+    if (status) params.append('status', status)
+    return api.get<ApiResponse<AssetDeposit[]>>(`/asset-deposits/mine${params ? `?${params.toString()}` : ''}`)
+  },
+
+  async getPatientDepositById(assetId: string): Promise<ApiResponse<AssetDeposit>> {
+    return api.get<ApiResponse<AssetDeposit>>(`/asset-deposits/${assetId}`)
   }
 }

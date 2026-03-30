@@ -27,6 +27,7 @@ export interface AuthResponse {
   dateOfBirth?: string;
   hospitalId?: string;
   hospitalName?: string;
+  patientId?: string;
   success: boolean;
   message: string;
 }
@@ -43,6 +44,7 @@ export interface StoredAuthUser {
   dateOfBirth?: string;
   hospitalId?: string;
   hospitalName?: string;
+  patientId?: string;
 }
 
 export interface LoginRequest {
@@ -292,6 +294,7 @@ export const authService = {
           dateOfBirth: user.dateOfBirth || '',
           hospitalId: user.hospitalId || null,
           hospitalName: user.hospitalName || null,
+          patientId: user.patientId || null,
         })
       );
     }

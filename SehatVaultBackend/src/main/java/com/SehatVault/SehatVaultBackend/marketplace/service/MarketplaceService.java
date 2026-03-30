@@ -66,6 +66,7 @@ public class MarketplaceService {
     private final CardRepository cardRepository;
     private final HospitalAtPoolService hospitalAtPoolService;
     private final TradingSimulationService tradingSimulationService;
+    private final AtTradingService atTradingService;
 
     public List<TradeDto> getTradesByHospital(UUID hospitalId) {
         return marketplaceTradeRepository.findByHospitalIdOrderByStartTimeDesc(hospitalId)
@@ -123,10 +124,10 @@ public class MarketplaceService {
 
         if (amountInvested.compareTo(poolSnapshot.availablePkr) > 0) {
             throw new IllegalArgumentException("Insufficient hospital AT pool. Available: "
-                + toAt(poolSnapshot.availablePkr).toPlainString()
-                + " AT, required: "
-                + toAt(amountInvested).toPlainString()
-                + " AT");
+                    + toAt(poolSnapshot.availablePkr).toPlainString()
+                    + " AT, required: "
+                    + toAt(amountInvested).toPlainString()
+                    + " AT");
         }
 
         BigDecimal totalAtBurned = nz(request.getTotalAtBurned());
@@ -134,11 +135,11 @@ public class MarketplaceService {
             totalAtBurned = toAt(amountInvested);
         }
 
-        List<HospitalAtPoolService.PoolBurnAllocationResult> burnResults =
-            hospitalAtPoolService.applyBurnAllocations(hospitalId, totalAtBurned);
+        List<HospitalAtPoolService.PoolBurnAllocationResult> burnResults = hospitalAtPoolService
+                .applyBurnAllocations(hospitalId, totalAtBurned);
 
         TradingSimulationService.SimulationResult simulation = tradingSimulationService
-            .simulate(openingPrice, quantity, tradeType);
+                .simulate(openingPrice, quantity, tradeType);
 
         MarketplaceTrade trade = new MarketplaceTrade();
         trade.setHospitalId(hospitalId);
@@ -146,10 +147,9 @@ public class MarketplaceService {
         trade.setTradeTitle(resolveAssetName(request.getAssetName(), request.getTitle()));
         trade.setTradeDescription(sanitize(request.getDescription()));
         trade.setInvestmentDescription(buildDescription(
-            sanitize(request.getAssetType()).isEmpty() ? request.getInvestment() : request.getAssetType(),
-            request.getLocation(),
-            request.getNotes()
-        ));
+                sanitize(request.getAssetType()).isEmpty() ? request.getInvestment() : request.getAssetType(),
+                request.getLocation(),
+                request.getNotes()));
 
         trade.setStartTime(simulation.startTime());
         trade.setEndTime(simulation.endTime());
@@ -230,7 +230,7 @@ public class MarketplaceService {
     public TradeDto createTrade(CreateTradeRequest request) {
         validateCreateRequest(request);
         log.info("[Marketplace] createTrade request hospitalId={} type={} title='{}' investment='{}'",
-            request.getHospitalId(), request.getTradeType(), request.getTitle(), request.getInvestment());
+                request.getHospitalId(), request.getTradeType(), request.getTitle(), request.getInvestment());
 
         MarketplaceTrade trade = new MarketplaceTrade();
         trade.setHospitalId(request.getHospitalId());
@@ -248,8 +248,8 @@ public class MarketplaceService {
         trade.setHigh(request.getHigh() != null ? request.getHigh() : nz(buyPrice));
         trade.setLow(request.getLow() != null ? request.getLow() : nz(buyPrice));
         BigDecimal closingPricePerUnit = currentValuePerUnit != null
-            ? currentValuePerUnit
-            : request.getClosingPrice() != null ? request.getClosingPrice() : nz(buyPrice);
+                ? currentValuePerUnit
+                : request.getClosingPrice() != null ? request.getClosingPrice() : nz(buyPrice);
         trade.setClosingPrice(closingPricePerUnit);
         trade.setAmountBeforeTrade(BigDecimal.ZERO);
 
@@ -257,10 +257,10 @@ public class MarketplaceService {
         HospitalPoolSnapshot poolSnapshot = buildHospitalPoolSnapshot(request.getHospitalId());
         if (amountInvested.compareTo(poolSnapshot.availablePkr) > 0) {
             throw new IllegalArgumentException("Insufficient hospital AT pool. Available: "
-                + toAt(poolSnapshot.availablePkr).toPlainString()
-                + " AT, required: "
-                + toAt(amountInvested).toPlainString()
-                + " AT");
+                    + toAt(poolSnapshot.availablePkr).toPlainString()
+                    + " AT, required: "
+                    + toAt(amountInvested).toPlainString()
+                    + " AT");
         }
 
         BigDecimal amountAfterTrade = trade.getClosingPrice().multiply(trade.getVolume());
@@ -281,21 +281,20 @@ public class MarketplaceService {
         trade.setTradeDescription(tradeDescription);
 
         trade.setInvestmentDescription(buildDescription(
-            sanitize(request.getAssetType()).isEmpty() ? request.getInvestment() : request.getAssetType(),
-            request.getLocation(),
-            request.getNotes()
-        ));
+                sanitize(request.getAssetType()).isEmpty() ? request.getInvestment() : request.getAssetType(),
+                request.getLocation(),
+                request.getNotes()));
 
         MarketplaceTrade saved = marketplaceTradeRepository.save(trade);
         log.info("[Marketplace] createTrade saved tradeId={} tradeTitle='{}' tradeDescription='{}'",
-            saved.getTradeId(), saved.getTradeTitle(), saved.getTradeDescription());
+                saved.getTradeId(), saved.getTradeTitle(), saved.getTradeDescription());
         return toDto(saved);
     }
 
     @Transactional
     public TradeDto updateTrade(UUID tradeId, UpdateTradeRequest request) {
         log.info("[Marketplace] updateTrade request tradeId={} title='{}' status={}",
-            tradeId, request.getTitle(), request.getStatus());
+                tradeId, request.getTitle(), request.getStatus());
         MarketplaceTrade trade = marketplaceTradeRepository.findById(tradeId)
                 .orElseThrow(() -> new IllegalArgumentException("Trade not found"));
         MarketplaceTrade.TradeStatus previousStatus = trade.getStatus();
@@ -335,12 +334,13 @@ public class MarketplaceService {
 
         DescriptionParts parts = parseDescription(trade.getInvestmentDescription());
         String title = request.getAssetName() != null ? sanitize(request.getAssetName())
-            : request.getTitle() != null ? sanitize(request.getTitle())
-            : sanitize(trade.getTradeTitle());
-        String description = request.getDescription() != null ? sanitize(request.getDescription()) : sanitize(trade.getTradeDescription());
+                : request.getTitle() != null ? sanitize(request.getTitle())
+                        : sanitize(trade.getTradeTitle());
+        String description = request.getDescription() != null ? sanitize(request.getDescription())
+                : sanitize(trade.getTradeDescription());
         String investment = request.getAssetType() != null ? request.getAssetType()
-            : request.getInvestment() != null ? request.getInvestment()
-            : parts.investment;
+                : request.getInvestment() != null ? request.getInvestment()
+                        : parts.investment;
         String location = request.getLocation() != null ? request.getLocation() : parts.location;
         String notes = request.getNotes() != null ? request.getNotes() : parts.notes;
         trade.setTradeTitle(title);
@@ -355,8 +355,8 @@ public class MarketplaceService {
             BigDecimal exitPerUnit = request.getExitValue() != null
                     ? request.getExitValue()
                     : request.getCurrentValue() != null
-                        ? request.getCurrentValue()
-                        : nz(trade.getClosingPrice());
+                            ? request.getCurrentValue()
+                            : nz(trade.getClosingPrice());
             trade.setClosingPrice(exitPerUnit);
             amountAfterTrade = nz(exitPerUnit).multiply(quantity);
         } else {
@@ -375,18 +375,17 @@ public class MarketplaceService {
         trade.setProfitLoss(profitLoss);
 
         boolean closingNow = previousStatus != MarketplaceTrade.TradeStatus.CLOSED
-            && trade.getStatus() == MarketplaceTrade.TradeStatus.CLOSED;
+                && trade.getStatus() == MarketplaceTrade.TradeStatus.CLOSED;
         if (closingNow) {
             settleClosedTrade(
-                trade,
-                buildDistributionRequestForClose(trade.getHospitalId()),
-                buildManualSettlementMetadata("UPD-" + trade.getTradeId())
-            );
+                    trade,
+                    buildDistributionRequestForClose(trade.getHospitalId()),
+                    buildManualSettlementMetadata("UPD-" + trade.getTradeId()));
         }
 
         MarketplaceTrade saved = marketplaceTradeRepository.save(trade);
         log.info("[Marketplace] updateTrade saved tradeId={} tradeTitle='{}' tradeDescription='{}'",
-            saved.getTradeId(), saved.getTradeTitle(), saved.getTradeDescription());
+                saved.getTradeId(), saved.getTradeTitle(), saved.getTradeDescription());
         return toDto(saved);
     }
 
@@ -408,10 +407,10 @@ public class MarketplaceService {
         BigDecimal amountInvested = nz(trade.getOpeningPrice()).multiply(quantity);
 
         BigDecimal exitPerUnit = request != null && request.getExitValue() != null
-            ? request.getExitValue()
-            : request != null && request.getCurrentValue() != null
-                ? request.getCurrentValue()
-                : nz(trade.getClosingPrice());
+                ? request.getExitValue()
+                : request != null && request.getCurrentValue() != null
+                        ? request.getCurrentValue()
+                        : nz(trade.getClosingPrice());
         if (exitPerUnit.compareTo(BigDecimal.ZERO) <= 0) {
             exitPerUnit = nz(trade.getOpeningPrice());
         }
@@ -428,10 +427,9 @@ public class MarketplaceService {
         trade.setProfitLoss(pnl);
 
         settleClosedTrade(
-            trade,
-            buildDistributionRequestForClose(trade.getHospitalId()),
-            buildManualSettlementMetadata("CLS-" + trade.getTradeId())
-        );
+                trade,
+                buildDistributionRequestForClose(trade.getHospitalId()),
+                buildManualSettlementMetadata("CLS-" + trade.getTradeId()));
 
         MarketplaceTrade saved = marketplaceTradeRepository.save(trade);
         return toDto(saved);
@@ -444,7 +442,8 @@ public class MarketplaceService {
         if (request.getTradeType() == null || request.getTradeType().isBlank()) {
             throw new IllegalArgumentException("tradeType is required");
         }
-        String assetName = sanitize(request.getAssetName()).isEmpty() ? sanitize(request.getTitle()) : sanitize(request.getAssetName());
+        String assetName = sanitize(request.getAssetName()).isEmpty() ? sanitize(request.getTitle())
+                : sanitize(request.getAssetName());
         if (assetName.isEmpty()) {
             throw new IllegalArgumentException("assetName is required");
         }
@@ -476,7 +475,8 @@ public class MarketplaceService {
 
     private TradeDto toDto(MarketplaceTrade trade) {
         DescriptionParts parts = parseDescription(trade.getInvestmentDescription());
-        String resolvedTitle = sanitize(trade.getTradeTitle()).isEmpty() ? parts.investment : sanitize(trade.getTradeTitle());
+        String resolvedTitle = sanitize(trade.getTradeTitle()).isEmpty() ? parts.investment
+                : sanitize(trade.getTradeTitle());
         String resolvedDescription = sanitize(trade.getTradeDescription());
         if (resolvedDescription.isEmpty()) {
             resolvedDescription = parts.notes;
@@ -580,12 +580,12 @@ public class MarketplaceService {
         hospitalAtPoolService.getActivePoolEntries(hospitalId).forEach(item -> pooledPatients.add(item.getPatientId()));
 
         List<MarketplaceTrade> activeTrades = marketplaceTradeRepository
-            .findByHospitalIdAndStatusOrderByOpeningPriceDesc(hospitalId, MarketplaceTrade.TradeStatus.ACTIVE);
+                .findByHospitalIdAndStatusOrderByOpeningPriceDesc(hospitalId, MarketplaceTrade.TradeStatus.ACTIVE);
 
         BigDecimal allocatedPkr = activeTrades.stream()
-            .map(MarketplaceTrade::getAmountInvested)
-            .map(this::nz)
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                .map(MarketplaceTrade::getAmountInvested)
+                .map(this::nz)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal totalAtPoolPkr = totalAtPool.multiply(AT_TO_PKR);
         BigDecimal availablePkr = totalAtPoolPkr.subtract(allocatedPkr);
@@ -594,13 +594,12 @@ public class MarketplaceService {
         }
 
         return new HospitalPoolSnapshot(
-            pooledPatients.isEmpty() ? patients.size() : pooledPatients.size(),
-            activeTrades.size(),
-            totalAtPool,
-            totalAtPoolPkr,
-            allocatedPkr,
-            availablePkr
-        );
+                pooledPatients.isEmpty() ? patients.size() : pooledPatients.size(),
+                activeTrades.size(),
+                totalAtPool,
+                totalAtPoolPkr,
+                allocatedPkr,
+                availablePkr);
     }
 
     private List<OrderBookLevelDto> toOrderBookLevels(Map<BigDecimal, BigDecimal> side, String type, int maxLevels) {
@@ -641,10 +640,9 @@ public class MarketplaceService {
     }
 
     private void settleClosedTrade(
-        MarketplaceTrade trade,
-        ExecuteTradeRequest distributionRequest,
-        TradingSimulationService.SimulationResult settlementMetadata
-    ) {
+            MarketplaceTrade trade,
+            ExecuteTradeRequest distributionRequest,
+            TradingSimulationService.SimulationResult settlementMetadata) {
         BigDecimal amountInvested = nz(trade.getAmountInvested());
         if (amountInvested.compareTo(BigDecimal.ZERO) <= 0) {
             amountInvested = nz(trade.getOpeningPrice()).multiply(nz(trade.getVolume()));
@@ -656,30 +654,39 @@ public class MarketplaceService {
             totalAtBurned = toAt(amountInvested);
         }
 
-        List<HospitalAtPoolService.PoolBurnAllocationResult> burnResults =
-            hospitalAtPoolService.applyBurnAllocations(trade.getHospitalId(), totalAtBurned);
+        List<HospitalAtPoolService.PoolBurnAllocationResult> burnResults = hospitalAtPoolService
+                .applyBurnAllocations(trade.getHospitalId(), totalAtBurned);
         trade.setTotalAtBurnt(totalAtBurned);
 
         applyPatientAtBurnDeductions(trade, burnResults, settlementMetadata);
         applyProfitDistribution(trade, burnResults, distributionRequest, settlementMetadata);
+
+        // NEW: Settle AT trading participations if any exist for this trade
+        try {
+            BigDecimal profitLoss = nz(trade.getProfitLoss());
+            atTradingService.settleTrade(trade.getTradeId(), profitLoss);
+            log.info("AT trading settlement completed for trade {}", trade.getTradeId());
+        } catch (Exception e) {
+            log.warn("AT settlement optional - trade {} may not have AT participations: {}",
+                    trade.getTradeId(), e.getMessage());
+        }
     }
 
     private TradingSimulationService.SimulationResult buildManualSettlementMetadata(String hashPrefix) {
         LocalDateTime now = LocalDateTime.now();
         return new TradingSimulationService.SimulationResult(
-            BigDecimal.ZERO,
-            BigDecimal.ZERO,
-            BigDecimal.ZERO,
-            BigDecimal.ZERO,
-            BigDecimal.ZERO,
-            BigDecimal.ZERO,
-            BigDecimal.ZERO,
-            BigDecimal.ZERO,
-            now.minusMinutes(1),
-            now,
-            Math.abs(new Random().nextLong(9_000_000L)) + 1_000_000L,
-            hashPrefix + "-" + UUID.randomUUID().toString().replace("-", "")
-        );
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                now.minusMinutes(1),
+                now,
+                Math.abs(new Random().nextLong(9_000_000L)) + 1_000_000L,
+                hashPrefix + "-" + UUID.randomUUID().toString().replace("-", ""));
     }
 
     private ExecuteTradeRequest buildDistributionRequestForClose(UUID hospitalId) {
@@ -689,10 +696,9 @@ public class MarketplaceService {
     }
 
     private void applyPatientAtBurnDeductions(
-        MarketplaceTrade trade,
-        List<HospitalAtPoolService.PoolBurnAllocationResult> burnResults,
-        TradingSimulationService.SimulationResult simulation
-    ) {
+            MarketplaceTrade trade,
+            List<HospitalAtPoolService.PoolBurnAllocationResult> burnResults,
+            TradingSimulationService.SimulationResult simulation) {
         if (burnResults.isEmpty()) {
             return;
         }
@@ -704,17 +710,17 @@ public class MarketplaceService {
 
         for (HospitalAtPoolService.PoolBurnAllocationResult burn : burnResults) {
             Patient patient = patientRepository.findById(burn.patientId())
-                .orElseThrow(() -> new IllegalArgumentException("Patient not found for burn allocation"));
+                    .orElseThrow(() -> new IllegalArgumentException("Patient not found for burn allocation"));
 
             PatientTokenBalance balance = patientTokenBalanceRepository.findByPatientId(patient.getId())
-                .orElseGet(() -> {
-                    PatientTokenBalance created = new PatientTokenBalance();
-                    created.setPatientId(patient.getId());
-                    created.setTotalAt(BigDecimal.ZERO);
-                    created.setTotalHt(BigDecimal.ZERO);
-                    created.setLastUpdated(LocalDateTime.now());
-                    return created;
-                });
+                    .orElseGet(() -> {
+                        PatientTokenBalance created = new PatientTokenBalance();
+                        created.setPatientId(patient.getId());
+                        created.setTotalAt(BigDecimal.ZERO);
+                        created.setTotalHt(BigDecimal.ZERO);
+                        created.setLastUpdated(LocalDateTime.now());
+                        return created;
+                    });
 
             BigDecimal updatedAt = nz(balance.getTotalAt()).subtract(nz(burn.burnedAt()));
             if (updatedAt.compareTo(BigDecimal.ZERO) < 0) {
@@ -741,47 +747,47 @@ public class MarketplaceService {
     }
 
     private void applyProfitDistribution(
-        MarketplaceTrade trade,
-        List<HospitalAtPoolService.PoolBurnAllocationResult> burnResults,
-        ExecuteTradeRequest request,
-        TradingSimulationService.SimulationResult simulation
-    ) {
+            MarketplaceTrade trade,
+            List<HospitalAtPoolService.PoolBurnAllocationResult> burnResults,
+            ExecuteTradeRequest request,
+            TradingSimulationService.SimulationResult simulation) {
         BigDecimal totalProfit = nz(trade.getProfitLoss());
         if (totalProfit.compareTo(BigDecimal.ZERO) <= 0) {
             return;
         }
 
         BigDecimal patientsPercentage = request.getPatientsPercentage() == null
-            ? new BigDecimal("60")
-            : request.getPatientsPercentage();
+                ? new BigDecimal("60")
+                : request.getPatientsPercentage();
         BigDecimal hospitalOperationsPercentage = request.getHospitalOperationsPercentage() == null
-            ? new BigDecimal("20")
-            : request.getHospitalOperationsPercentage();
+                ? new BigDecimal("20")
+                : request.getHospitalOperationsPercentage();
         BigDecimal bankLoanPercentage = request.getBankLoanPercentage() == null
-            ? new BigDecimal("10")
-            : request.getBankLoanPercentage();
+                ? new BigDecimal("10")
+                : request.getBankLoanPercentage();
 
         BigDecimal totalPercentage = nz(patientsPercentage)
-            .add(nz(hospitalOperationsPercentage))
-            .add(nz(bankLoanPercentage));
+                .add(nz(hospitalOperationsPercentage))
+                .add(nz(bankLoanPercentage));
         if (totalPercentage.compareTo(ONE_HUNDRED) > 0) {
-            throw new IllegalArgumentException("patientsPercentage + hospitalOperationsPercentage + bankLoanPercentage cannot exceed 100");
+            throw new IllegalArgumentException(
+                    "patientsPercentage + hospitalOperationsPercentage + bankLoanPercentage cannot exceed 100");
         }
 
         BigDecimal patientSharePkr = totalProfit
-            .multiply(patientsPercentage)
-            .divide(ONE_HUNDRED, 8, RoundingMode.HALF_UP);
+                .multiply(patientsPercentage)
+                .divide(ONE_HUNDRED, 8, RoundingMode.HALF_UP);
         BigDecimal hospitalOperationsPkr = totalProfit
-            .multiply(hospitalOperationsPercentage)
-            .divide(ONE_HUNDRED, 8, RoundingMode.HALF_UP);
+                .multiply(hospitalOperationsPercentage)
+                .divide(ONE_HUNDRED, 8, RoundingMode.HALF_UP);
         BigDecimal bankLoanFunds = totalProfit
-            .multiply(bankLoanPercentage)
-            .divide(ONE_HUNDRED, 8, RoundingMode.HALF_UP);
+                .multiply(bankLoanPercentage)
+                .divide(ONE_HUNDRED, 8, RoundingMode.HALF_UP);
 
         BigDecimal hospitalEarning = totalProfit
-            .subtract(patientSharePkr)
-            .subtract(hospitalOperationsPkr)
-            .subtract(bankLoanFunds);
+                .subtract(patientSharePkr)
+                .subtract(hospitalOperationsPkr)
+                .subtract(bankLoanFunds);
         if (hospitalEarning.compareTo(BigDecimal.ZERO) < 0) {
             hospitalEarning = BigDecimal.ZERO;
         }
@@ -804,16 +810,15 @@ public class MarketplaceService {
     }
 
     private void allocateProfitToPatients(
-        MarketplaceTrade trade,
-        ProfitDistribution distribution,
-        List<HospitalAtPoolService.PoolBurnAllocationResult> burnResults,
-        BigDecimal patientSharePkr,
-        TradingSimulationService.SimulationResult simulation
-    ) {
+            MarketplaceTrade trade,
+            ProfitDistribution distribution,
+            List<HospitalAtPoolService.PoolBurnAllocationResult> burnResults,
+            BigDecimal patientSharePkr,
+            TradingSimulationService.SimulationResult simulation) {
         BigDecimal totalBurnedAt = burnResults.stream()
-            .map(HospitalAtPoolService.PoolBurnAllocationResult::burnedAt)
-            .map(this::nz)
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                .map(HospitalAtPoolService.PoolBurnAllocationResult::burnedAt)
+                .map(this::nz)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         if (totalBurnedAt.compareTo(BigDecimal.ZERO) <= 0) {
             return;
@@ -837,20 +842,20 @@ public class MarketplaceService {
 
             if (isLast) {
                 sharePercent = ONE_HUNDRED.subtract(burnResults.subList(0, i).stream()
-                    .map(item -> nz(item.burnedAt())
-                        .multiply(ONE_HUNDRED)
-                        .divide(totalBurnedAt, 8, RoundingMode.HALF_UP))
-                    .reduce(BigDecimal.ZERO, BigDecimal::add));
+                        .map(item -> nz(item.burnedAt())
+                                .multiply(ONE_HUNDRED)
+                                .divide(totalBurnedAt, 8, RoundingMode.HALF_UP))
+                        .reduce(BigDecimal.ZERO, BigDecimal::add));
                 pkrShare = patientSharePkr.subtract(allocatedPkrRunning);
                 htShare = patientSharePkr.divide(HT_CONVERSION_RATE, 8, RoundingMode.HALF_UP)
-                    .subtract(allocatedHtRunning);
+                        .subtract(allocatedHtRunning);
             } else {
                 sharePercent = nz(burn.burnedAt())
-                    .multiply(ONE_HUNDRED)
-                    .divide(totalBurnedAt, 8, RoundingMode.HALF_UP);
+                        .multiply(ONE_HUNDRED)
+                        .divide(totalBurnedAt, 8, RoundingMode.HALF_UP);
                 pkrShare = patientSharePkr
-                    .multiply(nz(burn.burnedAt()))
-                    .divide(totalBurnedAt, 8, RoundingMode.HALF_UP);
+                        .multiply(nz(burn.burnedAt()))
+                        .divide(totalBurnedAt, 8, RoundingMode.HALF_UP);
                 htShare = pkrShare.divide(HT_CONVERSION_RATE, 8, RoundingMode.HALF_UP);
 
                 allocatedPkrRunning = allocatedPkrRunning.add(pkrShare);
@@ -867,17 +872,17 @@ public class MarketplaceService {
             profitAllocationRepository.save(allocation);
 
             Patient patient = patientRepository.findById(burn.patientId())
-                .orElseThrow(() -> new IllegalArgumentException("Patient not found for profit allocation"));
+                    .orElseThrow(() -> new IllegalArgumentException("Patient not found for profit allocation"));
 
             PatientTokenBalance balance = patientTokenBalanceRepository.findByPatientId(patient.getId())
-                .orElseGet(() -> {
-                    PatientTokenBalance created = new PatientTokenBalance();
-                    created.setPatientId(patient.getId());
-                    created.setTotalAt(BigDecimal.ZERO);
-                    created.setTotalHt(BigDecimal.ZERO);
-                    created.setLastUpdated(LocalDateTime.now());
-                    return created;
-                });
+                    .orElseGet(() -> {
+                        PatientTokenBalance created = new PatientTokenBalance();
+                        created.setPatientId(patient.getId());
+                        created.setTotalAt(BigDecimal.ZERO);
+                        created.setTotalHt(BigDecimal.ZERO);
+                        created.setLastUpdated(LocalDateTime.now());
+                        return created;
+                    });
             balance.setTotalHt(nz(balance.getTotalHt()).add(htShare.max(BigDecimal.ZERO)));
             balance.setLastUpdated(LocalDateTime.now());
             patientTokenBalanceRepository.save(balance);
@@ -906,20 +911,19 @@ public class MarketplaceService {
         }
 
         partnershipRepository
-            .findFirstByHospitalIdAndIntegrationStatusOrderByCreatedAtDesc(
-                hospitalId,
-                Partnership.IntegrationStatus.APPROVED
-            )
-            .ifPresent(partnership -> {
-                BigDecimal outstanding = nz(partnership.getLoansTakenByHospital()).subtract(bankLoanFunds);
-                if (outstanding.compareTo(BigDecimal.ZERO) < 0) {
-                    outstanding = BigDecimal.ZERO;
-                }
+                .findFirstByHospitalIdAndIntegrationStatusOrderByCreatedAtDesc(
+                        hospitalId,
+                        Partnership.IntegrationStatus.APPROVED)
+                .ifPresent(partnership -> {
+                    BigDecimal outstanding = nz(partnership.getLoansTakenByHospital()).subtract(bankLoanFunds);
+                    if (outstanding.compareTo(BigDecimal.ZERO) < 0) {
+                        outstanding = BigDecimal.ZERO;
+                    }
 
-                partnership.setLoansTakenByHospital(outstanding);
-                partnership.setTotalDeposits(nz(partnership.getTotalDeposits()).add(bankLoanFunds));
-                partnershipRepository.save(partnership);
-            });
+                    partnership.setLoansTakenByHospital(outstanding);
+                    partnership.setTotalDeposits(nz(partnership.getTotalDeposits()).add(bankLoanFunds));
+                    partnershipRepository.save(partnership);
+                });
     }
 
     private void creditAssetHealthCard(UUID patientId, BigDecimal htCredit) {
@@ -1013,13 +1017,12 @@ public class MarketplaceService {
         private final BigDecimal availablePkr;
 
         private HospitalPoolSnapshot(
-            int patientCount,
-            int openTrades,
-            BigDecimal totalAtPool,
-            BigDecimal totalAtPoolPkr,
-            BigDecimal allocatedPkr,
-            BigDecimal availablePkr
-        ) {
+                int patientCount,
+                int openTrades,
+                BigDecimal totalAtPool,
+                BigDecimal totalAtPoolPkr,
+                BigDecimal allocatedPkr,
+                BigDecimal availablePkr) {
             this.patientCount = patientCount;
             this.openTrades = openTrades;
             this.totalAtPool = totalAtPool;

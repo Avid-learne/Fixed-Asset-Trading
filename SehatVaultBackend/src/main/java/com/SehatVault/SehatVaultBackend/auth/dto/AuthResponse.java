@@ -13,7 +13,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AuthResponse {
-    
+
     private UUID userId;
     private String name;
     private String email;
@@ -26,9 +26,10 @@ public class AuthResponse {
     private String dateOfBirth;
     private UUID hospitalId;
     private String hospitalName;
+    private UUID patientId;
     private boolean success;
     private String message;
-    
+
     // Constructor for success response
     public AuthResponse(UUID userId, String name, String email, String role, String token) {
         this.userId = userId;
@@ -39,7 +40,7 @@ public class AuthResponse {
         this.success = true;
         this.message = "Authentication successful";
     }
-    
+
     // Constructor for error response
     public AuthResponse(boolean success, String message) {
         this.success = success;

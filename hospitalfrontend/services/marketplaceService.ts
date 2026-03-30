@@ -54,6 +54,26 @@ export interface HospitalAtPool {
   availablePkr: number
 }
 
+export interface PatientAssetToken {
+  assetId: string
+  assignmentId: string
+  hospitalId: string
+  assetType?: string
+  assetValue?: number
+  weight?: number
+  totalAtAssigned: number
+  availableAt: number
+  unavailableAt: number
+  availabilityStatus: 'AVAILABLE' | 'UNAVAILABLE'
+  monetaryValuePkr: number
+  availableMonetaryValuePkr: number
+  unavailableMonetaryValuePkr: number
+  depositStatus?: string
+  submittedAt?: string
+  approvedAt?: string
+  assignedAt?: string
+}
+
 export interface OrderBookLevel {
   price: number
   volume: number
@@ -351,5 +371,47 @@ export const marketplaceService = {
       availableAt: Number(data.availableAt || 0),
       availablePkr: Number(data.availablePkr || 0),
     }
+  },
+
+  async getPatientAssetTokens(patientId: string): Promise<PatientAssetToken[]> {
+    const url = `${API_BASE}/marketplace/at-trading/patient/${patientId}/asset-tokens`
+    console.log('Fetching asset tokens from:', url)
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    })
+
+    console.log('Asset tokens response status:', response.status)
+    console.log('Asset tokens response ok:', response.ok)
+
+    if (!response.ok) {
+      const text = await response.text()
+      console.error('Asset tokens error response:', text)
+      throw new Error('Failed to fetch patient asset tokens')
+    }
+
+    const result: ApiResponse<PatientAssetToken[]> = await response.json()
+    console.log('Asset tokens API response:', result)
+    
+    return (result.data || []).map((token) => ({
+      assetId: token.assetId,
+      assignmentId: token.assignmentId,
+      hospitalId: token.hospitalId,
+      assetType: token.assetType,
+      assetValue: Number(token.assetValue || 0),
+      weight: token.weight ? Number(token.weight) : undefined,
+      totalAtAssigned: Number(token.totalAtAssigned || 0),
+      availableAt: Number(token.availableAt || 0),
+      unavailableAt: Number(token.unavailableAt || 0),
+      availabilityStatus: token.availabilityStatus as 'AVAILABLE' | 'UNAVAILABLE',
+      monetaryValuePkr: Number(token.monetaryValuePkr || 0),
+      availableMonetaryValuePkr: Number(token.availableMonetaryValuePkr || 0),
+      unavailableMonetaryValuePkr: Number(token.unavailableMonetaryValuePkr || 0),
+      depositStatus: token.depositStatus,
+      submittedAt: token.submittedAt,
+      approvedAt: token.approvedAt,
+      assignedAt: token.assignedAt,
+    }))
   },
 }

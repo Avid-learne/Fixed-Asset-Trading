@@ -9,6 +9,7 @@ export interface AuthUser {
   name: string;
   role: string;
   hospitalId?: string;
+  patientId?: string;
 }
 
 export const useAuth = () => {
