@@ -70,23 +70,79 @@ export default function HealthCardPage() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="rounded-lg bg-gradient-to-br from-slate-900 to-slate-700 p-5 text-white">
-          <div className="text-xs uppercase tracking-wide opacity-80">Card Number</div>
-          <div className="mt-1 font-mono text-lg">{mask(card.cardNum, reveal)}</div>
-          <div className="mt-4 flex items-center justify-between">
+        {/* NayaPay-style virtual card */}
+        <div className="relative overflow-hidden rounded-2xl p-6 text-white"
+          style={{
+            background: 'linear-gradient(135deg, #0a2e1f 0%, #0d4a3a 25%, #0b3d5c 50%, #0a2f4e 75%, #061e35 100%)',
+            minHeight: '220px',
+          }}
+        >
+          {/* Subtle decorative circles */}
+          <div className="pointer-events-none absolute -right-10 -top-10 h-48 w-48 rounded-full"
+            style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.08) 0%, transparent 70%)' }} />
+          <div className="pointer-events-none absolute -bottom-16 -left-10 h-56 w-56 rounded-full"
+            style={{ background: 'radial-gradient(circle, rgba(14,116,144,0.06) 0%, transparent 70%)' }} />
+          <div className="pointer-events-none absolute right-20 bottom-10 h-32 w-32 rounded-full"
+            style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.04) 0%, transparent 70%)' }} />
+
+          {/* Card header row */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full"
+                style={{ background: 'linear-gradient(135deg, #10b981, #06b6d4)' }}>
+                <Wallet className="h-4 w-4 text-white" />
+              </div>
+              <span className="text-sm font-semibold tracking-wide" style={{ color: '#6ee7b7' }}>
+                SehatVault
+              </span>
+            </div>
+            <div className="text-xs font-medium uppercase tracking-widest opacity-60">Virtual</div>
+          </div>
+
+          {/* Chip */}
+          <div className="mt-5 flex items-center gap-3">
+            <div className="h-8 w-11 rounded-md"
+              style={{
+                background: 'linear-gradient(135deg, #d4a44c 0%, #f0d78c 40%, #c49a3c 60%, #e8c86a 100%)',
+                boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.3), inset 0 -1px 2px rgba(0,0,0,0.2)',
+              }}
+            >
+              <div className="flex h-full items-center justify-center">
+                <div className="h-4 w-6 rounded-sm border border-yellow-700/30" />
+              </div>
+            </div>
+          </div>
+
+          {/* Card number */}
+          <div className="mt-4 font-mono text-xl tracking-[0.2em] font-medium">
+            {mask(card.cardNum, reveal)}
+          </div>
+
+          {/* Bottom row */}
+          <div className="mt-5 flex items-end justify-between">
             <div>
-              <div className="text-xs opacity-80">Expiry</div>
-              <div className="font-medium">
-                {card.expiryDate ? new Date(card.expiryDate).toLocaleDateString() : 'N/A'}
+              <div className="text-[10px] uppercase tracking-wider" style={{ color: '#6ee7b7' }}>
+                Valid Thru
+              </div>
+              <div className="mt-0.5 font-mono text-sm font-medium">
+                {card.expiryDate
+                  ? new Date(card.expiryDate).toLocaleDateString('en-GB', { month: '2-digit', year: '2-digit' })
+                  : 'N/A'}
               </div>
             </div>
             <div>
-              <div className="text-xs opacity-80">CVV</div>
-              <div className="font-mono font-medium">{mask(card.cvv, reveal)}</div>
+              <div className="text-[10px] uppercase tracking-wider" style={{ color: '#6ee7b7' }}>
+                CVV
+              </div>
+              <div className="mt-0.5 font-mono text-sm font-medium">{mask(card.cvv, reveal)}</div>
             </div>
             <div className="text-right">
-              <div className="text-xs opacity-80">HT Balance</div>
-              <div className="font-semibold">{card.htBalance} HT</div>
+              <div className="text-[10px] uppercase tracking-wider" style={{ color: '#6ee7b7' }}>
+                HT Balance
+              </div>
+              <div className="mt-0.5 text-lg font-bold" style={{ color: '#34d399' }}>
+                {Number(card.htBalance).toLocaleString()} HT
+              </div>
             </div>
           </div>
         </div>

@@ -75,7 +75,7 @@ export default function PatientDashboardHome() {
 
   const getTotalAt = () => assetTokens.reduce((sum, token) => sum + Number(token.totalAtAssigned || 0), 0)
   const getAvailableAt = () => assetTokens.reduce((sum, token) => sum + Number(token.availableAt || 0), 0)
-  const getUnavailableAt = () => assetTokens.reduce((sum, token) => sum + Number(token.unavailableAt || 0), 0)
+  const getUnavailableAt = () => getTotalAt() - getAvailableAt()
   const getAtStatus = () => {
     const total = getTotalAt()
     if (total === 0) return 'No Assets'

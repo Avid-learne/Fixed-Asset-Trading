@@ -41,6 +41,17 @@ export type HospitalDashboardSummary = {
   approvedDeposits: number
   activeSubscriptions: number
   totalProfitDistributed: number
+  totalAtMinted: number
+  totalHtAllocated: number
+  totalAssetValue: number
+  tradingVolume: number
+  totalTrades: number
+  activeTrades: number
+  goldPricePerGram: number
+  silverPricePerGram: number
+  assetDistribution: Array<{ assetType: string; count: number; totalValue: number }>
+  mintingHistory: Array<{ month: string; minted: number }>
+  allocationHistory: Array<{ month: string; allocated: number }>
 }
 
 export type SuperAdminDashboardSummary = {

@@ -152,6 +152,21 @@ public class BankIntegrationController {
         }
     }
 
+    @GetMapping("/bank/hospital/{hospitalId}/staff")
+    public ResponseEntity<?> getHospitalStaff(Authentication authentication, @PathVariable UUID hospitalId) {
+        try {
+            if (authentication == null || authentication.getName() == null) {
+                return ResponseEntity.status(401).body(error("Unauthorized"));
+            }
+            var data = bankIntegrationService.getHospitalStaffForBank(authentication.getName(), hospitalId);
+            return ResponseEntity.ok(success("Hospital staff loaded", data));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(error(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(error("Error loading hospital staff: " + e.getMessage()));
+        }
+    }
+
     private Map<String, Object> success(String message, Object data) {
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);

@@ -51,20 +51,32 @@ const MenubarItem = React.forwardRef<
 ));
 MenubarItem.displayName = MenubarPrimitive.Item.displayName;
 
-// Export everything
+// Re-export primitives that don't need custom styling
+const MenubarMenu = MenubarPrimitive.Menu;
+const MenubarSeparator = MenubarPrimitive.Separator;
+const MenubarLabel = MenubarPrimitive.Label;
+const MenubarCheckboxItem = MenubarPrimitive.CheckboxItem;
+const MenubarRadioGroup = MenubarPrimitive.RadioGroup;
+const MenubarRadioItem = MenubarPrimitive.RadioItem;
+const MenubarPortal = MenubarPrimitive.Portal;
+const MenubarSubContent = MenubarPrimitive.SubContent;
+const MenubarSubTrigger = MenubarPrimitive.SubTrigger;
+const MenubarGroup = MenubarPrimitive.Group;
+const MenubarSub = MenubarPrimitive.Sub;
+
 export {
   Menubar,
-  MenubarPrimitive.Menu as MenubarMenu,
+  MenubarMenu,
   MenubarTrigger,
   MenubarItem,
-  MenubarPrimitive.Separator as MenubarSeparator,
-  MenubarPrimitive.Label as MenubarLabel,
-  MenubarPrimitive.CheckboxItem as MenubarCheckboxItem,
-  MenubarPrimitive.RadioGroup as MenubarRadioGroup,
-  MenubarPrimitive.RadioItem as MenubarRadioItem,
-  MenubarPrimitive.Portal as MenubarPortal,
-  MenubarPrimitive.SubContent as MenubarSubContent,
-  MenubarPrimitive.SubTrigger as MenubarSubTrigger,
-  MenubarPrimitive.Group as MenubarGroup,
-  MenubarPrimitive.Sub as MenubarSub,
+  MenubarSeparator,
+  MenubarLabel,
+  MenubarCheckboxItem,
+  MenubarRadioGroup,
+  MenubarRadioItem,
+  MenubarPortal,
+  MenubarSubContent,
+  MenubarSubTrigger,
+  MenubarGroup,
+  MenubarSub,
 };

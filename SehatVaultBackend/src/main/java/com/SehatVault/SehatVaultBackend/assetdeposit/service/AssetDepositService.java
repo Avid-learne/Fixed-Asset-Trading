@@ -27,6 +27,8 @@ import com.SehatVault.SehatVaultBackend.patient.entity.Patient;
 import com.SehatVault.SehatVaultBackend.patient.repository.PatientRepository;
 import com.SehatVault.SehatVaultBackend.wallet.entity.PatientTokenBalance;
 import com.SehatVault.SehatVaultBackend.wallet.repository.PatientTokenBalanceRepository;
+import com.SehatVault.SehatVaultBackend.notification.entity.Notification;
+import com.SehatVault.SehatVaultBackend.notification.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -60,6 +62,7 @@ public class AssetDepositService {
     private final HospitalAtPoolService hospitalAtPoolService;
     private final BlockchainService blockchainService;
     private final AtTradingService atTradingService;
+    private final NotificationRepository notificationRepository;
 
     @Transactional(readOnly = true)
     public List<HospitalOptionDto> getHospitalOptions() {
@@ -123,6 +126,13 @@ public class AssetDepositService {
         deposit.setSubmittedAt(LocalDateTime.now());
 
         AssetDeposit saved = assetDepositRepository.save(deposit);
+
+        // Notify hospital admins about new deposit request
+        notifyHospitalAdmins(hospital.getHospitalId(), user.getUserId(),
+                "New Asset Deposit Request",
+                "Patient " + user.getName() + " submitted a " + saved.getAssetType()
+                        + " deposit worth PKR " + saved.getAssetValue());
+
         return toDto(saved, patient, user, hospital);
     }
 
@@ -226,6 +236,19 @@ public class AssetDepositService {
                 .orElseThrow(() -> new IllegalArgumentException("Patient user not found"));
         Hospital hospital = hospitalRepository.findById(admin.getHospitalId())
                 .orElseThrow(() -> new IllegalArgumentException("Hospital not found"));
+
+        // Notify patient that deposit was approved by hospital
+        sendNotification(admin.getUserId(), patientUser.getUserId(),
+                "Deposit Approved by Hospital",
+                "Your " + saved.getAssetType() + " deposit worth PKR " + saved.getAssetValue()
+                        + " has been approved by " + hospital.getHospitalName() + ". Awaiting bank approval.");
+
+        // Notify bank staff about new deposit for approval
+        notifyBankStaff(saved.getBankId(), admin.getUserId(),
+                "New Deposit for Bank Approval",
+                "A " + saved.getAssetType() + " deposit worth PKR " + saved.getAssetValue()
+                        + " from patient " + patientUser.getName() + " needs bank approval.");
+
         return toDto(saved, patient, patientUser, hospital);
     }
 
@@ -263,6 +286,13 @@ public class AssetDepositService {
                 .orElseThrow(() -> new IllegalArgumentException("Patient user not found"));
         Hospital hospital = hospitalRepository.findById(admin.getHospitalId())
                 .orElseThrow(() -> new IllegalArgumentException("Hospital not found"));
+
+        // Notify patient that deposit was rejected by hospital
+        sendNotification(admin.getUserId(), patientUser.getUserId(),
+                "Deposit Rejected by Hospital",
+                "Your " + saved.getAssetType() + " deposit worth PKR " + saved.getAssetValue()
+                        + " was rejected by " + hospital.getHospitalName() + ". Reason: " + reason.trim());
+
         return toDto(saved, patient, patientUser, hospital);
     }
 
@@ -387,6 +417,19 @@ public class AssetDepositService {
         // balance.
         creditAssetHealthCard(patient.getId(), htTokens);
 
+        // Notify patient that tokens were minted
+        sendNotification(bankUser.getUserId(), patientUser.getUserId(),
+                "Asset Tokens Minted",
+                "Your " + saved.getAssetType() + " deposit has been approved by the bank. "
+                        + atTokens + " AT and " + htTokens + " HT tokens have been minted to your wallet.");
+
+        // Notify hospital admin about successful minting
+        notifyHospitalAdmins(hospitalId, bankUser.getUserId(),
+                "Deposit Approved & Tokens Minted",
+                "Bank approved deposit for patient " + patientUser.getName()
+                        + ". " + atTokens + " AT minted from " + saved.getAssetType()
+                        + " worth PKR " + saved.getAssetValue() + ".");
+
         return toDto(saved, patient, patientUser, hospital);
     }
 
@@ -429,6 +472,20 @@ public class AssetDepositService {
         UUID hospitalId = patient.getHospitalId() != null ? patient.getHospitalId() : patientUser.getHospitalId();
         Hospital hospital = hospitalRepository.findById(hospitalId)
                 .orElseThrow(() -> new IllegalArgumentException("Hospital not found"));
+
+        // Notify patient that deposit was rejected by bank
+        sendNotification(bankUser.getUserId(), patientUser.getUserId(),
+                "Deposit Rejected by Bank",
+                "Your " + saved.getAssetType() + " deposit worth PKR " + saved.getAssetValue()
+                        + " was rejected by the bank. Reason: " + reason.trim());
+
+        // Notify hospital admin about bank rejection
+        notifyHospitalAdmins(hospitalId, bankUser.getUserId(),
+                "Bank Rejected Deposit",
+                "Bank rejected deposit for patient " + patientUser.getName()
+                        + " (" + saved.getAssetType() + " worth PKR " + saved.getAssetValue()
+                        + "). Reason: " + reason.trim());
+
         return toDto(saved, patient, patientUser, hospital);
     }
 
@@ -576,5 +633,45 @@ public class AssetDepositService {
         }
         String num = sb.toString();
         return healthCardRepository.existsByCardNum(num) ? generateCardNum() : num;
+    }
+
+    private void sendNotification(UUID senderId, UUID receiverId, String title, String message) {
+        try {
+            Notification notification = new Notification();
+            notification.setSenderId(senderId);
+            notification.setReceiverId(receiverId);
+            notification.setNotificationText(title + "::" + message);
+            notification.setStatus(Notification.NotificationStatus.UNREAD);
+            notification.setTimestamp(LocalDateTime.now());
+            notificationRepository.save(notification);
+        } catch (Exception e) {
+            log.warn("Failed to send notification: {}", e.getMessage());
+        }
+    }
+
+    private void notifyHospitalAdmins(UUID hospitalId, UUID senderId, String title, String message) {
+        try {
+            List<User> admins = userRepository.findAll().stream()
+                    .filter(u -> u.getRole() != null && u.getRole().getRoleName() == Role.RoleType.hospital_admin)
+                    .filter(u -> hospitalId.equals(u.getHospitalId()))
+                    .toList();
+            for (User admin : admins) {
+                sendNotification(senderId, admin.getUserId(), title, message);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to notify hospital admins: {}", e.getMessage());
+        }
+    }
+
+    private void notifyBankStaff(UUID bankId, UUID senderId, String title, String message) {
+        try {
+            Bank bank = bankRepository.findById(bankId).orElse(null);
+            if (bank != null && bank.getEmail() != null) {
+                userRepository.findByEmail(bank.getEmail()).ifPresent(bankUser ->
+                        sendNotification(senderId, bankUser.getUserId(), title, message));
+            }
+        } catch (Exception e) {
+            log.warn("Failed to notify bank staff: {}", e.getMessage());
+        }
     }
 }

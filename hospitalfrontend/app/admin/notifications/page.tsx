@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Bell, Send, AlertCircle, CheckCircle, Info } from 'lucide-react'
+import { Bell, Send, AlertCircle, CheckCircle, Info, Trash2 } from 'lucide-react'
 import { authService } from '@/lib/authService'
 import { notificationService, type PortalNotification } from '@/services/notificationService'
 
@@ -25,6 +25,7 @@ export default function NotificationsPage() {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState('all')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   const [composeForm, setComposeForm] = useState({
     type: 'announcement' as NotificationType,
@@ -59,6 +60,50 @@ export default function NotificationsPage() {
   useEffect(() => {
     loadNotifications()
   }, [userId])
+
+  const handleDeleteNotification = async (notificationId: string) => {
+    if (!userId) return
+    try {
+      await notificationService.deleteReceived(userId, notificationId)
+      await loadNotifications()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete notification')
+    }
+  }
+
+  const handleDeleteAll = async () => {
+    if (!userId) return
+    try {
+      await notificationService.deleteAllReceived(userId)
+      await loadNotifications()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete notifications')
+    }
+  }
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    const allSelected = notifications.every(n => selectedIds.has(n.id))
+    setSelectedIds(allSelected ? new Set() : new Set(notifications.map(n => n.id)))
+  }
+
+  const handleDeleteSelected = async () => {
+    if (!userId || selectedIds.size === 0) return
+    try {
+      await notificationService.deleteSelectedReceived(userId, Array.from(selectedIds))
+      setSelectedIds(new Set())
+      await loadNotifications()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete selected notifications')
+    }
+  }
 
   const handleCompose = async () => {
     if (!composeForm.title.trim() || !composeForm.message.trim()) {
@@ -275,10 +320,27 @@ export default function NotificationsPage() {
               <CardContent className="pt-6 text-sm text-gray-600">No notifications available.</CardContent>
             </Card>
           ) : (
-            notifications.map((notification) => (
+            <>
+            {notifications.length > 1 && (
+              <div className="flex items-center gap-3 px-1">
+                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                  <input type="checkbox" className="rounded" checked={notifications.every(n => selectedIds.has(n.id))} onChange={toggleSelectAll} />
+                  Select all
+                </label>
+                {selectedIds.size > 0 && (
+                  <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50 h-7 text-xs" onClick={handleDeleteSelected}>
+                    <Trash2 className="w-3 h-3 mr-1" />
+                    Delete Selected ({selectedIds.size})
+                  </Button>
+                )}
+              </div>
+            )}
+            {notifications.map((notification) => (
               <Card key={notification.id}>
                 <CardContent className="pt-6">
                   <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3 flex-1">
+                    <input type="checkbox" className="rounded mt-1" checked={selectedIds.has(notification.id)} onChange={() => toggleSelect(notification.id)} />
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <Badge className="bg-blue-100 text-blue-800">
@@ -298,28 +360,41 @@ export default function NotificationsPage() {
                       </div>
                     </div>
 
-                    {notification.status === 'UNREAD' && userId && (
+                    <div className="flex flex-col gap-2">
+                      {notification.status === 'UNREAD' && userId && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1"
+                          onClick={async () => {
+                            try {
+                              await notificationService.markAsRead(userId, notification.id)
+                              await loadNotifications()
+                            } catch (err) {
+                              setError(err instanceof Error ? err.message : 'Failed to mark notification as read')
+                            }
+                          }}
+                        >
+                          <CheckCircle className="h-3 w-3" />
+                          Mark Read
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         size="sm"
-                        className="gap-1"
-                        onClick={async () => {
-                          try {
-                            await notificationService.markAsRead(userId, notification.id)
-                            await loadNotifications()
-                          } catch (err) {
-                            setError(err instanceof Error ? err.message : 'Failed to mark notification as read')
-                          }
-                        }}
+                        className="gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => handleDeleteNotification(notification.id)}
                       >
-                        <CheckCircle className="h-3 w-3" />
-                        Mark Read
+                        <Trash2 className="h-3 w-3" />
+                        Delete
                       </Button>
-                    )}
+                    </div>
+                  </div>
                   </div>
                 </CardContent>
               </Card>
-            ))
+            ))}
+            </>
           )}
         </TabsContent>
 
@@ -442,6 +517,14 @@ export default function NotificationsPage() {
                   }}
                 >
                   Mark All As Read
+                </Button>
+                <Button
+                  variant="outline"
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  onClick={handleDeleteAll}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete All
                 </Button>
               </div>
             </CardContent>

@@ -10,6 +10,7 @@ import com.SehatVault.SehatVaultBackend.bankintegration.dto.BankHospitalIntegrat
 import com.SehatVault.SehatVaultBackend.bankintegration.dto.BankOptionDto;
 import com.SehatVault.SehatVaultBackend.bankintegration.dto.CreatePartnershipRequest;
 import com.SehatVault.SehatVaultBackend.bankintegration.dto.HospitalBankIntegrationDto;
+import com.SehatVault.SehatVaultBackend.bankintegration.dto.HospitalStaffDto;
 import com.SehatVault.SehatVaultBackend.bankintegration.entity.Partnership;
 import com.SehatVault.SehatVaultBackend.bankintegration.repository.PartnershipRepository;
 import com.SehatVault.SehatVaultBackend.hospital.entity.Hospital;
@@ -175,6 +176,38 @@ public class BankIntegrationService {
                     .orElseThrow(() -> new IllegalArgumentException("Linked hospital not found: " + link.getHospitalId()));
             return toBankView(link, hospital, bank.getBankId());
         }).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<HospitalStaffDto> getHospitalStaffForBank(String email, UUID hospitalId) {
+        User bankUser = requireUser(email);
+        requireRole(bankUser, Role.RoleType.bank_staff, "Only bank staff can view hospital staff");
+
+        Bank bank = bankRepository.findByEmail(bankUser.getEmail())
+                .orElseThrow(() -> new IllegalArgumentException("No bank profile found for this account"));
+
+        // Verify this hospital is an approved partner of this bank
+        boolean isApprovedPartner = partnershipRepository.findByBankIdOrderByCreatedAtDesc(bank.getBankId())
+                .stream()
+                .anyMatch(p -> p.getHospitalId().equals(hospitalId)
+                        && p.getIntegrationStatus() == Partnership.IntegrationStatus.APPROVED);
+
+        if (!isApprovedPartner) {
+            throw new IllegalArgumentException("This hospital is not an approved partner of your bank");
+        }
+
+        Set<Role.RoleType> hospitalRoles = Set.of(Role.RoleType.hospital_admin, Role.RoleType.hospital_staff);
+
+        return userRepository.findAll().stream()
+                .filter(u -> hospitalId.equals(u.getHospitalId())
+                        && u.getRole() != null
+                        && hospitalRoles.contains(u.getRole().getRoleName()))
+                .map(u -> new HospitalStaffDto(
+                        u.getUserId().toString(),
+                        u.getName(),
+                        u.getEmail(),
+                        u.getRole().getRoleName().name()))
+                .toList();
     }
 
     @Transactional

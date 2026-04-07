@@ -45,6 +45,7 @@ export interface StoredAuthUser {
   hospitalId?: string;
   hospitalName?: string;
   patientId?: string;
+  bankId?: string;
 }
 
 export interface LoginRequest {

@@ -48,7 +48,10 @@ export interface AuthUser {
   // Bank affiliation (for bank_officer)
   bankId?: string
   bank?: Bank
-  
+
+  // Patient ID (for patient role)
+  patientId?: string
+
   // Permissions
   permissions: Permission[]
   

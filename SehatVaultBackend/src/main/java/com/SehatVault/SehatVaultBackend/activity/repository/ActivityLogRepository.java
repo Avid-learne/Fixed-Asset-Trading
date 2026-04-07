@@ -8,4 +8,6 @@ import java.util.UUID;
 
 public interface ActivityLogRepository extends JpaRepository<ActivityLog, UUID> {
     List<ActivityLog> findTop100ByUserIdOrderByTimestampDesc(UUID userId);
+
+    List<ActivityLog> findByUserIdInOrderByTimestampDesc(List<UUID> userIds);
 }

@@ -1,8 +1,9 @@
 // src/components/layout/Header.tsx (Updated)
 'use client'
 
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { Bell, ChevronDown, LogOut, User as UserIcon, X } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/authStore'
 import { usePatientProfileStore } from '@/store/patientProfileStore'
 import { authService } from '@/lib/authService'
@@ -14,6 +15,7 @@ import { notificationService, type PortalNotification } from '@/services/notific
 
 export const Header: React.FC = () => {
   const { user } = useAuthStore()
+  const router = useRouter()
   const profile = usePatientProfileStore(state => state.profile)
   const [notifications, setNotifications] = useState<PortalNotification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -43,29 +45,36 @@ export const Header: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  useEffect(() => {
-    const loadNotifications = async () => {
-      if (!userId) {
-        setNotifications([])
-        setUnreadCount(0)
-        return
-      }
-
-      try {
-        const [rows, unread] = await Promise.all([
-          notificationService.getUserNotifications(userId),
-          notificationService.getUnreadCount(userId),
-        ])
-        setNotifications(rows)
-        setUnreadCount(unread)
-      } catch {
-        setNotifications([])
-        setUnreadCount(0)
-      }
+  const loadNotifications = useCallback(async () => {
+    if (!userId) {
+      setNotifications([])
+      setUnreadCount(0)
+      return
     }
 
-    loadNotifications()
+    try {
+      const [rows, unread] = await Promise.all([
+        notificationService.getUserNotifications(userId),
+        notificationService.getUnreadCount(userId),
+      ])
+      setNotifications(rows)
+      setUnreadCount(unread)
+    } catch {
+      setNotifications([])
+      setUnreadCount(0)
+    }
   }, [userId])
+
+  useEffect(() => {
+    loadNotifications()
+  }, [loadNotifications])
+
+  // Refresh notifications every time dropdown opens
+  useEffect(() => {
+    if (showNotifications) {
+      loadNotifications()
+    }
+  }, [showNotifications, loadNotifications])
 
   const markAsRead = async (notificationId: string) => {
     if (!userId) return
@@ -89,6 +98,15 @@ export const Header: React.FC = () => {
     } catch {
       // silent fallback in header dropdown
     }
+  }
+
+  const getNotificationsPath = () => {
+    const role = user?.role?.toLowerCase() || 'patient'
+    if (role === 'super_admin' || role === 'admin') return '/admin/notifications'
+    if (role === 'hospitaladmin' || role === 'hospital_admin') return '/hospitaladmin/notifications'
+    if (role === 'hospital_staff') return '/hospital/notifications'
+    if (role === 'bank_officer' || role === 'bank_staff') return '/bank/notifications'
+    return '/patient/notifications'
   }
 
   const handleSignOut = async () => {
@@ -162,10 +180,10 @@ export const Header: React.FC = () => {
                     No notifications
                   </div>
                 ) : (
-                  notifications.map((notification) => (
+                  notifications.slice(0, 5).map((notification) => (
                     <div
                       key={notification.id}
-                      onClick={() => markAsRead(notification.id)}
+                      onClick={() => notification.status === 'UNREAD' && markAsRead(notification.id)}
                       className={`p-3 rounded-lg border cursor-pointer transition-colors mb-2 ${
                         notification.status === 'READ'
                           ? 'bg-white border-gray-200'
@@ -182,7 +200,7 @@ export const Header: React.FC = () => {
                               {notification.status}
                             </Badge>
                           </div>
-                          <p className="text-sm text-gray-600 mt-1">
+                          <p className="text-sm text-gray-600 mt-1 line-clamp-2">
                             {notification.message}
                           </p>
                           <p className="text-xs text-gray-400 mt-2">
@@ -190,13 +208,27 @@ export const Header: React.FC = () => {
                           </p>
                         </div>
                         {notification.status === 'UNREAD' && (
-                          <div className="w-2 h-2 bg-primary rounded-full mt-1.5" />
+                          <div className="w-2 h-2 bg-primary rounded-full mt-1.5 shrink-0" />
                         )}
                       </div>
                     </div>
                   ))
                 )}
               </div>
+
+              {notifications.length > 0 && (
+                <div className="p-3 border-t border-gray-200">
+                  <button
+                    onClick={() => {
+                      setShowNotifications(false)
+                      router.push(getNotificationsPath())
+                    }}
+                    className="w-full text-center text-sm font-medium text-primary hover:text-primary-dark py-1"
+                  >
+                    View All Notifications
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

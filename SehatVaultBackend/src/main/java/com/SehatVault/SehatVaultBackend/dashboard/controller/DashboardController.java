@@ -1,5 +1,6 @@
 package com.SehatVault.SehatVaultBackend.dashboard.controller;
 
+import com.SehatVault.SehatVaultBackend.dashboard.dto.AssetPricesDto;
 import com.SehatVault.SehatVaultBackend.dashboard.dto.BankDashboardSummaryDto;
 import com.SehatVault.SehatVaultBackend.dashboard.dto.HospitalDashboardSummaryDto;
 import com.SehatVault.SehatVaultBackend.dashboard.dto.PatientDashboardSummaryDto;
@@ -10,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -34,5 +37,16 @@ public class DashboardController {
     @GetMapping("/hospital")
     public ResponseEntity<ApiResponse<HospitalDashboardSummaryDto>> getHospitalDashboard(Authentication authentication) {
         return ResponseEntity.ok(ApiResponse.success(dashboardService.getHospitalSummary(authentication.getName())));
+    }
+
+    @GetMapping("/hospital/asset-prices")
+    public ResponseEntity<ApiResponse<AssetPricesDto>> getAssetPrices(Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.success(dashboardService.getAssetPrices(authentication.getName())));
+    }
+
+    @PutMapping("/hospital/asset-prices")
+    public ResponseEntity<ApiResponse<AssetPricesDto>> updateAssetPrices(
+            Authentication authentication, @RequestBody AssetPricesDto prices) {
+        return ResponseEntity.ok(ApiResponse.success("Prices updated", dashboardService.updateAssetPrices(authentication.getName(), prices)));
     }
 }

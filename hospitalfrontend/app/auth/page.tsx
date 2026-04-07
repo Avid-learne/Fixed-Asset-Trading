@@ -57,6 +57,7 @@ export default function Auth() {
   const [hospitalName, setHospitalName] = useState("");
   const [role, setRole] = useState("PATIENT");
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [hospitals, setHospitals] = useState<string[]>([]);
   const [hospitalsLoading, setHospitalsLoading] = useState(true);
 
@@ -86,7 +87,7 @@ export default function Auth() {
     try {
       await contextLogin(account.email, account.password);
       
-      alert("Login successful! Redirecting...");
+      setSuccessMessage("Login successful! Redirecting...");
       const path = authService.getRoleRedirectPath(account.role);
       router.push(path);
     } catch (err) {
@@ -108,7 +109,7 @@ export default function Auth() {
       const storedUser = authService.getUser();
       const userRole = storedUser?.role || 'PATIENT';
       
-      alert("Login successful! Redirecting...");
+      setSuccessMessage("Login successful! Redirecting...");
       const path = authService.getRoleRedirectPath(userRole);
       router.push(path);
     } catch (err) {
@@ -168,7 +169,7 @@ export default function Auth() {
         setRole("PATIENT");
         
         // Show success and redirect
-        alert("Account created successfully! Redirecting...");
+        setSuccessMessage("Account created successfully! Redirecting...");
         const path = authService.getRoleRedirectPath(response.role);
         router.push(path);
       } else {
@@ -218,6 +219,12 @@ export default function Auth() {
               </CardHeader>
 
               <CardContent>
+                {successMessage && (
+                  <div className="mb-4 flex items-center gap-2 rounded-lg border border-green-500 bg-green-500/10 p-3 text-sm text-green-600">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {successMessage}
+                  </div>
+                )}
                 {error && (
                   <div className="mb-4 rounded-lg border border-error bg-error/10 p-3 text-sm text-error">
                     {error}

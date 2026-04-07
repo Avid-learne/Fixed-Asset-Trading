@@ -1,4 +1,4 @@
-package com.SehatVault.SehatVaultBackend.activity.entity;
+package com.SehatVault.SehatVaultBackend.notification.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

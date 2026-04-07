@@ -1,8 +1,8 @@
 package com.SehatVault.SehatVaultBackend.wallet.service;
 
-import com.SehatVault.SehatVaultBackend.activity.entity.Notification;
+import com.SehatVault.SehatVaultBackend.notification.entity.Notification;
+import com.SehatVault.SehatVaultBackend.notification.repository.NotificationRepository;
 import com.SehatVault.SehatVaultBackend.activity.entity.Transaction;
-import com.SehatVault.SehatVaultBackend.activity.repository.NotificationRepository;
 import com.SehatVault.SehatVaultBackend.auth.entity.User;
 import com.SehatVault.SehatVaultBackend.auth.repository.UserRepository;
 import com.SehatVault.SehatVaultBackend.patient.entity.Patient;

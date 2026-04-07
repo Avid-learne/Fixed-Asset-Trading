@@ -79,8 +79,7 @@ export default function LinkedAssetsPage() {
   const getTotalAvailableAt = () => 
     assetTokens.reduce((sum, token) => sum + Number(token.availableAt || 0), 0)
 
-  const getTotalUnavailableAt = () => 
-    assetTokens.reduce((sum, token) => sum + Number(token.unavailableAt || 0), 0)
+  const getTotalUnavailableAt = () => getTotalAt() - getTotalAvailableAt()
 
   const getTotalAt = () => 
     assetTokens.reduce((sum, token) => sum + Number(token.totalAtAssigned || 0), 0)
@@ -135,7 +134,7 @@ export default function LinkedAssetsPage() {
             <CardTitle className="text-sm font-medium text-gray-600">Total AT Tokens</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-blue-600">
+            <div className="text-2xl font-bold text-blue-600 truncate">
               {formatNumber(getTotalAt())}
             </div>
             <p className="text-xs text-gray-500 mt-2">Asset tokens assigned</p>
@@ -147,7 +146,7 @@ export default function LinkedAssetsPage() {
             <CardTitle className="text-sm font-medium text-gray-600">Available AT</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-green-600">
+            <div className="text-2xl font-bold text-green-600 truncate">
               {formatNumber(getTotalAvailableAt())}
             </div>
             <p className="text-xs text-gray-500 mt-2">Ready to trade</p>
@@ -159,7 +158,7 @@ export default function LinkedAssetsPage() {
             <CardTitle className="text-sm font-medium text-gray-600">In Trade AT</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-orange-600">
+            <div className="text-2xl font-bold text-orange-600 truncate">
               {formatNumber(getTotalUnavailableAt())}
             </div>
             <p className="text-xs text-gray-500 mt-2">Locked in trades</p>
@@ -171,7 +170,7 @@ export default function LinkedAssetsPage() {
             <CardTitle className="text-sm font-medium text-gray-600">Monetary Value</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-purple-600">
+            <div className="text-2xl font-bold text-purple-600 truncate">
               PKR {formatNumber(getTotalAt() * 10)}
             </div>
             <p className="text-xs text-gray-500 mt-2">1 AT = 10 PKR</p>
@@ -226,7 +225,7 @@ export default function LinkedAssetsPage() {
         <div className="grid gap-4">
           {assetTokens.map((token) => {
             const config = assetTypeConfig[token.assetType as keyof typeof assetTypeConfig] || { color: 'bg-white' }
-            const isInTrade = token.unavailableAt > 0
+            const isInTrade = (Number(token.totalAtAssigned || 0) - Number(token.availableAt || 0)) > 0
             const isPending = token.availabilityStatus === 'PENDING_BANK_APPROVAL'
 
             return (
@@ -271,7 +270,7 @@ export default function LinkedAssetsPage() {
 
                       <div>
                         <p className="text-xs text-gray-500 uppercase font-semibold">In Trade AT</p>
-                        <p className="text-lg font-bold text-orange-600">{formatNumber(token.unavailableAt)}</p>
+                        <p className="text-lg font-bold text-orange-600">{formatNumber(Number(token.totalAtAssigned || 0) - Number(token.availableAt || 0))}</p>
                       </div>
 
                       <div>
@@ -308,7 +307,7 @@ export default function LinkedAssetsPage() {
                       <div>
                         <p className="text-xs text-gray-600">In Trade Value</p>
                         <p className="text-lg font-bold text-orange-600">
-                          {formatNumber(token.unavailableMonetaryValuePkr)}
+                          {formatNumber((Number(token.totalAtAssigned || 0) - Number(token.availableAt || 0)) * 10)}
                         </p>
                       </div>
                     </div>
@@ -362,7 +361,7 @@ export default function LinkedAssetsPage() {
                     <Alert className="bg-orange-50 border-orange-200">
                       <AlertCircle className="h-4 w-4 text-orange-600" />
                       <AlertDescription className="text-orange-800">
-                        <strong>{formatNumber(token.unavailableAt)} AT</strong> are currently locked in active trades and cannot be used until the trades are settled.
+                        <strong>{formatNumber(Number(token.totalAtAssigned || 0) - Number(token.availableAt || 0))} AT</strong> are currently locked in active trades and cannot be used until the trades are settled.
                       </AlertDescription>
                     </Alert>
                   )}

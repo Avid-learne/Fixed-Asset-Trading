@@ -62,6 +62,12 @@ public class Hospital {
     @Column(name = "total_patients")
     private Integer totalPatients = 0;
     
+    @Column(name = "gold_price_per_gram")
+    private Double goldPricePerGram = 15000.0;
+
+    @Column(name = "silver_price_per_gram")
+    private Double silverPricePerGram = 250.0;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
     

@@ -198,11 +198,11 @@ public class AtTradingController {
                 .hospitalId(entity.getHospitalId())
                 .totalAtAssigned(entity.getTotalAtAssigned())
                 .availableAt(entity.getAvailableAt())
-                .unavailableAt(entity.getUnavailableAt())
+                .unavailableAt(entity.getTotalAtAssigned().subtract(entity.getAvailableAt()))
                 .availabilityStatus(entity.getAvailabilityStatus().toString())
                 .monetaryValue(entity.getMonetaryValue())
                 .availableMonetaryValue(entity.getAvailableMonetaryValue())
-                .unavailableMonetaryValue(entity.getUnavailableMonetaryValue())
+                .unavailableMonetaryValue(entity.getTotalAtAssigned().subtract(entity.getAvailableAt()).multiply(new java.math.BigDecimal("10")))
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();

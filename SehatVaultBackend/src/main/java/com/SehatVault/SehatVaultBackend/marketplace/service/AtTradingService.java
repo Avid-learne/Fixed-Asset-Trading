@@ -460,7 +460,7 @@ public class AtTradingService {
                                                         .hospitalId(assignment.getHospitalId())
                                                         .totalAtAssigned(assignment.getTotalAtAssigned())
                                                         .availableAt(assignment.getAvailableAt())
-                                                        .unavailableAt(assignment.getUnavailableAt())
+                                                        .unavailableAt(assignment.getTotalAtAssigned().subtract(assignment.getAvailableAt()))
                                                         .availabilityStatus(
                                                                         assignment.getAvailabilityStatus().toString())
                                                         .assignedAt(assignment.getCreatedAt())
@@ -468,7 +468,7 @@ public class AtTradingService {
                                                                         .multiply(AT_TO_PKR))
                                                         .availableMonetaryValuePkr(
                                                                         assignment.getAvailableAt().multiply(AT_TO_PKR))
-                                                        .unavailableMonetaryValuePkr(assignment.getUnavailableAt()
+                                                        .unavailableMonetaryValuePkr(assignment.getTotalAtAssigned().subtract(assignment.getAvailableAt())
                                                                         .multiply(AT_TO_PKR))
                                                         .build();
 
@@ -511,11 +511,11 @@ public class AtTradingService {
                                                         .approvedAt(deposit.getApprovedAt())
                                                         .totalAtAssigned(expectedAt)
                                                         .availableAt(BigDecimal.ZERO) // Not assigned yet
-                                                        .unavailableAt(BigDecimal.ZERO)
+                                                        .unavailableAt(expectedAt) // total - available = expectedAt - 0
                                                         .availabilityStatus("PENDING_BANK_APPROVAL")
                                                         .monetaryValuePkr(expectedAt.multiply(AT_TO_PKR))
                                                         .availableMonetaryValuePkr(BigDecimal.ZERO)
-                                                        .unavailableMonetaryValuePkr(BigDecimal.ZERO)
+                                                        .unavailableMonetaryValuePkr(expectedAt.multiply(AT_TO_PKR))
                                                         .build();
 
                                         return dto;

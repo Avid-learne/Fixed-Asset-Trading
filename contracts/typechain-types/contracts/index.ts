@@ -2,5 +2,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type { AssetToken } from "./AssetToken";
+export type { Counter } from "./Counter";
 export type { HealthToken } from "./HealthToken";
 export type { HospitalFinancials } from "./HospitalFinancials";

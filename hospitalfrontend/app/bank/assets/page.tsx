@@ -133,24 +133,24 @@ export default function AssetCustodyPage() {
         <p className="text-muted-foreground mt-1">Physical assets held in secure bank vaults</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="min-w-0">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Asset Value</CardTitle>
-            <Archive className="w-5 h-5 text-emerald-600" />
+            <Archive className="w-5 h-5 text-emerald-600 shrink-0" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">
+            <div className="text-xl font-bold text-foreground truncate" title={formatCurrency(totalValue)}>
               {formatCurrency(totalValue)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">In secure custody</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="min-w-0">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Secured Assets</CardTitle>
-            <Lock className="w-5 h-5 text-green-600" />
+            <Lock className="w-5 h-5 text-green-600 shrink-0" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">{securedAssets}</div>
@@ -158,21 +158,23 @@ export default function AssetCustodyPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="min-w-0">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Funding Provided</CardTitle>
-            <Building2 className="w-5 h-5 text-purple-600" />
+            <Building2 className="w-5 h-5 text-purple-600 shrink-0" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{formatCurrency(totalFunding)}</div>
+            <div className="text-xl font-bold text-foreground truncate" title={formatCurrency(totalFunding)}>
+              {formatCurrency(totalFunding)}
+            </div>
             <p className="text-xs text-muted-foreground mt-1">To hospitals</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="min-w-0">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Pending Processing</CardTitle>
-            <Archive className="w-5 h-5 text-orange-600" />
+            <Archive className="w-5 h-5 text-orange-600 shrink-0" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">{pendingAssets}</div>

@@ -1,8 +1,8 @@
 import { authService } from '@/lib/authService'
 import type { AuditLog, AuditLogResponse, AuditAction, AuditCategory } from '@/types/auditLog'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
-const API_URL = `${API_BASE_URL}/api/activity`
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
+const API_URL = `${API_BASE_URL}/activity`
 
 type ApiResponse<T> = {
   success: boolean

@@ -1,4 +1,4 @@
-package com.SehatVault.SehatVaultBackend.activity.dto;
+package com.SehatVault.SehatVaultBackend.notification.dto;
 
 import lombok.Data;
 
@@ -10,13 +10,13 @@ public class SendNotificationRequest {
     private String title;
     private String message;
 
-    // ALL_USERS | ROLE | HOSPITAL | USER
+    // ALL_USERS | ROLE | HOSPITAL | BANK_HOSPITALS | USER
     private String targetType;
 
     // required when targetType=ROLE
     private String targetRole;
 
-    // required when targetType=HOSPITAL
+    // required when targetType=HOSPITAL or BANK_HOSPITALS (specific hospital)
     private UUID hospitalId;
 
     // required when targetType=USER

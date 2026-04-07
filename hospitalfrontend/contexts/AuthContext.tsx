@@ -44,9 +44,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (response && response.success) {
           // Map backend response to AuthUser
           const authUser: AuthUser = {
-            id: response.userId || storedUser.id,
-            email: response.email || storedUser.email,
-            name: response.name || storedUser.name,
+            id: response.userId || storedUser.id || '',
+            email: response.email || storedUser.email || '',
+            name: response.name || storedUser.name || '',
             role: (storedUser.role?.toUpperCase() || 'PATIENT') as UserRole,
             permissions: ROLE_PERMISSIONS[(storedUser.role?.toUpperCase() || 'PATIENT') as UserRole] || [],
             createdAt: new Date().toISOString(),
@@ -54,6 +54,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             isActive: true,
             hospitalId: storedUser.hospitalId,
             bankId: storedUser.bankId,
+            patientId: storedUser.patientId,
           }
           
           console.log('User loaded successfully:', authUser.email)
@@ -164,9 +165,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const storedUser = authService.getUser()
         if (storedUser) {
           const authUser: AuthUser = {
-            id: response.userId || storedUser.id,
-            email: response.email || storedUser.email,
-            name: response.name || storedUser.name,
+            id: response.userId || storedUser.id || '',
+            email: response.email || storedUser.email || '',
+            name: response.name || storedUser.name || '',
             role: (storedUser.role?.toUpperCase() || 'PATIENT') as UserRole,
             permissions: ROLE_PERMISSIONS[(storedUser.role?.toUpperCase() || 'PATIENT') as UserRole] || [],
             createdAt: new Date().toISOString(),
@@ -174,6 +175,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             isActive: true,
             hospitalId: storedUser.hospitalId,
             bankId: storedUser.bankId,
+            patientId: storedUser.patientId,
           }
           
           setUser(authUser)
@@ -201,9 +203,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const storedUser = authService.getUser()
         if (storedUser) {
           const authUser: AuthUser = {
-            id: response.userId || storedUser.id,
-            email: response.email || storedUser.email,
-            name: response.name || storedUser.name,
+            id: response.userId || storedUser.id || '',
+            email: response.email || storedUser.email || '',
+            name: response.name || storedUser.name || '',
             role: (storedUser.role?.toUpperCase() || 'PATIENT') as UserRole,
             permissions: ROLE_PERMISSIONS[(storedUser.role?.toUpperCase() || 'PATIENT') as UserRole] || [],
             createdAt: new Date().toISOString(),
@@ -211,6 +213,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             isActive: true,
             hospitalId: storedUser.hospitalId,
             bankId: storedUser.bankId,
+            patientId: storedUser.patientId,
           }
           
           setUser(authUser)

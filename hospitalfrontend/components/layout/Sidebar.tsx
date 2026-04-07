@@ -61,6 +61,7 @@ const patientNavItems: NavItem[] = [
   { name: 'Deposit Asset', href: '/patient/deposit', icon: Upload, roles: [UserRole.PATIENT], activeMatch: '/patient/deposit' },
   { name: 'My Wallet', href: '/patient/wallet', icon: Coins, roles: [UserRole.PATIENT], activeMatch: '/patient/wallet' },
   { name: 'Activity', href: '/patient/activity', icon: History, roles: [UserRole.PATIENT] },
+  { name: 'Notifications', href: '/patient/notifications', icon: Bell, roles: [UserRole.PATIENT] },
   { name: 'Health Card', href: '/patient/health-card', icon: Users, roles: [UserRole.PATIENT] },
   { name: 'Subscription', href: '/patient/subscription', icon: DollarSign, roles: [UserRole.PATIENT] },
   { name: 'Profile', href: '/patient/profile/info', icon: Settings, roles: [UserRole.PATIENT], activeMatch: '/patient/profile' },
@@ -71,6 +72,7 @@ const hospitalNavItems: NavItem[] = [
   { name: 'Marketplace', href: '/hospital/marketplace', icon: ShoppingCart, roles: [UserRole.HOSPITAL_STAFF] },
   { name: 'Profit Distribution', href: '/hospital/profit', icon: Gift, roles: [UserRole.HOSPITAL_STAFF] },
   { name: 'Patient Profiles', href: '/hospital/patients', icon: Users, roles: [UserRole.HOSPITAL_STAFF] },
+  { name: 'Notifications', href: '/hospital/notifications', icon: Bell, roles: [UserRole.HOSPITAL_STAFF] },
   { name: 'Audit Trail', href: '/hospital/audit', icon: FileText, roles: [UserRole.HOSPITAL_STAFF] },
   { name: 'Settings', href: '/hospital/settings', icon: Settings, roles: [UserRole.HOSPITAL_STAFF] },
 ]
@@ -99,6 +101,7 @@ const bankNavItems: NavItem[] = [
   { name: 'Policies', href: '/bank/policies', icon: Shield, roles: [UserRole.BANK_OFFICER] },
   { name: 'Tokenized Assets', href: '/bank/assets', icon: Building, roles: [UserRole.BANK_OFFICER] },
   { name: 'Reports', href: '/bank/reports', icon: DollarSign, roles: [UserRole.BANK_OFFICER] },
+  { name: 'Notifications', href: '/bank/notifications', icon: Bell, roles: [UserRole.BANK_OFFICER] },
 ]
 
 const superAdminNavItems: NavItem[] = [
