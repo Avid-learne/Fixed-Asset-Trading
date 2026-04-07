@@ -57,6 +57,7 @@ export interface SignupRequest {
   email: string;
   password: string;
   name: string;
+  cnic: string;
   role: string;
   walletAddress?: string;
   hospitalName?: string;
@@ -69,12 +70,16 @@ export const authService = {
   async signup(request: SignupRequest): Promise<AuthResponse> {
     try {
       // Validate input
-      if (!request.email || !request.password || !request.name) {
-        throw new Error('Email, password, and name are required');
+      if (!request.email || !request.password || !request.name || !request.cnic) {
+        throw new Error('Email, password, name, and CNIC are required');
       }
 
       if (request.password.length < 6) {
         throw new Error('Password must be at least 6 characters');
+      }
+
+      if (!request.cnic || request.cnic.trim().length === 0) {
+        throw new Error('CNIC is required for registration');
       }
 
       // Create timeout
@@ -90,6 +95,7 @@ export const authService = {
           email: request.email.trim().toLowerCase(),
           password: request.password.trim(),
           name: request.name.trim(),
+          cnic: request.cnic.trim(),
           role: normalizeRoleForBackend(request.role),
           hospitalName: request.hospitalName ? request.hospitalName.trim() : undefined,
         }),

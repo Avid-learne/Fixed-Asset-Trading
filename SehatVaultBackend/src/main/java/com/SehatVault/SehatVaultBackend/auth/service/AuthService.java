@@ -129,6 +129,11 @@ public class AuthService {
             return new AuthResponse(false, "Invalid request data");
         }
 
+        // Enforce patient-only signup: Only patients can register themselves
+        if (!request.getRole().toLowerCase().equals("patient")) {
+            return new AuthResponse(false, "Only patients can self-register. Contact your administrator to create other user accounts.");
+        }
+
         // Normalize email
         String email = request.getEmail().trim().toLowerCase();
 
@@ -167,6 +172,7 @@ public class AuthService {
             newUser.setName(request.getName());
             newUser.setEmail(email);
             newUser.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+            newUser.setCnic(request.getCnic());
             newUser.setPhoneNum(request.getPhoneNum());
             newUser.setAddress(request.getAddress());
             newUser.setCity(request.getCity());

@@ -22,6 +22,7 @@ public class ProfileResponse {
     private UUID userId;
     private String name;
     private String email;
+    private String cnic;
     private String phoneNum;
     private String address;
     private String city;

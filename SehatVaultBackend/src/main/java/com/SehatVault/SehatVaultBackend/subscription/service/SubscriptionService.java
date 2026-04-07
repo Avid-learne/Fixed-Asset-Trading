@@ -4,6 +4,9 @@ import com.SehatVault.SehatVaultBackend.healthcard.entity.Card;
 import com.SehatVault.SehatVaultBackend.healthcard.entity.HealthCard;
 import com.SehatVault.SehatVaultBackend.healthcard.repository.CardRepository;
 import com.SehatVault.SehatVaultBackend.healthcard.repository.HealthCardRepository;
+import com.SehatVault.SehatVaultBackend.activity.entity.ActivityLog;
+import com.SehatVault.SehatVaultBackend.activity.entity.Transaction;
+import com.SehatVault.SehatVaultBackend.activity.repository.ActivityLogRepository;
 import com.SehatVault.SehatVaultBackend.patient.entity.Patient;
 import com.SehatVault.SehatVaultBackend.patient.repository.PatientRepository;
 import com.SehatVault.SehatVaultBackend.subscription.dto.*;
@@ -13,6 +16,9 @@ import com.SehatVault.SehatVaultBackend.subscription.entity.SubscriptionPlan;
 import com.SehatVault.SehatVaultBackend.subscription.repository.PatientSubscriptionRepository;
 import com.SehatVault.SehatVaultBackend.subscription.repository.PaymentHistoryRepository;
 import com.SehatVault.SehatVaultBackend.subscription.repository.SubscriptionPlanRepository;
+import com.SehatVault.SehatVaultBackend.wallet.entity.PatientTokenBalance;
+import com.SehatVault.SehatVaultBackend.wallet.repository.PatientTokenBalanceRepository;
+import com.SehatVault.SehatVaultBackend.wallet.repository.WalletTransactionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +45,9 @@ public class SubscriptionService {
     private final PatientRepository patientRepository;
     private final HealthCardRepository healthCardRepository;
     private final CardRepository cardRepository;
+    private final PatientTokenBalanceRepository patientTokenBalanceRepository;
+    private final WalletTransactionRepository walletTransactionRepository;
+    private final ActivityLogRepository activityLogRepository;
 
     /**
      * Get all active subscription plans
@@ -142,7 +151,10 @@ public class SubscriptionService {
             patientRepository.save(patient);
 
             // Auto-create Subscription Card if patient doesn't have one
-            autoCreateSubscriptionCard(patient.getId());
+            HealthCard subscriptionCard = getOrCreateSubscriptionCard(patient.getId());
+
+            // Initial HT allocation for the first month at the time of subscription
+            allocateMonthlyHt(patient, plan, subscription, subscriptionCard, "SUBSCRIPTION_INITIAL");
 
             PatientSubscriptionDto dto = convertToSubscriptionDto(subscription, plan);
             return ApiResponse.success("Subscription successful", dto);
@@ -201,27 +213,134 @@ public class SubscriptionService {
 
     // ─── Health card helper ───────────────────────────────────────────────────
 
-    private void autoCreateSubscriptionCard(UUID patientId) {
-        try {
-            Card card = cardRepository.findByCardNameIgnoreCase("Subscription Card").orElseGet(() -> {
-                Card c = new Card();
-                c.setCardName("Subscription Card");
-                return cardRepository.save(c);
-            });
-            boolean exists = !healthCardRepository.findByPatientIdAndCardId(patientId, card.getCardId()).isEmpty();
-            if (!exists) {
-                HealthCard hc = new HealthCard();
-                hc.setPatientId(patientId);
-                hc.setCardId(card.getCardId());
-                hc.setCardNum(generateCardNum());
-                hc.setHtBalance(BigDecimal.ZERO);
-                hc.setExpiryDate(LocalDate.now().plusYears(1));
-                hc.setCvv(String.format("%03d", new Random().nextInt(1000)));
-                healthCardRepository.save(hc);
+    @Transactional
+    public int processMonthlySubscriptionAllocations() {
+        List<PatientSubscription> activeSubscriptions = patientSubscriptionRepository
+                .findByStatus(PatientSubscription.SubscriptionStatus.ACTIVE);
+
+        int allocations = 0;
+        LocalDate today = LocalDate.now();
+
+        for (PatientSubscription subscription : activeSubscriptions) {
+            Patient patient = patientRepository.findById(subscription.getPatientId()).orElse(null);
+            if (patient == null) {
+                continue;
             }
-        } catch (Exception e) {
-            System.err.println("[WARN] Could not auto-create subscription card: " + e.getMessage());
+
+            SubscriptionPlan plan = subscriptionPlanRepository.findById(subscription.getSubscriptionId()).orElse(null);
+            if (plan == null || !Boolean.TRUE.equals(plan.getIsActive())) {
+                continue;
+            }
+
+            HealthCard subscriptionCard = getOrCreateSubscriptionCard(patient.getId());
+
+            while (!today.isBefore(subscription.getEndDate())) {
+                allocateMonthlyHt(patient, plan, subscription, subscriptionCard, "SUBSCRIPTION_RECURRING");
+                subscription.setEndDate(subscription.getEndDate().plusMonths(1));
+                allocations++;
+            }
+
+            patientSubscriptionRepository.save(subscription);
         }
+
+        return allocations;
+    }
+
+    private HealthCard getOrCreateSubscriptionCard(UUID patientId) {
+        Card card = cardRepository.findByCardNameIgnoreCase("Subscription Card").orElseGet(() -> {
+            Card c = new Card();
+            c.setCardName("Subscription Card");
+            return cardRepository.save(c);
+        });
+
+        return healthCardRepository.findByPatientIdAndCardId(patientId, card.getCardId())
+                .stream()
+                .findFirst()
+                .orElseGet(() -> {
+                    HealthCard hc = new HealthCard();
+                    hc.setPatientId(patientId);
+                    hc.setCardId(card.getCardId());
+                    hc.setCardNum(generateCardNum());
+                    hc.setHtBalance(BigDecimal.ZERO);
+                    hc.setExpiryDate(LocalDate.now().plusYears(1));
+                    hc.setCvv(String.format("%03d", new Random().nextInt(1000)));
+                    return healthCardRepository.save(hc);
+                });
+    }
+
+    private void allocateMonthlyHt(Patient patient,
+                                   SubscriptionPlan plan,
+                                   PatientSubscription subscription,
+                                   HealthCard subscriptionCard,
+                                   String source) {
+        BigDecimal htAllocation = calculateMonthlyHt(plan.getAmountPerMonth());
+        if (htAllocation.compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+
+        // Credit subscription card HT balance.
+        subscriptionCard.setHtBalance(nz(subscriptionCard.getHtBalance()).add(htAllocation));
+        healthCardRepository.save(subscriptionCard);
+
+        // Credit patient wallet HT balance used by wallet pages.
+        PatientTokenBalance balance = patientTokenBalanceRepository.findByPatientId(patient.getId())
+                .orElseGet(() -> {
+                    PatientTokenBalance b = new PatientTokenBalance();
+                    b.setPatientId(patient.getId());
+                    b.setTotalAt(BigDecimal.ZERO);
+                    b.setTotalHt(BigDecimal.ZERO);
+                    b.setLastUpdated(java.time.LocalDateTime.now());
+                    return b;
+                });
+
+        balance.setTotalHt(nz(balance.getTotalHt()).add(htAllocation));
+        balance.setLastUpdated(java.time.LocalDateTime.now());
+        patientTokenBalanceRepository.save(balance);
+
+        UUID htTokenId = walletTransactionRepository.findTokenIdBySymbol("HT");
+        if (htTokenId == null) {
+            throw new IllegalStateException("HT token is not configured in tokens table");
+        }
+
+        Transaction tx = new Transaction();
+        tx.setUserId(patient.getUserId());
+        tx.setTokenId(htTokenId);
+        tx.setType(Transaction.TransactionType.CREDIT);
+        tx.setAmount(htAllocation);
+        tx.setDescription(String.format("Monthly HT allocation for %s (%s)", plan.getSubscriptionName(), source));
+        tx.setSenderWalletAddress("SUBSCRIPTION_SYSTEM");
+        tx.setReceiverWalletAddress(patient.getWalletAddress());
+        tx.setTransactionHash(UUID.randomUUID().toString().replace("-", ""));
+        tx.setStatus("SUCCESS");
+        tx.setTimestamp(java.time.LocalDateTime.now());
+        walletTransactionRepository.save(tx);
+
+        ActivityLog activity = new ActivityLog();
+        activity.setUserId(patient.getUserId());
+        activity.setActivityName("Monthly HT Allocation");
+        activity.setDescription(String.format(
+                "%s HT credited to Subscription Card for plan '%s' (Subscription ID: %s)",
+                htAllocation.toPlainString(),
+                plan.getSubscriptionName(),
+                subscription.getSubscriptionId()));
+        activity.setType(ActivityLog.ActivityType.ACTION);
+        activity.setStatus("SUCCESS");
+        activity.setTimestamp(java.time.LocalDateTime.now());
+        activityLogRepository.save(activity);
+    }
+
+    private BigDecimal calculateMonthlyHt(BigDecimal amountPerMonth) {
+        if (amountPerMonth == null || amountPerMonth.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        return amountPerMonth
+                .divide(BigDecimal.valueOf(1000), 2, java.math.RoundingMode.HALF_UP)
+                .multiply(BigDecimal.TEN)
+                .setScale(2, java.math.RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal nz(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 
     private String generateCardNum() {

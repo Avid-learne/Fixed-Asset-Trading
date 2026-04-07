@@ -37,14 +37,6 @@ const demoAccounts: DemoAccount[] = [
   { role: "ADMIN", label: "Super Admin", icon: Shield, email: "demo.superadmin@admin.com", password: "Demo@123", description: "System-wide administration" },
 ];
 
-const AVAILABLE_ROLES = [
-  { value: "PATIENT", label: "Patient" },
-  { value: "HOSPITAL_STAFF", label: "Hospital Staff" },
-  { value: "HOSPITAL_ADMIN", label: "Hospital Admin" },
-  { value: "BANK_STAFF", label: "Bank Officer" },
-  { value: "ADMIN", label: "Admin" },
-];
-
 export default function Auth() {
   const router = useRouter();
   const { login: contextLogin } = useAuth();
@@ -53,9 +45,9 @@ export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [cnic, setCnic] = useState("");
   const [wallet, setWallet] = useState("");
   const [hospitalName, setHospitalName] = useState("");
-  const [role, setRole] = useState("PATIENT");
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [hospitals, setHospitals] = useState<string[]>([]);
@@ -125,7 +117,7 @@ export default function Auth() {
     setError("");
 
     // Validate
-    if (!name || !email || !password) {
+    if (!name || !email || !password || !cnic || !hospitalName) {
       setError("Please fill in all required fields");
       setIsLoading(false);
       return;
@@ -137,14 +129,8 @@ export default function Auth() {
       return;
     }
 
-    if (role === "PATIENT" && !hospitalName) {
-      setError("Please select a hospital");
-      setIsLoading(false);
-      return;
-    }
-
-    if (role === "HOSPITAL_ADMIN" && !hospitalName) {
-      setError("Please enter your hospital name");
+    if (!cnic || cnic.trim().length === 0) {
+      setError("CNIC is required");
       setIsLoading(false);
       return;
     }
@@ -154,7 +140,8 @@ export default function Auth() {
         email,
         password,
         name,
-        role,
+        cnic,
+        role: "patient",
         walletAddress: wallet || undefined,
         hospitalName: hospitalName || undefined,
       });
@@ -164,9 +151,9 @@ export default function Auth() {
         setEmail("");
         setPassword("");
         setName("");
+        setCnic("");
         setWallet("");
         setHospitalName("");
-        setRole("PATIENT");
         
         // Show success and redirect
         setSuccessMessage("Account created successfully! Redirecting...");
@@ -286,73 +273,43 @@ export default function Auth() {
                       <Input id="signup-email" type="email" placeholder="john@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
                     </div>
                     <div className="space-y-2">
+                      <Label htmlFor="signup-cnic">CNIC <span className="text-error">*</span></Label>
+                      <Input 
+                        id="signup-cnic" 
+                        type="text" 
+                        placeholder="12345-6789012-3" 
+                        value={cnic} 
+                        onChange={(e) => setCnic(e.target.value)} 
+                        required 
+                      />
+                      <p className="text-xs text-muted-foreground">Your CNIC number is required for identity verification</p>
+                    </div>
+                    <div className="space-y-2">
                       <Label htmlFor="signup-password">Password</Label>
                       <Input id="signup-password" type="password" placeholder="Min 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} required />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="signup-role">Role</Label>
+                      <Label htmlFor="signup-hospital">
+                        Hospital <span className="text-error">*</span>
+                      </Label>
                       <select
-                        id="signup-role"
-                        value={role}
-                        onChange={(e) => {
-                          const selectedRole = e.target.value;
-                          setRole(selectedRole);
-
-                          // Hospital admin signs up a new hospital, so do not keep old hospital selection.
-                          if (selectedRole === "HOSPITAL_ADMIN") {
-                            setHospitalName("");
-                          }
-                        }}
-                        className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                        id="signup-hospital"
+                        value={hospitalName}
+                        onChange={(e) => setHospitalName(e.target.value)}
+                        required
+                        disabled={hospitalsLoading}
+                        className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60"
                       >
-                        {AVAILABLE_ROLES.map((r) => (
-                          <option key={r.value} value={r.value}>
-                            {r.label}
+                        <option value="">
+                          {hospitalsLoading ? "Loading hospitals..." : "Select your hospital"}
+                        </option>
+                        {hospitals.map((hospital) => (
+                          <option key={hospital} value={hospital}>
+                            {hospital}
                           </option>
                         ))}
                       </select>
                     </div>
-                    {(role === "PATIENT" || role === "HOSPITAL_STAFF") && (
-                      <div className="space-y-2">
-                        <Label htmlFor="signup-hospital">
-                          Hospital Name {role === "PATIENT" && <span className="text-error">*</span>}
-                        </Label>
-                        <select
-                          id="signup-hospital"
-                          value={hospitalName}
-                          onChange={(e) => setHospitalName(e.target.value)}
-                          required={role === "PATIENT"}
-                          disabled={hospitalsLoading}
-                          className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60"
-                        >
-                          <option value="">
-                            {hospitalsLoading ? "Loading hospitals..." : "Select hospital"}
-                          </option>
-                          {hospitals.map((hospital) => (
-                            <option key={hospital} value={hospital}>
-                              {hospital}
-                            </option>
-                          ))}
-                        </select>
-                        <p className="text-xs text-muted-foreground">The hospital you are affiliated with</p>
-                      </div>
-                    )}
-                    {role === "HOSPITAL_ADMIN" && (
-                      <div className="space-y-2">
-                        <Label htmlFor="signup-hospital-name">
-                          Hospital Name <span className="text-error">*</span>
-                        </Label>
-                        <Input
-                          id="signup-hospital-name"
-                          type="text"
-                          placeholder="Enter your hospital name"
-                          value={hospitalName}
-                          onChange={(e) => setHospitalName(e.target.value)}
-                          required
-                        />
-                        <p className="text-xs text-muted-foreground">A new hospital record will be created and linked to your account</p>
-                      </div>
-                    )}
                     <div className="space-y-2">
                       <Label htmlFor="signup-wallet">Wallet Address (Optional)</Label>
                       <Input 

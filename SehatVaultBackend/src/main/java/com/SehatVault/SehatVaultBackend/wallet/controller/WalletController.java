@@ -1,6 +1,7 @@
 package com.SehatVault.SehatVaultBackend.wallet.controller;
 
 import com.SehatVault.SehatVaultBackend.subscription.dto.ApiResponse;
+import com.SehatVault.SehatVaultBackend.wallet.dto.DeductHtRequest;
 import com.SehatVault.SehatVaultBackend.wallet.dto.TransferHtRequest;
 import com.SehatVault.SehatVaultBackend.wallet.dto.WalletSummaryDto;
 import com.SehatVault.SehatVaultBackend.wallet.dto.WalletTransactionDto;
@@ -52,5 +53,18 @@ public class WalletController {
     ) {
         walletService.transferHealthTokens(authentication.getName(), request);
         return ResponseEntity.ok(ApiResponse.success("HT transferred successfully", "OK"));
+    }
+
+    @PostMapping("/hospital/redeem/ht")
+    public ResponseEntity<ApiResponse<String>> redeemHtForPatient(
+            Authentication authentication,
+            @RequestBody DeductHtRequest request
+    ) {
+        if (authentication == null || authentication.getName() == null) {
+            return ResponseEntity.status(401).body(ApiResponse.error("Unauthorized"));
+        }
+
+        walletService.redeemPatientHealthTokens(authentication.getName(), request);
+        return ResponseEntity.ok(ApiResponse.success("HT redeemed successfully", "OK"));
     }
 }

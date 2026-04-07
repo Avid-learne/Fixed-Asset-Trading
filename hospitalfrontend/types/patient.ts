@@ -11,6 +11,7 @@ export interface PatientProfile {
   // Identity
   id: string
   registrationId: string
+  cnic?: string
   fullName: string
   email: string
   phone: string

@@ -17,6 +17,8 @@ public interface PatientSubscriptionRepository extends JpaRepository<PatientSubs
     Optional<PatientSubscription> findByPatientIdAndStatus(UUID patientId, PatientSubscription.SubscriptionStatus status);
     
     List<PatientSubscription> findByPatientId(UUID patientId);
+
+    List<PatientSubscription> findByStatus(PatientSubscription.SubscriptionStatus status);
     
     boolean existsByPatientIdAndStatus(UUID patientId, PatientSubscription.SubscriptionStatus status);
 }

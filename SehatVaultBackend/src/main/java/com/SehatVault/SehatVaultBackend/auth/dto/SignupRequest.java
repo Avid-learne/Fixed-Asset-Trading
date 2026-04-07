@@ -16,20 +16,21 @@ public class SignupRequest {
     private String name;
     private String email;
     private String password;
+    private String cnic;  // CNIC is required for all signups
     private String phoneNum;
     private String address;
     private String city;
     private String bloodGroup;
     private String dateOfBirth;  // Format: YYYY-MM-DD
-    private String role;  // patient, hospital_admin, hospital_staff, bank_staff, admin
-    private String hospitalName;  // Hospital name for patient/hospital staff roles
-    private String bankName;  // Bank name for bank staff role
+    private String role;  // patient (only patients can self-signup)
+    private String hospitalName;  // Hospital name for patients
     
     // Validation methods
     public boolean isValid() {
         return name != null && !name.isEmpty() &&
                email != null && !email.isEmpty() &&
                password != null && password.length() >= 6 &&
+               cnic != null && !cnic.isEmpty() &&
                role != null && !role.isEmpty();
     }
 }

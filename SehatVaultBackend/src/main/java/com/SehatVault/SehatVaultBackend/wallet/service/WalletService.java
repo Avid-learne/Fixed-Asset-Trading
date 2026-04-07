@@ -2,11 +2,15 @@ package com.SehatVault.SehatVaultBackend.wallet.service;
 
 import com.SehatVault.SehatVaultBackend.notification.entity.Notification;
 import com.SehatVault.SehatVaultBackend.notification.repository.NotificationRepository;
+import com.SehatVault.SehatVaultBackend.activity.entity.ActivityLog;
 import com.SehatVault.SehatVaultBackend.activity.entity.Transaction;
+import com.SehatVault.SehatVaultBackend.activity.repository.ActivityLogRepository;
 import com.SehatVault.SehatVaultBackend.auth.entity.User;
+import com.SehatVault.SehatVaultBackend.auth.entity.Role;
 import com.SehatVault.SehatVaultBackend.auth.repository.UserRepository;
 import com.SehatVault.SehatVaultBackend.patient.entity.Patient;
 import com.SehatVault.SehatVaultBackend.patient.repository.PatientRepository;
+import com.SehatVault.SehatVaultBackend.wallet.dto.DeductHtRequest;
 import com.SehatVault.SehatVaultBackend.wallet.dto.WalletSummaryDto;
 import com.SehatVault.SehatVaultBackend.wallet.dto.WalletTransactionDto;
 import com.SehatVault.SehatVaultBackend.wallet.dto.TransferHtRequest;
@@ -32,6 +36,7 @@ public class WalletService {
     private final PatientTokenBalanceRepository patientTokenBalanceRepository;
     private final NotificationRepository notificationRepository;
     private final WalletTransactionRepository walletTransactionRepository;
+        private final ActivityLogRepository activityLogRepository;
 
     public WalletSummaryDto getWalletSummary(UUID userId) {
         Patient patient = patientRepository.findByUserId(userId)
@@ -159,6 +164,85 @@ public class WalletService {
                 notification.setStatus(Notification.NotificationStatus.UNREAD);
                 notification.setTimestamp(LocalDateTime.now());
                 notificationRepository.save(notification);
+        }
+
+        @Transactional
+        public void redeemPatientHealthTokens(String staffEmail, DeductHtRequest request) {
+                if (request.getPatientUserId() == null) {
+                        throw new IllegalArgumentException("Patient user ID is required");
+                }
+                if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+                        throw new IllegalArgumentException("Deduction amount must be greater than zero");
+                }
+
+                User staffUser = userRepository.findByEmail(staffEmail)
+                                .orElseThrow(() -> new IllegalArgumentException("Staff account not found"));
+
+                Role.RoleType role = staffUser.getRole() != null ? staffUser.getRole().getRoleName() : null;
+                if (role != Role.RoleType.hospital_staff && role != Role.RoleType.hospital_admin) {
+                        throw new IllegalArgumentException("Only hospital staff/admin can redeem patient HT");
+                }
+
+                Patient patient = patientRepository.findByUserId(request.getPatientUserId())
+                                .orElseThrow(() -> new IllegalArgumentException("Patient profile not found"));
+
+                if (staffUser.getHospitalId() == null || patient.getHospitalId() == null
+                                || !staffUser.getHospitalId().equals(patient.getHospitalId())) {
+                        throw new IllegalArgumentException("You can only redeem HT for patients in your hospital");
+                }
+
+                PatientTokenBalance patientBalance = patientTokenBalanceRepository.findByPatientId(patient.getId())
+                                .orElseThrow(() -> new IllegalArgumentException("Patient wallet balance not found"));
+
+                BigDecimal currentHt = nz(patientBalance.getTotalHt());
+                if (currentHt.compareTo(request.getAmount()) < 0) {
+                        throw new IllegalArgumentException("Insufficient HT balance for redemption");
+                }
+
+                patientBalance.setTotalHt(currentHt.subtract(request.getAmount()));
+                patientBalance.setLastUpdated(LocalDateTime.now());
+                patientTokenBalanceRepository.save(patientBalance);
+
+                UUID htTokenId = walletTransactionRepository.findTokenIdBySymbol("HT");
+                if (htTokenId == null) {
+                        throw new IllegalArgumentException("HT token is not configured in tokens table");
+                }
+
+                String reason = request.getReason() == null || request.getReason().isBlank()
+                                ? "Hospital HT redemption"
+                                : request.getReason().trim();
+
+                Transaction debit = new Transaction();
+                debit.setUserId(patient.getUserId());
+                debit.setTokenId(htTokenId);
+                debit.setType(Transaction.TransactionType.DEBIT);
+                debit.setAmount(request.getAmount());
+                debit.setDescription("Hospital redemption: " + reason + " (processed by " + staffUser.getEmail() + ")");
+                debit.setSenderWalletAddress(patient.getWalletAddress());
+                debit.setReceiverWalletAddress("HOSPITAL_REDEMPTION");
+                debit.setTransactionHash(UUID.randomUUID().toString().replace("-", ""));
+                debit.setStatus("SUCCESS");
+                debit.setTimestamp(LocalDateTime.now());
+                walletTransactionRepository.save(debit);
+
+                ActivityLog patientActivity = new ActivityLog();
+                patientActivity.setUserId(patient.getUserId());
+                patientActivity.setActivityName("HT Redemption");
+                patientActivity.setDescription(String.format("%s HT redeemed for service: %s", request.getAmount(), reason));
+                patientActivity.setType(ActivityLog.ActivityType.ACTION);
+                patientActivity.setStatus("SUCCESS");
+                patientActivity.setTimestamp(LocalDateTime.now());
+                activityLogRepository.save(patientActivity);
+
+                ActivityLog staffActivity = new ActivityLog();
+                staffActivity.setUserId(staffUser.getUserId());
+                staffActivity.setActivityName("Patient HT Redemption");
+                staffActivity.setDescription(String.format("Redeemed %s HT from patient %s (%s)",
+                                request.getAmount(), patient.getId(), patient.getUserId()));
+                staffActivity.setType(ActivityLog.ActivityType.ACTION);
+                staffActivity.setStatus("SUCCESS");
+                staffActivity.setTimestamp(LocalDateTime.now());
+                activityLogRepository.save(staffActivity);
         }
 
     private WalletTransactionDto mapRow(WalletTransactionRepository.WalletTransactionRow row) {
