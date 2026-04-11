@@ -9,6 +9,7 @@ import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.SehatVault.SehatVaultBackend.auth.dto.AuthResponse;
 import com.SehatVault.SehatVaultBackend.auth.dto.SigninRequest;
@@ -22,6 +23,8 @@ import com.SehatVault.SehatVaultBackend.auth.repository.UserRepository;
 import com.SehatVault.SehatVaultBackend.auth.util.JwtUtil;
 import com.SehatVault.SehatVaultBackend.bank.entity.Bank;
 import com.SehatVault.SehatVaultBackend.bank.repository.BankRepository;
+import com.SehatVault.SehatVaultBackend.blockchain.service.PatientWalletAllocatorService;
+import com.SehatVault.SehatVaultBackend.patient.entity.Patient;
 import com.SehatVault.SehatVaultBackend.patient.repository.PatientRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -43,6 +46,7 @@ public class AuthService {
     private final HospitalRepository hospitalRepository;
     private final BankRepository bankRepository;
     private final PatientRepository patientRepository;
+    private final PatientWalletAllocatorService patientWalletAllocatorService;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     /**
@@ -123,6 +127,7 @@ public class AuthService {
      * @param request SignupRequest containing user details
      * @return AuthResponse with user data and token if successful
      */
+    @Transactional
     public AuthResponse signup(SignupRequest request) {
         // Validate request
         if (!request.isValid()) {
@@ -265,6 +270,10 @@ public class AuthService {
             // Call stored procedure to create role-specific records
             callSignupProcedure(savedUser.getUserId(), role.getRoleName().toString(), hospitalId);
 
+            if (roleType == Role.RoleType.patient) {
+                ensurePatientRecordWithWallet(savedUser, hospitalId);
+            }
+
             // Generate JWT token
             String token = jwtUtil.generateToken(
                     savedUser.getUserId(),
@@ -283,6 +292,26 @@ public class AuthService {
             e.printStackTrace();
             return new AuthResponse(false, "Error creating user: " + e.getMessage());
         }
+    }
+
+    private void ensurePatientRecordWithWallet(User user, UUID hospitalId) {
+        Patient patient = patientRepository.findByUserId(user.getUserId())
+                .orElseGet(() -> {
+                    Patient created = new Patient();
+                    created.setUserId(user.getUserId());
+                    created.setHospitalId(hospitalId != null ? hospitalId : user.getHospitalId());
+                    created.setHasAsset(false);
+                    created.setHasSubscription(false);
+                    created.setKycStatus(Patient.KycStatus.PENDING);
+                    return patientRepository.save(created);
+                });
+
+        if (patient.getHospitalId() == null && (hospitalId != null || user.getHospitalId() != null)) {
+            patient.setHospitalId(hospitalId != null ? hospitalId : user.getHospitalId());
+            patientRepository.save(patient);
+        }
+
+        patientWalletAllocatorService.assignWalletToPatient(patient);
     }
 
     /**

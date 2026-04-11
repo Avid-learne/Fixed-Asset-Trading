@@ -49,6 +49,11 @@ const compactNumber = (value: number) => new Intl.NumberFormat('en', {
 
 const formatATCompact = (pkr: number) => `${compactNumber(convertPKRtoAT(pkr))} AT`
 
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+const isUuid = (value?: string | null): value is string => Boolean(value && UUID_REGEX.test(value))
+
 const emptyPool: HospitalAtPool = {
   hospitalId: '',
   patientCount: 0,
@@ -63,8 +68,7 @@ const emptyPool: HospitalAtPool = {
 
 export default function HospitalAdminMarketplace() {
   const { toast } = useToast()
-  const currentUser = authService.getUser()
-  const hospitalId = currentUser?.hospitalId || ''
+  const [hospitalId, setHospitalId] = useState('')
 
   const [trades, setTrades] = useState<MarketplaceTrade[]>([])
   const [atPool, setAtPool] = useState<HospitalAtPool>(emptyPool)
@@ -82,9 +86,32 @@ export default function HospitalAdminMarketplace() {
   const [currentValueByTrade, setCurrentValueByTrade] = useState<Record<string, string>>({})
   const [exitValueByTrade, setExitValueByTrade] = useState<Record<string, string>>({})
 
+  useEffect(() => {
+    const resolveHospitalId = async () => {
+      const cached = authService.getUser()?.hospitalId || ''
+      if (isUuid(cached)) {
+        setHospitalId(cached)
+        return
+      }
+
+      const refreshed = await authService.fetchCurrentUser()
+      const refreshedHospitalId = refreshed?.hospitalId || authService.getUser()?.hospitalId || ''
+      if (isUuid(refreshedHospitalId)) {
+        setHospitalId(refreshedHospitalId)
+        return
+      }
+
+      setError('Hospital account link is missing or invalid. Please sign in again.')
+      setLoading(false)
+      setPoolLoading(false)
+    }
+
+    resolveHospitalId()
+  }, [])
+
   const loadMarketplaceData = async () => {
-    if (!hospitalId) {
-      setError('Hospital is not linked to this account. Contact admin.')
+    if (!isUuid(hospitalId)) {
+      setError('Hospital account link is missing or invalid. Please sign in again.')
       setLoading(false)
       setPoolLoading(false)
       return
@@ -147,8 +174,8 @@ export default function HospitalAdminMarketplace() {
   }, [trades])
 
   const handleAddTrade = async () => {
-    if (!hospitalId) {
-      setError('Hospital is not linked to this account. Contact admin.')
+    if (!isUuid(hospitalId)) {
+      setError('Hospital account link is missing or invalid. Please sign in again.')
       return
     }
 

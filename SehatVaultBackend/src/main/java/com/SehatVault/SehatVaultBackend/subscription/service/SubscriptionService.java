@@ -9,6 +9,8 @@ import com.SehatVault.SehatVaultBackend.activity.entity.Transaction;
 import com.SehatVault.SehatVaultBackend.activity.repository.ActivityLogRepository;
 import com.SehatVault.SehatVaultBackend.patient.entity.Patient;
 import com.SehatVault.SehatVaultBackend.patient.repository.PatientRepository;
+import com.SehatVault.SehatVaultBackend.blockchain.service.BlockchainService;
+import com.SehatVault.SehatVaultBackend.blockchain.service.PatientWalletAllocatorService;
 import com.SehatVault.SehatVaultBackend.subscription.dto.*;
 import com.SehatVault.SehatVaultBackend.subscription.entity.PatientSubscription;
 import com.SehatVault.SehatVaultBackend.subscription.entity.PaymentHistory;
@@ -48,6 +50,8 @@ public class SubscriptionService {
     private final PatientTokenBalanceRepository patientTokenBalanceRepository;
     private final WalletTransactionRepository walletTransactionRepository;
     private final ActivityLogRepository activityLogRepository;
+    private final BlockchainService blockchainService;
+    private final PatientWalletAllocatorService patientWalletAllocatorService;
 
     /**
      * Get all active subscription plans
@@ -117,6 +121,8 @@ public class SubscriptionService {
                         newPatient.setKycStatus(Patient.KycStatus.PENDING);
                         return patientRepository.save(newPatient);
                     });
+
+            patientWalletAllocatorService.assignWalletToPatient(patient);
 
             // Check if patient already has an active subscription
             boolean hasActive = patientSubscriptionRepository
@@ -227,6 +233,8 @@ public class SubscriptionService {
                 continue;
             }
 
+            patientWalletAllocatorService.assignWalletToPatient(patient);
+
             SubscriptionPlan plan = subscriptionPlanRepository.findById(subscription.getSubscriptionId()).orElse(null);
             if (plan == null || !Boolean.TRUE.equals(plan.getIsActive())) {
                 continue;
@@ -310,8 +318,10 @@ public class SubscriptionService {
         tx.setDescription(String.format("Monthly HT allocation for %s (%s)", plan.getSubscriptionName(), source));
         tx.setSenderWalletAddress("SUBSCRIPTION_SYSTEM");
         tx.setReceiverWalletAddress(patient.getWalletAddress());
-        tx.setTransactionHash(UUID.randomUUID().toString().replace("-", ""));
-        tx.setStatus("SUCCESS");
+        tx.setTransactionHash(blockchainService
+            .mintHealthToken(patient.getWalletAddress(), htAllocation.toBigInteger(), "SUBSCRIPTION_" + source)
+            .getTransactionHash());
+        tx.setStatus("PENDING");
         tx.setTimestamp(java.time.LocalDateTime.now());
         walletTransactionRepository.save(tx);
 

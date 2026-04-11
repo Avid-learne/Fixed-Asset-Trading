@@ -15,6 +15,7 @@ import com.SehatVault.SehatVaultBackend.bank.repository.BankRepository;
 import com.SehatVault.SehatVaultBackend.blockchain.dto.BlockchainMintRequest;
 import com.SehatVault.SehatVaultBackend.blockchain.dto.BlockchainMintResponse;
 import com.SehatVault.SehatVaultBackend.blockchain.service.BlockchainService;
+import com.SehatVault.SehatVaultBackend.blockchain.service.PatientWalletAllocatorService;
 import com.SehatVault.SehatVaultBackend.healthcard.entity.Card;
 import com.SehatVault.SehatVaultBackend.healthcard.entity.HealthCard;
 import com.SehatVault.SehatVaultBackend.healthcard.repository.CardRepository;
@@ -61,6 +62,7 @@ public class AssetDepositService {
     private final MintRecordRepository mintRecordRepository;
     private final HospitalAtPoolService hospitalAtPoolService;
     private final BlockchainService blockchainService;
+    private final PatientWalletAllocatorService patientWalletAllocatorService;
     private final AtTradingService atTradingService;
     private final NotificationRepository notificationRepository;
 
@@ -373,11 +375,7 @@ public class AssetDepositService {
 
         validateMintCap(saved, atTokens);
 
-        String patientWalletAddress = nz(patient.getWalletAddress()).trim();
-        if (patientWalletAddress.isBlank()) {
-            throw new IllegalArgumentException(
-                    "Patient wallet address is missing. Please update patient wallet before minting.");
-        }
+        String patientWalletAddress = patientWalletAllocatorService.assignWalletToPatient(patient);
 
         // Submit AT mint on-chain first so DB 'minted' status always has a real
         // blockchain tx hash.

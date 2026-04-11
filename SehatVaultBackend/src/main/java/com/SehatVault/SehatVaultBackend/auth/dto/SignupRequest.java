@@ -24,6 +24,7 @@ public class SignupRequest {
     private String dateOfBirth;  // Format: YYYY-MM-DD
     private String role;  // patient (only patients can self-signup)
     private String hospitalName;  // Hospital name for patients
+    private String bankName;  // Optional bank name for bank registration flow
     
     // Validation methods
     public boolean isValid() {

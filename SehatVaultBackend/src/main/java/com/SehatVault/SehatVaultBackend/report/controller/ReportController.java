@@ -22,7 +22,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/reports")
-@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:3001"})
+@CrossOrigin(originPatterns = "http://localhost:*")
 @RequiredArgsConstructor
 public class ReportController {
 

@@ -7,41 +7,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
 import {
   Coins,
-  User,
-  Building2,
-  CreditCard,
-  Shield,
   ArrowLeft,
   Loader2,
 } from "lucide-react";
 import { authService } from "@/lib/authService";
 import { useAuth } from "@/contexts/AuthContext";
 
-interface DemoAccount {
-  role: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  email: string;
-  password: string;
-  description: string;
-}
-
-const demoAccounts: DemoAccount[] = [
-  { role: "PATIENT", label: "Patient", icon: User, email: "demo.patient@hospital.com", password: "Demo@123", description: "View deposits, tokens, and health benefits" },
-  { role: "HOSPITAL_STAFF", label: "Hospital Staff", icon: Building2, email: "demo.staff@hospital.com", password: "Demo@123", description: "Manage deposits and patient records" },
-  { role: "HOSPITAL_ADMIN", label: "Hospital Admin", icon: Building2, email: "demo.admin@hospital.com", password: "Demo@123", description: "Full hospital system control" },
-  { role: "BANK_STAFF", label: "Bank Officer", icon: CreditCard, email: "demo.officer@bank.com", password: "Demo@123", description: "Approve assets and manage policies" },
-  { role: "ADMIN", label: "Super Admin", icon: Shield, email: "demo.superadmin@admin.com", password: "Demo@123", description: "System-wide administration" },
-];
-
 export default function Auth() {
   const router = useRouter();
   const { login: contextLogin } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingRole, setLoadingRole] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -70,24 +47,6 @@ export default function Auth() {
       isMounted = false;
     };
   }, []);
-
-  const handleDemoSignIn = async (account: DemoAccount) => {
-    setIsLoading(true);
-    setLoadingRole(account.role);
-    setError("");
-
-    try {
-      await contextLogin(account.email, account.password);
-      
-      setSuccessMessage("Login successful! Redirecting...");
-      const path = authService.getRoleRedirectPath(account.role);
-      router.push(path);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred during login");
-      setIsLoading(false);
-      setLoadingRole(null);
-    }
-  };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -227,39 +186,10 @@ export default function Auth() {
                       <Label htmlFor="password">Password</Label>
                       <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
                     </div>
-                    <Button type="submit" className="w-full" disabled={isLoading && !loadingRole}>
-                      {isLoading && !loadingRole ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sign In"}
+                    <Button type="submit" className="w-full" disabled={isLoading}>
+                      {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sign In"}
                     </Button>
                   </form>
-
-                  <div className="relative">
-                    <Separator />
-                    <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
-                      Or continue with demo account
-                    </span>
-                  </div>
-
-                  <div className="space-y-2">
-                    {demoAccounts.map((account) => (
-                      <Button
-                        key={account.role}
-                        variant="outline"
-                        className="w-full justify-start"
-                        disabled={isLoading}
-                        onClick={() => handleDemoSignIn(account)}
-                      >
-                        {loadingRole === account.role ? (
-                          <Loader2 className="mr-3 h-4 w-4 animate-spin" />
-                        ) : (
-                          <account.icon className="mr-3 h-4 w-4" />
-                        )}
-                        <div className="flex flex-col items-start">
-                          <span className="font-medium">{account.label}</span>
-                          <span className="text-xs text-muted-foreground">{account.description}</span>
-                        </div>
-                      </Button>
-                    ))}
-                  </div>
                 </TabsContent>
 
                 <TabsContent value="signup" className="mt-0 space-y-4">

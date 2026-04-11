@@ -23,6 +23,9 @@ import com.SehatVault.SehatVaultBackend.profitallocation.entity.ProfitAllocation
 import com.SehatVault.SehatVaultBackend.profitallocation.entity.ProfitDistribution;
 import com.SehatVault.SehatVaultBackend.profitallocation.repository.ProfitAllocationRepository;
 import com.SehatVault.SehatVaultBackend.profitallocation.repository.ProfitDistributionRepository;
+import com.SehatVault.SehatVaultBackend.blockchain.dto.BlockchainTradeRequest;
+import com.SehatVault.SehatVaultBackend.blockchain.dto.BlockchainTradeResponse;
+import com.SehatVault.SehatVaultBackend.blockchain.service.BlockchainService;
 import com.SehatVault.SehatVaultBackend.wallet.entity.PatientTokenBalance;
 import com.SehatVault.SehatVaultBackend.wallet.repository.PatientTokenBalanceRepository;
 import com.SehatVault.SehatVaultBackend.wallet.repository.WalletTransactionRepository;
@@ -67,6 +70,7 @@ public class MarketplaceService {
     private final HospitalAtPoolService hospitalAtPoolService;
     private final TradingSimulationService tradingSimulationService;
     private final AtTradingService atTradingService;
+    private final BlockchainService blockchainService;
 
     public List<TradeDto> getTradesByHospital(UUID hospitalId) {
         return marketplaceTradeRepository.findByHospitalIdOrderByStartTimeDesc(hospitalId)
@@ -177,8 +181,14 @@ public class MarketplaceService {
 
         MarketplaceTrade savedTrade = marketplaceTradeRepository.save(trade);
 
-        applyPatientAtBurnDeductions(savedTrade, burnResults, simulation);
-        applyProfitDistribution(savedTrade, burnResults, request, simulation);
+        BlockchainTradeResponse blockchainTrade = blockchainService.recordTrade(
+            BlockchainTradeRequest.builder()
+                .investedAT(totalAtBurned.toBigInteger())
+                .profitEarned(pnl.max(BigDecimal.ZERO).toBigInteger())
+                .build());
+
+        applyPatientAtBurnDeductions(savedTrade, burnResults, simulation, blockchainTrade);
+        applyProfitDistribution(savedTrade, burnResults, request, simulation, blockchainTrade);
 
         return toDto(savedTrade);
     }
@@ -658,8 +668,14 @@ public class MarketplaceService {
                 .applyBurnAllocations(trade.getHospitalId(), totalAtBurned);
         trade.setTotalAtBurnt(totalAtBurned);
 
-        applyPatientAtBurnDeductions(trade, burnResults, settlementMetadata);
-        applyProfitDistribution(trade, burnResults, distributionRequest, settlementMetadata);
+        BlockchainTradeResponse blockchainTrade = blockchainService.recordTrade(
+            BlockchainTradeRequest.builder()
+                .investedAT(totalAtBurned.toBigInteger())
+                .profitEarned(nz(trade.getProfitLoss()).max(BigDecimal.ZERO).toBigInteger())
+                .build());
+
+        applyPatientAtBurnDeductions(trade, burnResults, settlementMetadata, blockchainTrade);
+        applyProfitDistribution(trade, burnResults, distributionRequest, settlementMetadata, blockchainTrade);
 
         // NEW: Settle AT trading participations if any exist for this trade
         try {
@@ -698,7 +714,8 @@ public class MarketplaceService {
     private void applyPatientAtBurnDeductions(
             MarketplaceTrade trade,
             List<HospitalAtPoolService.PoolBurnAllocationResult> burnResults,
-            TradingSimulationService.SimulationResult simulation) {
+            TradingSimulationService.SimulationResult simulation,
+            BlockchainTradeResponse blockchainTrade) {
         if (burnResults.isEmpty()) {
             return;
         }
@@ -739,8 +756,13 @@ public class MarketplaceService {
             tx.setSenderWalletAddress(patient.getWalletAddress());
             tx.setReceiverWalletAddress("HOSPITAL-POOL");
             tx.setBlockNumber(simulation.blockNumber());
-            tx.setTransactionHash(simulation.transactionHash() + "-AT-" + new Random().nextInt(100000));
-            tx.setStatus("SUCCESS");
+                tx.setTransactionHash(blockchainService.burnAssetToken(
+                    patient.getWalletAddress(),
+                    nz(burn.burnedAt()).toBigInteger(),
+                    "TRADE_BURN_" + trade.getTradeId()));
+                tx.setStatus(blockchainTrade != null && blockchainTrade.getStatus() != null
+                    ? blockchainTrade.getStatus()
+                    : "PENDING");
             tx.setTimestamp(LocalDateTime.now());
             walletTransactionRepository.save(tx);
         }
@@ -750,7 +772,8 @@ public class MarketplaceService {
             MarketplaceTrade trade,
             List<HospitalAtPoolService.PoolBurnAllocationResult> burnResults,
             ExecuteTradeRequest request,
-            TradingSimulationService.SimulationResult simulation) {
+            TradingSimulationService.SimulationResult simulation,
+            BlockchainTradeResponse blockchainTrade) {
         BigDecimal totalProfit = nz(trade.getProfitLoss());
         if (totalProfit.compareTo(BigDecimal.ZERO) <= 0) {
             return;
@@ -803,7 +826,7 @@ public class MarketplaceService {
         distribution = profitDistributionRepository.save(distribution);
 
         if (patientSharePkr.compareTo(BigDecimal.ZERO) > 0 && !burnResults.isEmpty()) {
-            allocateProfitToPatients(trade, distribution, burnResults, patientSharePkr, simulation);
+            allocateProfitToPatients(trade, distribution, burnResults, patientSharePkr, simulation, blockchainTrade);
         }
 
         applyBankLoanFundsToPartnership(trade.getHospitalId(), bankLoanFunds);
@@ -814,7 +837,8 @@ public class MarketplaceService {
             ProfitDistribution distribution,
             List<HospitalAtPoolService.PoolBurnAllocationResult> burnResults,
             BigDecimal patientSharePkr,
-            TradingSimulationService.SimulationResult simulation) {
+            TradingSimulationService.SimulationResult simulation,
+            BlockchainTradeResponse blockchainTrade) {
         BigDecimal totalBurnedAt = burnResults.stream()
                 .map(HospitalAtPoolService.PoolBurnAllocationResult::burnedAt)
                 .map(this::nz)
@@ -898,8 +922,15 @@ public class MarketplaceService {
             tx.setSenderWalletAddress("HOSPITAL-TREASURY");
             tx.setReceiverWalletAddress(patient.getWalletAddress());
             tx.setBlockNumber(simulation.blockNumber());
-            tx.setTransactionHash(simulation.transactionHash() + "-HT-" + new Random().nextInt(100000));
-            tx.setStatus("SUCCESS");
+                tx.setTransactionHash(blockchainService
+                    .mintHealthToken(
+                        patient.getWalletAddress(),
+                        htShare.max(BigDecimal.ZERO).toBigInteger(),
+                        trade.getTradeId().toString())
+                    .getTransactionHash());
+                tx.setStatus(blockchainTrade != null && blockchainTrade.getStatus() != null
+                    ? blockchainTrade.getStatus()
+                    : "PENDING");
             tx.setTimestamp(LocalDateTime.now());
             walletTransactionRepository.save(tx);
         }

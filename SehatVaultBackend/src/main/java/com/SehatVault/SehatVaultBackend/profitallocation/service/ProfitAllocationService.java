@@ -18,6 +18,7 @@ import com.SehatVault.SehatVaultBackend.profitallocation.entity.ProfitDistributi
 import com.SehatVault.SehatVaultBackend.profitallocation.repository.AssetDepositRefRepository;
 import com.SehatVault.SehatVaultBackend.profitallocation.repository.ProfitAllocationRepository;
 import com.SehatVault.SehatVaultBackend.profitallocation.repository.ProfitDistributionRepository;
+import com.SehatVault.SehatVaultBackend.blockchain.service.BlockchainService;
 import com.SehatVault.SehatVaultBackend.wallet.entity.PatientTokenBalance;
 import com.SehatVault.SehatVaultBackend.wallet.repository.PatientTokenBalanceRepository;
 import com.SehatVault.SehatVaultBackend.wallet.repository.WalletTransactionRepository;
@@ -30,7 +31,6 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import java.util.UUID;
 
 @Service
@@ -49,6 +49,7 @@ public class ProfitAllocationService {
     private final ProfitAllocationRepository profitAllocationRepository;
     private final AssetDepositRefRepository assetDepositRefRepository;
     private final WalletTransactionRepository walletTransactionRepository;
+    private final BlockchainService blockchainService;
 
     @Transactional(readOnly = true)
     public ProfitAllocationPreviewResponse getPreview(String email, BigDecimal requestedProfit) {
@@ -146,9 +147,11 @@ public class ProfitAllocationService {
             tx.setDescription("HT minted from profit distribution " + distribution.getProfitDistributionId());
             tx.setSenderWalletAddress("HOSPITAL-TREASURY");
             tx.setReceiverWalletAddress(item.getWalletAddress());
-            tx.setBlockNumber(Math.abs(new Random().nextLong(9_000_000L)) + 1_000_000L);
-            tx.setTransactionHash("ALLOC-" + UUID.randomUUID().toString().replace("-", ""));
-            tx.setStatus("SUCCESS");
+                tx.setTransactionHash(blockchainService
+                    .mintHealthToken(item.getWalletAddress(), nz(item.getHtAmount()).toBigInteger(),
+                        "PROFIT_DIST_" + distribution.getProfitDistributionId())
+                    .getTransactionHash());
+                tx.setStatus("PENDING");
             tx.setTimestamp(LocalDateTime.now());
             walletTransactionRepository.save(tx);
         }

@@ -16,7 +16,7 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/api/health-cards")
-@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:3001"})
+@CrossOrigin(originPatterns = "http://localhost:*")
 @RequiredArgsConstructor
 public class HealthCardController {
 

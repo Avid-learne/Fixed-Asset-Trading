@@ -204,6 +204,19 @@ const getAuthHeaders = (): HeadersInit => {
   }
 }
 
+const readErrorMessage = async (response: Response, fallback: string): Promise<string> => {
+  try {
+    const payload = await response.json()
+    if (payload?.message && typeof payload.message === 'string') {
+      return payload.message
+    }
+  } catch {
+    // Fall back to response metadata when body is not JSON.
+  }
+
+  return `${fallback} (${response.status})`
+}
+
 const mapTrade = (trade: BackendTrade): MarketplaceTrade => ({
   id: trade.tradeId,
   timestamp: new Date(trade.startTime),
@@ -256,7 +269,7 @@ export const marketplaceService = {
     })
 
     if (!response.ok) {
-      throw new Error('Failed to fetch hospital trades')
+      throw new Error(await readErrorMessage(response, 'Failed to fetch hospital trades'))
     }
 
     const result: ApiResponse<BackendTrade[]> = await response.json()
@@ -354,7 +367,7 @@ export const marketplaceService = {
     })
 
     if (!response.ok) {
-      throw new Error('Failed to fetch hospital AT pool')
+      throw new Error(await readErrorMessage(response, 'Failed to fetch hospital AT pool'))
     }
 
     const result: ApiResponse<BackendHospitalAtPool> = await response.json()

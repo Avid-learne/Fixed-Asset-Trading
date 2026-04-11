@@ -145,6 +145,82 @@ public class BlockchainService {
     }
 
     /**
+     * Burn Health Tokens (HT) from a holder wallet.
+     */
+    public String burnHealthToken(String holderAddress, BigInteger amount, String reason) {
+        try {
+            validateContractAddress(healthTokenAddress, "HealthToken");
+
+            log.info("Burning {} HT tokens from wallet: {} (reason: {})",
+                    amount, holderAddress, reason);
+
+            String encodedFunction = encodeBurnFunction(holderAddress, amount);
+            String transactionHash = sendTransaction(healthTokenAddress, encodedFunction);
+
+            log.info("HT burn transaction submitted: {}", transactionHash);
+            return transactionHash;
+
+        } catch (Exception e) {
+            log.error("Error burning HT tokens: {}", e.getMessage(), e);
+            throw new BlockchainOperationException("Failed to burn HT tokens", e);
+        }
+    }
+
+    /**
+     * Redeem Health Tokens via HospitalFinancials contract
+     * This is the proper way to burn HT since HospitalFinancials is the admin
+     */
+    public String redeemHealthTokenViaHospitalFinancials(String patientAddress, BigInteger amount, String serviceType) {
+        try {
+            validateContractAddress(hospitalFinancialsAddress, "HospitalFinancials");
+
+            log.info("Redeeming {} HT tokens for patient: {} (service: {})",
+                    amount, patientAddress, serviceType);
+
+            // Call HospitalFinancials.redeemHealthToken(address patient, uint256 amountHT, string calldata serviceType)
+            org.web3j.abi.datatypes.Function function = new Function(
+                    "redeemHealthToken",
+                    Arrays.asList(
+                            new Address(patientAddress),
+                            new Uint256(amount),
+                            new Utf8String(serviceType)),
+                    Arrays.asList());
+
+            String encodedFunction = FunctionEncoder.encode(function);
+            String transactionHash = sendTransaction(hospitalFinancialsAddress, encodedFunction);
+
+            log.info("HT redemption transaction submitted: {}", transactionHash);
+            return transactionHash;
+
+        } catch (Exception e) {
+            log.error("Error redeeming HT tokens via HospitalFinancials: {}", e.getMessage(), e);
+            throw new BlockchainOperationException("Failed to redeem HT tokens", e);
+        }
+    }
+
+    /**
+     * Burn Asset Tokens (AT) from a holder wallet.
+     */
+    public String burnAssetToken(String holderAddress, BigInteger amount, String reason) {
+        try {
+            validateContractAddress(assetTokenAddress, "AssetToken");
+
+            log.info("Burning {} AT tokens from wallet: {} (reason: {})",
+                    amount, holderAddress, reason);
+
+            String encodedFunction = encodeBurnFunction(holderAddress, amount);
+            String transactionHash = sendTransaction(assetTokenAddress, encodedFunction);
+
+            log.info("AT burn transaction submitted: {}", transactionHash);
+            return transactionHash;
+
+        } catch (Exception e) {
+            log.error("Error burning AT tokens: {}", e.getMessage(), e);
+            throw new BlockchainOperationException("Failed to burn AT tokens", e);
+        }
+    }
+
+    /**
      * Record a trade on the HospitalFinancials contract
      * Logs trade amount and profit for blockchain transparency
      */
@@ -310,6 +386,19 @@ public class BlockchainService {
                 Arrays.asList());
         return FunctionEncoder.encode(function);
     }
+
+        /**
+         * Encode burn function call with address and amount parameters.
+         */
+        private String encodeBurnFunction(String fromAddress, BigInteger amount) {
+        org.web3j.abi.datatypes.Function function = new Function(
+            "burn",
+            Arrays.asList(
+                new Address(fromAddress),
+                new Uint256(amount)),
+            Arrays.asList());
+        return FunctionEncoder.encode(function);
+        }
 
     /**
      * Send encoded transaction to blockchain
