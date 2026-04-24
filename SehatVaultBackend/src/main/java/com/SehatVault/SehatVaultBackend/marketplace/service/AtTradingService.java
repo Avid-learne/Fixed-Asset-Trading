@@ -5,6 +5,7 @@ import com.SehatVault.SehatVaultBackend.assetdeposit.repository.AssetDepositRepo
 import com.SehatVault.SehatVaultBackend.marketplace.dto.PatientAssetTokenDto;
 import com.SehatVault.SehatVaultBackend.marketplace.entity.*;
 import com.SehatVault.SehatVaultBackend.marketplace.repository.*;
+import com.SehatVault.SehatVaultBackend.wallet.service.TokenPriceService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -31,9 +32,11 @@ import java.util.UUID;
 @Service
 public class AtTradingService {
 
-        private static final BigDecimal AT_TO_PKR = new BigDecimal("10");
         private static final BigDecimal MONTHLY_HT_PERCENTAGE = new BigDecimal("0.05");
         private static final int SCALE = 2;
+
+        @Autowired
+        private TokenPriceService tokenPriceService;
 
         @Autowired
         private PatientAtAssignmentRepository patientAtAssignmentRepository;
@@ -113,7 +116,7 @@ public class AtTradingService {
                 }
 
                 // Calculate monetary value
-                BigDecimal monetaryValue = atToAllocate.multiply(AT_TO_PKR);
+                BigDecimal monetaryValue = atToAllocate.multiply(tokenPriceService.getAtPricePkr());
 
                 // Create trade participation
                 TradeParticipation participation = TradeParticipation.builder()
@@ -271,7 +274,8 @@ public class AtTradingService {
                                 .findActiveParticipationsByTradeId(tradeId);
 
                 if (participations.isEmpty()) {
-                        throw new RuntimeException("No active participations found for trade");
+                        log.info("No active participations found for trade {} - skipping settlement", tradeId);
+                        return null;
                 }
 
                 // Process each participation
@@ -465,11 +469,11 @@ public class AtTradingService {
                                                                         assignment.getAvailabilityStatus().toString())
                                                         .assignedAt(assignment.getCreatedAt())
                                                         .monetaryValuePkr(assignment.getTotalAtAssigned()
-                                                                        .multiply(AT_TO_PKR))
+                                                                        .multiply(tokenPriceService.getAtPricePkr()))
                                                         .availableMonetaryValuePkr(
-                                                                        assignment.getAvailableAt().multiply(AT_TO_PKR))
+                                                                        assignment.getAvailableAt().multiply(tokenPriceService.getAtPricePkr()))
                                                         .unavailableMonetaryValuePkr(assignment.getTotalAtAssigned().subtract(assignment.getAvailableAt())
-                                                                        .multiply(AT_TO_PKR))
+                                                                        .multiply(tokenPriceService.getAtPricePkr()))
                                                         .build();
 
                                         // Add deposit info if exists
@@ -492,10 +496,8 @@ public class AtTradingService {
                                 .filter(d -> "approved".equalsIgnoreCase(d.getStatus()))
                                 .filter(d -> assignments.stream().noneMatch(a -> a.getAssetId().equals(d.getAssetId())))
                                 .map(deposit -> {
-                                        // Calculate expected AT based on asset value
-                                        // Formula: Asset Value / 100 = AT tokens
                                         BigDecimal expectedAt = deposit.getAssetValue() != null
-                                                        ? deposit.getAssetValue().divide(new BigDecimal("100"), 2,
+                                                        ? deposit.getAssetValue().divide(tokenPriceService.getAtPricePkr(), 2,
                                                                         java.math.RoundingMode.DOWN)
                                                         : BigDecimal.ZERO;
 
@@ -513,9 +515,9 @@ public class AtTradingService {
                                                         .availableAt(BigDecimal.ZERO) // Not assigned yet
                                                         .unavailableAt(expectedAt) // total - available = expectedAt - 0
                                                         .availabilityStatus("PENDING_BANK_APPROVAL")
-                                                        .monetaryValuePkr(expectedAt.multiply(AT_TO_PKR))
+                                                        .monetaryValuePkr(expectedAt.multiply(tokenPriceService.getAtPricePkr()))
                                                         .availableMonetaryValuePkr(BigDecimal.ZERO)
-                                                        .unavailableMonetaryValuePkr(expectedAt.multiply(AT_TO_PKR))
+                                                        .unavailableMonetaryValuePkr(expectedAt.multiply(tokenPriceService.getAtPricePkr()))
                                                         .build();
 
                                         return dto;

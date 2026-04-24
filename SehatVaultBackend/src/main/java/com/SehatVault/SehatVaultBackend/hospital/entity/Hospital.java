@@ -62,6 +62,15 @@ public class Hospital {
     @Column(name = "total_patients")
     private Integer totalPatients = 0;
     
+    @Column(name = "patient_profit_percent")
+    private Double patientProfitPercent = 40.0;
+
+    @Column(name = "hospital_profit_percent")
+    private Double hospitalProfitPercent = 50.0;
+
+    @Column(name = "bank_profit_percent")
+    private Double bankProfitPercent = 10.0;
+
     @Column(name = "gold_price_per_gram")
     private Double goldPricePerGram = 15000.0;
 

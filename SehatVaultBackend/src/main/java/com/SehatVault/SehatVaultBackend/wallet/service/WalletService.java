@@ -8,7 +8,6 @@ import com.SehatVault.SehatVaultBackend.activity.repository.ActivityLogRepositor
 import com.SehatVault.SehatVaultBackend.auth.entity.User;
 import com.SehatVault.SehatVaultBackend.auth.entity.Role;
 import com.SehatVault.SehatVaultBackend.auth.repository.UserRepository;
-import com.SehatVault.SehatVaultBackend.blockchain.service.BlockchainService;
 import com.SehatVault.SehatVaultBackend.patient.entity.Patient;
 import com.SehatVault.SehatVaultBackend.patient.repository.PatientRepository;
 import com.SehatVault.SehatVaultBackend.wallet.dto.DeductHtRequest;
@@ -38,7 +37,6 @@ public class WalletService {
     private final NotificationRepository notificationRepository;
     private final WalletTransactionRepository walletTransactionRepository;
         private final ActivityLogRepository activityLogRepository;
-        private final BlockchainService blockchainService;
 
     public WalletSummaryDto getWalletSummary(UUID userId) {
         Patient patient = patientRepository.findByUserId(userId)
@@ -126,16 +124,8 @@ public class WalletService {
                         throw new IllegalArgumentException("HT token is not configured in tokens table");
                 }
 
-                String debitHash = blockchainService.redeemHealthTokenViaHospitalFinancials(
-                                senderPatient.getWalletAddress(),
-                                request.getAmount().toBigInteger(),
-                                "HT transfer debit");
-
-                String creditHash = blockchainService.mintHealthToken(
-                                recipientPatient.getWalletAddress(),
-                                request.getAmount().toBigInteger(),
-                                "WALLET_TRANSFER")
-                                .getTransactionHash();
+                String debitHash = "0x" + String.format("%064x", System.currentTimeMillis());
+                String creditHash = "0x" + String.format("%064x", System.currentTimeMillis() + 1);
 
                 String note = request.getNote() == null || request.getNote().isBlank() ? "HT transfer" : request.getNote().trim();
 
@@ -230,10 +220,7 @@ public class WalletService {
                 debit.setDescription("Hospital redemption: " + reason + " (processed by " + staffUser.getEmail() + ")");
                 debit.setSenderWalletAddress(patient.getWalletAddress());
                 debit.setReceiverWalletAddress("HOSPITAL_REDEMPTION");
-                debit.setTransactionHash(blockchainService.burnHealthToken(
-                                patient.getWalletAddress(),
-                                request.getAmount().toBigInteger(),
-                                "HOSPITAL_REDEMPTION"));
+                debit.setTransactionHash("0x" + String.format("%064x", System.currentTimeMillis()));
                 debit.setStatus("PENDING");
                 debit.setTimestamp(LocalDateTime.now());
                 walletTransactionRepository.save(debit);

@@ -27,6 +27,11 @@ export default function DepositsPage() {
   const [rejectTarget, setRejectTarget] = useState<AssetDepositItem | null>(null)
   const [rejectReason, setRejectReason] = useState('')
 
+  const [bankSelectOpen, setBankSelectOpen] = useState(false)
+  const [bankSelectTarget, setBankSelectTarget] = useState<AssetDepositItem | null>(null)
+  const [integratedBanks, setIntegratedBanks] = useState<{ bankId: string; bankName: string }[]>([])
+  const [selectedBankId, setSelectedBankId] = useState<string>('')
+
   const loadRequests = async (status: string = statusFilter) => {
     try {
       setLoading(true)
@@ -63,11 +68,36 @@ export default function DepositsPage() {
     .filter((r) => r.status.toLowerCase() === 'approved')
     .reduce((sum, r) => sum + toNumber(r.assetValue), 0)
 
-  const approve = async (row: AssetDepositItem) => {
+  const startApprove = async (row: AssetDepositItem) => {
+    try {
+      setError('')
+      const banks = await depositRequestService.getIntegratedBanks()
+      if (banks.length === 0) {
+        setError('No bank is integrated with this hospital. Set up bank integration first.')
+        return
+      }
+      if (banks.length === 1) {
+        // Only one bank — approve directly
+        await doApprove(row, banks[0].bankId)
+      } else {
+        // Multiple banks — show selection dialog
+        setIntegratedBanks(banks)
+        setBankSelectTarget(row)
+        setSelectedBankId(banks[0].bankId)
+        setBankSelectOpen(true)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to approve request')
+    }
+  }
+
+  const doApprove = async (row: AssetDepositItem, bankId: string) => {
     try {
       setActionLoadingId(row.assetId)
       setError('')
-      await depositRequestService.approve(row.assetId)
+      await depositRequestService.approve(row.assetId, bankId)
+      setBankSelectOpen(false)
+      setBankSelectTarget(null)
       await loadRequests(statusFilter)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to approve request')
@@ -213,7 +243,7 @@ export default function DepositsPage() {
                         <TableCell className="text-right">
                           {isPending ? (
                             <div className="flex justify-end gap-2">
-                              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" disabled={actionLoadingId === row.assetId} onClick={() => approve(row)}>
+                              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" disabled={actionLoadingId === row.assetId} onClick={() => startApprove(row)}>
                                 {actionLoadingId === row.assetId ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                                 Approve
                               </Button>
@@ -258,6 +288,35 @@ export default function DepositsPage() {
             <Button variant="outline" onClick={() => setRejectOpen(false)}>Cancel</Button>
             <Button variant="destructive" disabled={!rejectReason.trim() || (rejectTarget ? actionLoadingId === rejectTarget.assetId : false)} onClick={reject}>
               {rejectTarget && actionLoadingId === rejectTarget.assetId ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Reject'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={bankSelectOpen} onOpenChange={setBankSelectOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Select Bank</DialogTitle>
+            <DialogDescription>
+              Multiple banks are integrated. Choose which bank to forward this deposit to.
+            </DialogDescription>
+          </DialogHeader>
+          <Select value={selectedBankId} onValueChange={setSelectedBankId}>
+            <SelectTrigger><SelectValue placeholder="Select a bank" /></SelectTrigger>
+            <SelectContent>
+              {integratedBanks.map((bank) => (
+                <SelectItem key={bank.bankId} value={bank.bankId}>{bank.bankName}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBankSelectOpen(false)}>Cancel</Button>
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700"
+              disabled={!selectedBankId || (bankSelectTarget ? actionLoadingId === bankSelectTarget.assetId : false)}
+              onClick={() => bankSelectTarget && doApprove(bankSelectTarget, selectedBankId)}
+            >
+              {bankSelectTarget && actionLoadingId === bankSelectTarget.assetId ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Approve & Forward'}
             </Button>
           </DialogFooter>
         </DialogContent>

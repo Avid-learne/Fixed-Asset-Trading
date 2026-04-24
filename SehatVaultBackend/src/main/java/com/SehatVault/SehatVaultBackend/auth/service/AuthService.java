@@ -23,7 +23,7 @@ import com.SehatVault.SehatVaultBackend.auth.repository.UserRepository;
 import com.SehatVault.SehatVaultBackend.auth.util.JwtUtil;
 import com.SehatVault.SehatVaultBackend.bank.entity.Bank;
 import com.SehatVault.SehatVaultBackend.bank.repository.BankRepository;
-import com.SehatVault.SehatVaultBackend.blockchain.service.PatientWalletAllocatorService;
+import com.SehatVault.SehatVaultBackend.patient.service.PatientWalletAllocatorService;
 import com.SehatVault.SehatVaultBackend.patient.entity.Patient;
 import com.SehatVault.SehatVaultBackend.patient.repository.PatientRepository;
 
@@ -134,9 +134,19 @@ public class AuthService {
             return new AuthResponse(false, "Invalid request data");
         }
 
-        // Enforce patient-only signup: Only patients can register themselves
-        if (!request.getRole().toLowerCase().equals("patient")) {
-            return new AuthResponse(false, "Only patients can self-register. Contact your administrator to create other user accounts.");
+        // Allowed self-registration roles
+        String requestedRole = request.getRole().toLowerCase().trim();
+        if (!requestedRole.equals("patient") && !requestedRole.equals("hospital_admin")
+                && !requestedRole.equals("hospital_staff") && !requestedRole.equals("bank_staff")) {
+            return new AuthResponse(false, "Invalid signup role.");
+        }
+
+        // Validate role-specific requirements
+        if (requestedRole.equals("hospital_staff") && (request.getHospitalName() == null || request.getHospitalName().isBlank())) {
+            return new AuthResponse(false, "Hospital name is required for hospital staff signup.");
+        }
+        if (requestedRole.equals("bank_staff") && (request.getBankName() == null || request.getBankName().isBlank())) {
+            return new AuthResponse(false, "Bank name is required for bank staff signup.");
         }
 
         // Normalize email
@@ -147,8 +157,12 @@ public class AuthService {
 
         // Check if email already exists
         if (userRepository.existsByEmail(email)) {
-            System.out.println("Email already exists: " + email);
             return new AuthResponse(false, "Email already registered");
+        }
+
+        // Check if CNIC already exists
+        if (userRepository.existsByCnic(request.getCnic().trim())) {
+            return new AuthResponse(false, "CNIC already registered");
         }
 
         // Validate password strength
@@ -267,9 +281,7 @@ public class AuthService {
             settings.setNotificationEnabled(true);
             settingsRepository.save(settings);
 
-            // Call stored procedure to create role-specific records
-            callSignupProcedure(savedUser.getUserId(), role.getRoleName().toString(), hospitalId);
-
+            // Create patient record if patient signup
             if (roleType == Role.RoleType.patient) {
                 ensurePatientRecordWithWallet(savedUser, hospitalId);
             }

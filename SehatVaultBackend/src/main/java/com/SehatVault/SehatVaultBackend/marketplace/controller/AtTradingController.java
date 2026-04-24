@@ -3,6 +3,7 @@ package com.SehatVault.SehatVaultBackend.marketplace.controller;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.*;
 import com.SehatVault.SehatVaultBackend.marketplace.entity.*;
 import com.SehatVault.SehatVaultBackend.marketplace.service.AtTradingService;
+import com.SehatVault.SehatVaultBackend.wallet.service.TokenPriceService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +23,9 @@ public class AtTradingController {
 
     @Autowired
     private AtTradingService atTradingService;
+
+    @Autowired
+    private TokenPriceService tokenPriceService;
 
     /**
      * Get patient's AT status summary
@@ -200,9 +204,9 @@ public class AtTradingController {
                 .availableAt(entity.getAvailableAt())
                 .unavailableAt(entity.getTotalAtAssigned().subtract(entity.getAvailableAt()))
                 .availabilityStatus(entity.getAvailabilityStatus().toString())
-                .monetaryValue(entity.getMonetaryValue())
-                .availableMonetaryValue(entity.getAvailableMonetaryValue())
-                .unavailableMonetaryValue(entity.getTotalAtAssigned().subtract(entity.getAvailableAt()).multiply(new java.math.BigDecimal("10")))
+                .monetaryValue(entity.getMonetaryValue(tokenPriceService.getAtPricePkr()))
+                .availableMonetaryValue(entity.getAvailableMonetaryValue(tokenPriceService.getAtPricePkr()))
+                .unavailableMonetaryValue(entity.getUnavailableMonetaryValue(tokenPriceService.getAtPricePkr()))
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();

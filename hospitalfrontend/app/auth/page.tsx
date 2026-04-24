@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Coins,
@@ -14,6 +14,15 @@ import {
 } from "lucide-react";
 import { authService } from "@/lib/authService";
 import { useAuth } from "@/contexts/AuthContext";
+
+type SignupRole = "patient" | "hospital_admin" | "hospital_staff" | "bank_staff";
+
+const ROLE_OPTIONS: { value: SignupRole; label: string }[] = [
+  { value: "patient", label: "Patient" },
+  { value: "hospital_admin", label: "Hospital Admin" },
+  { value: "hospital_staff", label: "Hospital Staff" },
+  { value: "bank_staff", label: "Bank Staff" },
+];
 
 export default function Auth() {
   const router = useRouter();
@@ -25,6 +34,8 @@ export default function Auth() {
   const [cnic, setCnic] = useState("");
   const [wallet, setWallet] = useState("");
   const [hospitalName, setHospitalName] = useState("");
+  const [bankName, setBankName] = useState("");
+  const [signupRole, setSignupRole] = useState<SignupRole>("patient");
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [hospitals, setHospitals] = useState<string[]>([]);
@@ -32,7 +43,6 @@ export default function Auth() {
 
   useEffect(() => {
     let isMounted = true;
-
     const loadHospitalsOnMount = async () => {
       const hospitalNames = await authService.getHospitals();
       if (isMounted) {
@@ -40,29 +50,20 @@ export default function Auth() {
         setHospitalsLoading(false);
       }
     };
-
     loadHospitalsOnMount();
-
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, []);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
-
     try {
       await contextLogin(email, password);
-      
-      // Get user role from stored data
       const storedUser = authService.getUser();
-      const userRole = storedUser?.role || 'PATIENT';
-      
+      const userRole = storedUser?.role || "PATIENT";
       setSuccessMessage("Login successful! Redirecting...");
-      const path = authService.getRoleRedirectPath(userRole);
-      router.push(path);
+      router.push(authService.getRoleRedirectPath(userRole));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid email or password");
     } finally {
@@ -75,21 +76,28 @@ export default function Auth() {
     setIsLoading(true);
     setError("");
 
-    // Validate
-    if (!name || !email || !password || !cnic || !hospitalName) {
+    if (!name || !email || !password || !cnic) {
       setError("Please fill in all required fields");
       setIsLoading(false);
       return;
     }
-
     if (password.length < 6) {
       setError("Password must be at least 6 characters");
       setIsLoading(false);
       return;
     }
-
-    if (!cnic || cnic.trim().length === 0) {
-      setError("CNIC is required");
+    if ((signupRole === "patient" || signupRole === "hospital_staff") && !hospitalName) {
+      setError("Please select a hospital");
+      setIsLoading(false);
+      return;
+    }
+    if (signupRole === "hospital_admin" && !hospitalName) {
+      setError("Please enter your hospital name");
+      setIsLoading(false);
+      return;
+    }
+    if (signupRole === "bank_staff" && !bankName) {
+      setError("Please enter your bank name");
       setIsLoading(false);
       return;
     }
@@ -100,24 +108,17 @@ export default function Auth() {
         password,
         name,
         cnic,
-        role: "patient",
+        role: signupRole,
         walletAddress: wallet || undefined,
         hospitalName: hospitalName || undefined,
+        bankName: bankName || undefined,
       });
 
       if (response.success) {
-        // Clear form
-        setEmail("");
-        setPassword("");
-        setName("");
-        setCnic("");
-        setWallet("");
-        setHospitalName("");
-        
-        // Show success and redirect
+        setEmail(""); setPassword(""); setName(""); setCnic("");
+        setWallet(""); setHospitalName(""); setBankName("");
         setSuccessMessage("Account created successfully! Redirecting...");
-        const path = authService.getRoleRedirectPath(response.role);
-        router.push(path);
+        router.push(authService.getRoleRedirectPath(response.role));
       } else {
         setError(response.message || "Sign-up failed. Please try again");
       }
@@ -128,9 +129,12 @@ export default function Auth() {
     }
   };
 
+  const needsHospitalDropdown = signupRole === "patient" || signupRole === "hospital_staff";
+  const needsHospitalInput = signupRole === "hospital_admin";
+  const needsBankInput = signupRole === "bank_staff";
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b">
         <div className="container mx-auto flex h-16 items-center px-4">
           <button
@@ -145,7 +149,6 @@ export default function Auth() {
 
       <div className="container mx-auto flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8">
         <div className="w-full max-w-lg">
-          {/* Logo */}
           <div className="mb-8 text-center">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
               <Coins className="h-6 w-6 text-primary-foreground" />
@@ -154,7 +157,6 @@ export default function Auth() {
             <p className="mt-1 text-muted-foreground">Healthcare Asset Tokenization Platform</p>
           </div>
 
-          {/* Auth Card */}
           <Card className="shadow-elevated">
             <Tabs defaultValue="signin" className="w-full">
               <CardHeader className="pb-4">
@@ -176,6 +178,8 @@ export default function Auth() {
                     {error}
                   </div>
                 )}
+
+                {/* SIGN IN */}
                 <TabsContent value="signin" className="mt-0 space-y-6">
                   <form onSubmit={handleSignIn} className="space-y-4">
                     <div className="space-y-2">
@@ -192,64 +196,92 @@ export default function Auth() {
                   </form>
                 </TabsContent>
 
+                {/* SIGN UP */}
                 <TabsContent value="signup" className="mt-0 space-y-4">
                   <form onSubmit={handleSignUp} className="space-y-4">
+                    {/* Role Selection */}
                     <div className="space-y-2">
-                      <Label htmlFor="signup-name">Full Name</Label>
+                      <Label>I am a <span className="text-error">*</span></Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {ROLE_OPTIONS.map((opt) => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => { setSignupRole(opt.value); setHospitalName(""); setBankName(""); }}
+                            className={`rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                              signupRole === opt.value
+                                ? "border-primary bg-primary text-primary-foreground"
+                                : "border-input bg-background text-foreground hover:bg-muted"
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-name">Full Name <span className="text-error">*</span></Label>
                       <Input id="signup-name" type="text" placeholder="John Doe" value={name} onChange={(e) => setName(e.target.value)} required />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="signup-email">Email</Label>
+                      <Label htmlFor="signup-email">Email <span className="text-error">*</span></Label>
                       <Input id="signup-email" type="email" placeholder="john@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="signup-cnic">CNIC <span className="text-error">*</span></Label>
-                      <Input 
-                        id="signup-cnic" 
-                        type="text" 
-                        placeholder="12345-6789012-3" 
-                        value={cnic} 
-                        onChange={(e) => setCnic(e.target.value)} 
-                        required 
-                      />
-                      <p className="text-xs text-muted-foreground">Your CNIC number is required for identity verification</p>
+                      <Input id="signup-cnic" type="text" placeholder="12345-6789012-3" value={cnic} onChange={(e) => setCnic(e.target.value)} required />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="signup-password">Password</Label>
+                      <Label htmlFor="signup-password">Password <span className="text-error">*</span></Label>
                       <Input id="signup-password" type="password" placeholder="Min 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} required />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-hospital">
-                        Hospital <span className="text-error">*</span>
-                      </Label>
-                      <select
-                        id="signup-hospital"
-                        value={hospitalName}
-                        onChange={(e) => setHospitalName(e.target.value)}
-                        required
-                        disabled={hospitalsLoading}
-                        className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60"
-                      >
-                        <option value="">
-                          {hospitalsLoading ? "Loading hospitals..." : "Select your hospital"}
-                        </option>
-                        {hospitals.map((hospital) => (
-                          <option key={hospital} value={hospital}>
-                            {hospital}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-wallet">Wallet Address (Optional)</Label>
-                      <Input 
-                        id="signup-wallet" 
-                        type="text" 
-                        placeholder="0x..." 
-                        value={wallet} 
-                        onChange={(e) => setWallet(e.target.value)} 
-                      />
-                    </div>
+
+                    {/* Hospital dropdown — for patient & hospital_staff */}
+                    {needsHospitalDropdown && (
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-hospital">Select Hospital <span className="text-error">*</span></Label>
+                        <select
+                          id="signup-hospital"
+                          value={hospitalName}
+                          onChange={(e) => setHospitalName(e.target.value)}
+                          required
+                          disabled={hospitalsLoading}
+                          className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60"
+                        >
+                          <option value="">{hospitalsLoading ? "Loading hospitals..." : "Select your hospital"}</option>
+                          {hospitals.map((h) => (
+                            <option key={h} value={h}>{h}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Hospital name input — for hospital_admin (creates new hospital) */}
+                    {needsHospitalInput && (
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-hospital-name">Hospital Name <span className="text-error">*</span></Label>
+                        <Input id="signup-hospital-name" type="text" placeholder="Enter your hospital name" value={hospitalName} onChange={(e) => setHospitalName(e.target.value)} required />
+                        <p className="text-xs text-muted-foreground">A new hospital will be registered with this name</p>
+                      </div>
+                    )}
+
+                    {/* Bank name input — for bank_staff */}
+                    {needsBankInput && (
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-bank-name">Bank Name <span className="text-error">*</span></Label>
+                        <Input id="signup-bank-name" type="text" placeholder="Enter your bank name" value={bankName} onChange={(e) => setBankName(e.target.value)} required />
+                      </div>
+                    )}
+
+                    {/* Wallet address — only for patient */}
+                    {signupRole === "patient" && (
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-wallet">Wallet Address (Optional)</Label>
+                        <Input id="signup-wallet" type="text" placeholder="0x..." value={wallet} onChange={(e) => setWallet(e.target.value)} />
+                      </div>
+                    )}
+
                     <Button type="submit" className="w-full" disabled={isLoading}>
                       {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Create Account"}
                     </Button>

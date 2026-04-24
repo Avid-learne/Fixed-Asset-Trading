@@ -1,199 +1,114 @@
-// hospitalfrontend/app/bank/assets/page.tsx
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Search, Building2, Lock, Eye, Archive } from 'lucide-react'
+import { Search, Lock, Archive, RefreshCw, Loader2 } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
-
-type AssetStatus = 'secured' | 'pending' | 'released'
-
-interface Asset {
-  id: string
-  hospitalName: string
-  assetType: string
-  description: string
-  valuation: number
-  fundingProvided: number
-  status: AssetStatus
-  storageLocation: string
-  depositDate: string
-}
+import { depositRequestService, AssetDepositItem } from '@/services/depositRequestService'
 
 export default function AssetCustodyPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [assetFilter, setAssetFilter] = useState('all')
+  const [assets, setAssets] = useState<AssetDepositItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
-  const handleViewAsset = (asset: Asset) => {
-    alert(`Asset Details:\n\nID: ${asset.id}\nHospital: ${asset.hospitalName}\nType: ${asset.description}\nValue: $${asset.valuation.toLocaleString()}\nFunding: $${asset.fundingProvided.toLocaleString()}\nLocation: ${asset.storageLocation}\nStatus: ${asset.status}\n\nIn production, this would open a detailed modal.`)
-  }
-
-  // Mock data for assets in custody
-  const assetsInCustody: Asset[] = [
-    {
-      id: 'AST-001',
-      hospitalName: 'Liaquat National Hospital',
-      assetType: 'Gold',
-      description: '100g Gold Bars (99.9% purity)',
-      valuation: 520000,
-      fundingProvided: 416000,
-      status: 'secured',
-      storageLocation: 'Vault A-12',
-      depositDate: '2024-11-15'
-    },
-    {
-      id: 'AST-002',
-      hospitalName: 'Liaquat National Hospital',
-      assetType: 'Silver',
-      description: '500g Silver Bars (99.5% purity)',
-      valuation: 180000,
-      fundingProvided: 144000,
-      status: 'secured',
-      storageLocation: 'Vault B-05',
-      depositDate: '2024-11-20'
-    },
-    {
-      id: 'AST-003',
-      hospitalName: 'Liaquat National Hospital',
-      assetType: 'Gold',
-      description: '75g Gold Coins',
-      valuation: 390000,
-      fundingProvided: 312000,
-      status: 'secured',
-      storageLocation: 'Vault A-08',
-      depositDate: '2024-12-01'
-    },
-    {
-      id: 'AST-004',
-      hospitalName: 'Liaquat National Hospital',
-      assetType: 'Gold',
-      description: '120g Gold Bars',
-      valuation: 624000,
-      fundingProvided: 499200,
-      status: 'pending',
-      storageLocation: 'Processing',
-      depositDate: '2024-12-07'
-    },
-    {
-      id: 'AST-005',
-      hospitalName: 'Liaquat National Hospital',
-      assetType: 'Gold',
-      description: '150g Gold Jewelry',
-      valuation: 780000,
-      fundingProvided: 624000,
-      status: 'pending',
-      storageLocation: 'Appraisal Dept',
-      depositDate: '2024-12-08'
-    },
-    {
-      id: 'AST-006',
-      hospitalName: 'Liaquat National Hospital',
-      assetType: 'Silver',
-      description: '1kg Silver Coins',
-      valuation: 360000,
-      fundingProvided: 288000,
-      status: 'pending',
-      storageLocation: 'Verification',
-      depositDate: '2024-12-07'
-    },
-  ]
-
-  const totalValue = assetsInCustody.reduce((sum, asset) => sum + asset.valuation, 0)
-  const totalFunding = assetsInCustody.reduce((sum, asset) => sum + asset.fundingProvided, 0)
-  const securedAssets = assetsInCustody.filter(a => a.status === 'secured').length
-  const pendingAssets = assetsInCustody.filter(a => a.status === 'pending').length
-
-  const filteredAssets = assetsInCustody.filter(asset => {
-    const matchesSearch = asset.hospitalName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         asset.assetType.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         asset.id.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesFilter = assetFilter === 'all' || asset.assetType.toLowerCase() === assetFilter.toLowerCase()
-    return matchesSearch && matchesFilter
-  })
-
-  const getStatusBadge = (status: AssetStatus) => {
-    switch (status) {
-      case 'secured':
-        return <Badge className="bg-green-100 text-green-800 border-green-200"><Lock className="w-3 h-3 mr-1" />Secured</Badge>
-      case 'pending':
-        return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Pending</Badge>
-      case 'released':
-        return <Badge className="bg-gray-100 text-gray-800 border-gray-200">Released</Badge>
+  const fetchAssets = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const data = await depositRequestService.getBankRequests('approved')
+      setAssets(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load assets')
+    } finally {
+      setLoading(false)
     }
   }
 
+  useEffect(() => {
+    fetchAssets()
+  }, [])
+
+  const totalValue = assets.reduce((sum, a) => sum + (a.assetValue || 0), 0)
+  const totalAssets = assets.length
+  const assetTypes = [...new Set(assets.map(a => a.assetType?.toUpperCase()).filter(Boolean))]
+
+  const filteredAssets = assets.filter(asset => {
+    const matchesSearch =
+      (asset.patientName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (asset.hospitalName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (asset.assetType || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (asset.assetId || '').toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesFilter = assetFilter === 'all' || (asset.assetType || '').toLowerCase() === assetFilter.toLowerCase()
+    return matchesSearch && matchesFilter
+  })
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Asset Custody</h1>
-        <p className="text-muted-foreground mt-1">Physical assets held in secure bank vaults</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Asset Custody</h1>
+          <p className="text-muted-foreground mt-1">Bank-approved assets from integrated hospitals</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={fetchAssets} disabled={loading}>
+          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="min-w-0">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Asset Value</CardTitle>
-            <Archive className="w-5 h-5 text-emerald-600 shrink-0" />
+            <Archive className="w-5 h-5 text-emerald-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-xl font-bold text-foreground truncate" title={formatCurrency(totalValue)}>
-              {formatCurrency(totalValue)}
+            <div className="text-xl font-bold text-foreground">{formatCurrency(totalValue)}</div>
+            <p className="text-xs text-muted-foreground mt-1">Approved deposits</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Approved Assets</CardTitle>
+            <Lock className="w-5 h-5 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground">{totalAssets}</div>
+            <p className="text-xs text-muted-foreground mt-1">In custody</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total AT Minted</CardTitle>
+            <Archive className="w-5 h-5 text-purple-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground">
+              {assets.reduce((sum, a) => sum + (a.expectedTokens || 0), 0).toLocaleString()} AT
             </div>
-            <p className="text-xs text-muted-foreground mt-1">In secure custody</p>
-          </CardContent>
-        </Card>
-
-        <Card className="min-w-0">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Secured Assets</CardTitle>
-            <Lock className="w-5 h-5 text-green-600 shrink-0" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground">{securedAssets}</div>
-            <p className="text-xs text-muted-foreground mt-1">In vault storage</p>
-          </CardContent>
-        </Card>
-
-        <Card className="min-w-0">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Funding Provided</CardTitle>
-            <Building2 className="w-5 h-5 text-purple-600 shrink-0" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl font-bold text-foreground truncate" title={formatCurrency(totalFunding)}>
-              {formatCurrency(totalFunding)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">To hospitals</p>
-          </CardContent>
-        </Card>
-
-        <Card className="min-w-0">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Pending Processing</CardTitle>
-            <Archive className="w-5 h-5 text-orange-600 shrink-0" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground">{pendingAssets}</div>
-            <p className="text-xs text-orange-600 mt-1">Awaiting vault storage</p>
+            <p className="text-xs text-muted-foreground mt-1">From approved deposits</p>
           </CardContent>
         </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Assets in Custody</CardTitle>
-          <CardDescription>Physical assets stored in bank vaults</CardDescription>
+          <CardTitle>Approved Deposits</CardTitle>
+          <CardDescription>Assets approved by bank from integrated hospitals</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Search by hospital, asset type, or ID..."
+                placeholder="Search by patient, hospital, type, or ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -207,69 +122,81 @@ export default function AssetCustodyPage() {
               >
                 All
               </Button>
-              <Button
-                variant={assetFilter === 'gold' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setAssetFilter('gold')}
-              >
-                Gold
-              </Button>
-              <Button
-                variant={assetFilter === 'silver' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setAssetFilter('silver')}
-              >
-                Silver
-              </Button>
+              {assetTypes.map((type) => (
+                <Button
+                  key={type}
+                  variant={assetFilter.toUpperCase() === type ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setAssetFilter(type)}
+                >
+                  {type}
+                </Button>
+              ))}
             </div>
           </div>
 
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Asset ID</TableHead>
-                <TableHead>Hospital</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Valuation</TableHead>
-                <TableHead>Funding</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredAssets.length === 0 ? (
+          {error && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+              {error}
+            </div>
+          )}
+
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-muted-foreground">Loading assets...</span>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
-                    No assets found matching your criteria
-                  </TableCell>
+                  <TableHead>Patient</TableHead>
+                  <TableHead>Hospital</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Weight</TableHead>
+                  <TableHead>Value (PKR)</TableHead>
+                  <TableHead>AT Minted</TableHead>
+                  <TableHead>Approved On</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
-              ) : (
-                filteredAssets.map((asset) => (
-                  <TableRow key={asset.id}>
-                    <TableCell className="font-medium">{asset.id}</TableCell>
-                    <TableCell>{asset.hospitalName}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{asset.assetType}</Badge>
-                    </TableCell>
-                    <TableCell className="max-w-xs">{asset.description}</TableCell>
-                    <TableCell className="font-semibold">{formatCurrency(asset.valuation)}</TableCell>
-                    <TableCell className="text-green-600">{formatCurrency(asset.fundingProvided)}</TableCell>
-                    <TableCell>{getStatusBadge(asset.status)}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{asset.storageLocation}</TableCell>
-                    <TableCell>{asset.depositDate}</TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm" onClick={() => handleViewAsset(asset)}>
-                        <Eye className="w-4 h-4" />
-                      </Button>
+              </TableHeader>
+              <TableBody>
+                {filteredAssets.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                      No approved assets found
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  filteredAssets.map((asset) => (
+                    <TableRow key={asset.assetId}>
+                      <TableCell>
+                        <div className="font-medium">{asset.patientName}</div>
+                        <div className="text-xs text-muted-foreground">{asset.patientEmail}</div>
+                      </TableCell>
+                      <TableCell>{asset.hospitalName}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{asset.assetType}</Badge>
+                      </TableCell>
+                      <TableCell>{asset.weight}g</TableCell>
+                      <TableCell className="font-semibold">{formatCurrency(asset.assetValue)}</TableCell>
+                      <TableCell className="text-emerald-600 font-medium">
+                        {(asset.expectedTokens || 0).toLocaleString()} AT
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {asset.bankApprovedAt ? formatDate(asset.bankApprovedAt) : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className="bg-green-100 text-green-800 border-green-200">
+                          <Lock className="w-3 h-3 mr-1" />Approved
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

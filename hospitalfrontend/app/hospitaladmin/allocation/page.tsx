@@ -181,16 +181,6 @@ export default function ProfitAllocationPage() {
               </div>
             </div>
 
-            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex gap-3">
-              <AlertCircle className="w-5 h-5 text-emerald-600 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-emerald-900">Formula</p>
-                <p className="text-xs text-emerald-700 mt-1">
-                  Each patient share = (patient approved asset value / total approved asset value) * minted HT.
-                  Minted HT are fully distributed in this run, so hospital HT wallet remains empty.
-                </p>
-              </div>
-            </div>
           </CardContent>
         </Card>
 

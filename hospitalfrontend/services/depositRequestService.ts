@@ -95,12 +95,23 @@ export const depositRequestService = {
     return parseResponse<AssetDepositItem[]>(response, 'Failed to load your deposit requests')
   },
 
-  async approve(assetId: string): Promise<AssetDepositItem> {
-    const response = await fetch(`${API_BASE}/asset-deposits/${assetId}/approve`, {
+  async approve(assetId: string, bankId?: string): Promise<AssetDepositItem> {
+    const url = bankId
+      ? `${API_BASE}/asset-deposits/${assetId}/approve?bankId=${bankId}`
+      : `${API_BASE}/asset-deposits/${assetId}/approve`
+    const response = await fetch(url, {
       method: 'POST',
       headers: getAuthHeaders(),
     })
     return parseResponse<AssetDepositItem>(response, 'Failed to approve deposit request')
+  },
+
+  async getIntegratedBanks(): Promise<{ bankId: string; bankName: string }[]> {
+    const response = await fetch(`${API_BASE}/asset-deposits/integrated-banks`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    })
+    return parseResponse<{ bankId: string; bankName: string }[]>(response, 'Failed to load integrated banks')
   },
 
   async reject(assetId: string, reason: string): Promise<AssetDepositItem> {

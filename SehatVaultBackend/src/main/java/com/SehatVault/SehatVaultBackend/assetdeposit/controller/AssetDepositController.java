@@ -10,6 +10,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import com.SehatVault.SehatVaultBackend.bank.entity.Bank;
+import com.SehatVault.SehatVaultBackend.bank.repository.BankRepository;
+import com.SehatVault.SehatVaultBackend.bankintegration.entity.Partnership;
+import com.SehatVault.SehatVaultBackend.bankintegration.repository.PartnershipRepository;
+import com.SehatVault.SehatVaultBackend.auth.entity.User;
+import com.SehatVault.SehatVaultBackend.auth.repository.UserRepository;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +29,9 @@ import java.util.UUID;
 public class AssetDepositController {
 
     private final AssetDepositService assetDepositService;
+    private final PartnershipRepository partnershipRepository;
+    private final BankRepository bankRepository;
+    private final UserRepository userRepository;
 
     @GetMapping("/hospitals")
     public ResponseEntity<?> getHospitals() {
@@ -102,13 +112,41 @@ public class AssetDepositController {
         }
     }
 
+    @GetMapping("/integrated-banks")
+    public ResponseEntity<?> getIntegratedBanks(Authentication authentication) {
+        try {
+            if (authentication == null) return ResponseEntity.status(401).body(error("Unauthorized"));
+            User user = userRepository.findByEmail(authentication.getName()).orElse(null);
+            if (user == null || user.getHospitalId() == null) return ResponseEntity.badRequest().body(error("Hospital not found"));
+
+            List<Map<String, Object>> banks = partnershipRepository
+                    .findByHospitalIdOrderByCreatedAtDesc(user.getHospitalId())
+                    .stream()
+                    .filter(p -> p.getIntegrationStatus() == Partnership.IntegrationStatus.APPROVED)
+                    .map(p -> {
+                        Bank bank = bankRepository.findById(p.getBankId()).orElse(null);
+                        Map<String, Object> m = new HashMap<>();
+                        m.put("bankId", p.getBankId());
+                        m.put("bankName", bank != null ? bank.getBankName() : "Unknown Bank");
+                        return m;
+                    })
+                    .toList();
+            return ResponseEntity.ok(success("Integrated banks", banks));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(error("Error: " + e.getMessage()));
+        }
+    }
+
     @PostMapping("/{assetId}/approve")
-    public ResponseEntity<?> approveRequest(Authentication authentication, @PathVariable UUID assetId) {
+    public ResponseEntity<?> approveRequest(
+            Authentication authentication,
+            @PathVariable UUID assetId,
+            @RequestParam(required = false) UUID bankId) {
         try {
             if (authentication == null || authentication.getName() == null) {
                 return ResponseEntity.status(401).body(error("Unauthorized"));
             }
-            AssetDepositDto data = assetDepositService.approveRequest(authentication.getName(), assetId);
+            AssetDepositDto data = assetDepositService.approveRequest(authentication.getName(), assetId, bankId);
             return ResponseEntity.ok(success("Deposit approved", data));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(error(e.getMessage()));

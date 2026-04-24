@@ -69,25 +69,15 @@ public class PatientAtAssignment {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    /**
-     * Get the monetary value of AT in PKR
-     * AT_TO_PKR conversion: 1 AT = 10 PKR
-     */
-    public BigDecimal getMonetaryValue() {
-        return totalAtAssigned.multiply(new BigDecimal("10"));
+    public BigDecimal getMonetaryValue(BigDecimal atPrice) {
+        return totalAtAssigned.multiply(atPrice);
     }
 
-    /**
-     * Get monetary value of available AT
-     */
-    public BigDecimal getAvailableMonetaryValue() {
-        return availableAt.multiply(new BigDecimal("10"));
+    public BigDecimal getAvailableMonetaryValue(BigDecimal atPrice) {
+        return availableAt.multiply(atPrice);
     }
 
-    /**
-     * Get monetary value of unavailable AT
-     */
-    public BigDecimal getUnavailableMonetaryValue() {
-        return unavailableAt.multiply(new BigDecimal("10"));
+    public BigDecimal getUnavailableMonetaryValue(BigDecimal atPrice) {
+        return unavailableAt.multiply(atPrice);
     }
 }

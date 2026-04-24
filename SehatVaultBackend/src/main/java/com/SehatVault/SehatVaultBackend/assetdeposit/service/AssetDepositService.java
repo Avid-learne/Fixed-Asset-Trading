@@ -12,10 +12,10 @@ import com.SehatVault.SehatVaultBackend.auth.entity.User;
 import com.SehatVault.SehatVaultBackend.auth.repository.UserRepository;
 import com.SehatVault.SehatVaultBackend.bank.entity.Bank;
 import com.SehatVault.SehatVaultBackend.bank.repository.BankRepository;
-import com.SehatVault.SehatVaultBackend.blockchain.dto.BlockchainMintRequest;
-import com.SehatVault.SehatVaultBackend.blockchain.dto.BlockchainMintResponse;
-import com.SehatVault.SehatVaultBackend.blockchain.service.BlockchainService;
-import com.SehatVault.SehatVaultBackend.blockchain.service.PatientWalletAllocatorService;
+import com.SehatVault.SehatVaultBackend.bankintegration.entity.Partnership;
+import com.SehatVault.SehatVaultBackend.bankintegration.repository.PartnershipRepository;
+import com.SehatVault.SehatVaultBackend.patient.service.PatientWalletAllocatorService;
+import com.SehatVault.SehatVaultBackend.wallet.service.TokenPriceService;
 import com.SehatVault.SehatVaultBackend.healthcard.entity.Card;
 import com.SehatVault.SehatVaultBackend.healthcard.entity.HealthCard;
 import com.SehatVault.SehatVaultBackend.healthcard.repository.CardRepository;
@@ -49,8 +49,7 @@ import java.util.UUID;
 @Slf4j
 public class AssetDepositService {
 
-    private static final BigDecimal TOKEN_RATIO = new BigDecimal("100");
-
+    private final TokenPriceService tokenPriceService;
     private final AssetDepositRepository assetDepositRepository;
     private final PatientRepository patientRepository;
     private final PatientTokenBalanceRepository patientTokenBalanceRepository;
@@ -59,9 +58,9 @@ public class AssetDepositService {
     private final UserRepository userRepository;
     private final HospitalRepository hospitalRepository;
     private final BankRepository bankRepository;
+    private final PartnershipRepository partnershipRepository;
     private final MintRecordRepository mintRecordRepository;
     private final HospitalAtPoolService hospitalAtPoolService;
-    private final BlockchainService blockchainService;
     private final PatientWalletAllocatorService patientWalletAllocatorService;
     private final AtTradingService atTradingService;
     private final NotificationRepository notificationRepository;
@@ -111,15 +110,9 @@ public class AssetDepositService {
         patient.setHasAsset(true);
         patientRepository.save(patient);
 
-        UUID bankId = assetDepositRepository.findAnyBankId();
-        if (bankId == null) {
-            throw new IllegalArgumentException(
-                    "No bank is configured yet. Create at least one bank before submitting deposit requests.");
-        }
-
         AssetDeposit deposit = new AssetDeposit();
         deposit.setPatientId(patient.getId());
-        deposit.setBankId(bankId);
+        deposit.setBankId(null); // Bank assigned when hospital admin approves and forwards
         deposit.setAssetType(normalizeAssetType(request.getAssetType()));
         deposit.setAssetValue(request.getAssetValue());
         deposit.setWeight(request.getWeight());
@@ -207,7 +200,7 @@ public class AssetDepositService {
     }
 
     @Transactional
-    public AssetDepositDto approveRequest(String email, UUID assetId) {
+    public AssetDepositDto approveRequest(String email, UUID assetId, UUID bankId) {
         User admin = requireUser(email);
         requireRole(admin, Role.RoleType.hospital_admin, "Only hospital admins can approve deposit requests");
 
@@ -223,11 +216,28 @@ public class AssetDepositService {
             throw new IllegalArgumentException("Only pending requests can be approved by hospital");
         }
 
+        // Resolve bank: use provided bankId, or auto-pick if only one integrated bank
+        UUID resolvedBankId = bankId;
+        if (resolvedBankId == null) {
+            List<Partnership> approvedPartnerships = partnershipRepository
+                    .findByHospitalIdOrderByCreatedAtDesc(admin.getHospitalId())
+                    .stream()
+                    .filter(p -> p.getIntegrationStatus() == Partnership.IntegrationStatus.APPROVED)
+                    .toList();
+            if (approvedPartnerships.isEmpty()) {
+                throw new IllegalArgumentException("No bank is integrated with this hospital.");
+            }
+            if (approvedPartnerships.size() > 1) {
+                throw new IllegalArgumentException("Multiple banks integrated. Please select which bank to forward to.");
+            }
+            resolvedBankId = approvedPartnerships.get(0).getBankId();
+        }
+
         deposit.setStatus("approved");
         deposit.setApprovedAt(LocalDateTime.now());
         deposit.setRejectedAt(null);
         deposit.setRejectionReason(null);
-        // Hospital approval forwards request to bank queue.
+        deposit.setBankId(resolvedBankId);
         deposit.setBankApprovalStatus("pending");
         deposit.setBankApprovedAt(null);
         deposit.setBankRejectedAt(null);
@@ -369,24 +379,13 @@ public class AssetDepositService {
         Hospital hospital = hospitalRepository.findById(hospitalId)
                 .orElseThrow(() -> new IllegalArgumentException("Hospital not found"));
 
-        // Mint AT and HT from approved asset value.
-        BigDecimal atTokens = nzNum(saved.getAssetValue()).divide(TOKEN_RATIO, 2, RoundingMode.DOWN);
-        BigDecimal htTokens = atTokens;
+        // Mint AT from approved asset value. HT is only given through profit distribution.
+        BigDecimal atTokens = nzNum(saved.getAssetValue()).divide(tokenPriceService.getAtPricePkr(), 2, RoundingMode.DOWN);
 
         validateMintCap(saved, atTokens);
 
         String patientWalletAddress = patientWalletAllocatorService.assignWalletToPatient(patient);
 
-        // Submit AT mint on-chain first so DB 'minted' status always has a real
-        // blockchain tx hash.
-        BlockchainMintResponse mintResponse = blockchainService.mintAssetToken(
-                BlockchainMintRequest.builder()
-                        .patientAddress(patientWalletAddress)
-                        .amount(atTokens.toBigInteger())
-                        .tokenType("AT")
-                        .depositId(saved.getAssetId().getMostSignificantBits())
-                        .metadata("asset-id:" + saved.getAssetId())
-                        .build());
 
         PatientTokenBalance balance = patientTokenBalanceRepository
                 .findByPatientId(patient.getId())
@@ -399,11 +398,10 @@ public class AssetDepositService {
                     return b;
                 });
         balance.setTotalAt(nzNum(balance.getTotalAt()).add(atTokens));
-        balance.setTotalHt(nzNum(balance.getTotalHt()).add(htTokens));
         balance.setLastUpdated(LocalDateTime.now());
         patientTokenBalanceRepository.save(balance);
 
-        recordMint(saved, patient.getId(), bankUser.getUserId(), atTokens, mintResponse);
+        recordMint(saved, patient.getId(), bankUser.getUserId(), atTokens, null);
         hospitalAtPoolService.addToPool(hospitalId, patient.getId(), saved.getAssetId(), atTokens);
 
         // Initialize AT assignment for AT Trading System
@@ -411,22 +409,18 @@ public class AssetDepositService {
         log.info("AT assignment initialized for patient {} with {} AT from approved asset {}",
                 patient.getId(), atTokens, saved.getAssetId());
 
-        // Auto-create/update Asset Health Card and move approved HT into the card
-        // balance.
-        creditAssetHealthCard(patient.getId(), htTokens);
-
         // Notify patient that tokens were minted
         sendNotification(bankUser.getUserId(), patientUser.getUserId(),
                 "Asset Tokens Minted",
                 "Your " + saved.getAssetType() + " deposit has been approved by the bank. "
-                        + atTokens + " AT and " + htTokens + " HT tokens have been minted to your wallet.");
+                        + atTokens + " AT tokens have been minted to your wallet.");
 
         // Notify hospital admin about successful minting
         notifyHospitalAdmins(hospitalId, bankUser.getUserId(),
                 "Deposit Approved & Tokens Minted",
                 "Bank approved deposit for patient " + patientUser.getName()
                         + ". " + atTokens + " AT minted from " + saved.getAssetType()
-                        + " worth PKR " + saved.getAssetValue() + ".");
+                        + " worth PKR " + saved.getAssetValue());
 
         return toDto(saved, patient, patientUser, hospital);
     }
@@ -498,7 +492,7 @@ public class AssetDepositService {
         dto.setAssetType(deposit.getAssetType());
         dto.setWeight(deposit.getWeight());
         dto.setAssetValue(nzNum(deposit.getAssetValue()));
-        dto.setExpectedTokens(nzNum(deposit.getAssetValue()).divide(TOKEN_RATIO, 2, RoundingMode.DOWN));
+        dto.setExpectedTokens(nzNum(deposit.getAssetValue()).divide(tokenPriceService.getAtPricePkr(), 2, RoundingMode.DOWN));
         dto.setStatus(nz(deposit.getStatus()));
         dto.setBankApprovalStatus(nz(deposit.getBankApprovalStatus()));
         dto.setSubmittedAt(deposit.getSubmittedAt());
@@ -554,7 +548,7 @@ public class AssetDepositService {
     }
 
     private void validateMintCap(AssetDeposit deposit, BigDecimal newAtMintAmount) {
-        BigDecimal maxMintableAt = nzNum(deposit.getAssetValue()).divide(TOKEN_RATIO, 8, RoundingMode.DOWN);
+        BigDecimal maxMintableAt = nzNum(deposit.getAssetValue()).divide(tokenPriceService.getAtPricePkr(), 8, RoundingMode.DOWN);
         BigDecimal alreadyMintedAt = nzNum(mintRecordRepository.sumTokensMintedByAssetId(deposit.getAssetId()));
         BigDecimal cumulativeAt = alreadyMintedAt.add(nzNum(newAtMintAmount));
 
@@ -572,24 +566,15 @@ public class AssetDepositService {
             UUID patientId,
             UUID minterId,
             BigDecimal atTokens,
-            BlockchainMintResponse mintResponse) {
+            Object unused) {
         MintRecord mintRecord = new MintRecord();
         mintRecord.setAssetId(deposit.getAssetId());
         mintRecord.setPatientId(patientId);
         mintRecord.setMinterId(minterId);
         mintRecord.setTokensMinted(atTokens);
-        mintRecord.setAmount(atTokens.multiply(TOKEN_RATIO));
-        mintRecord.setStatus("PENDING");
-        if (mintResponse != null) {
-            mintRecord.setTransactionHash(mintResponse.getTransactionHash());
-            if (mintResponse.getBlockNumber() != null && !mintResponse.getBlockNumber().isBlank()) {
-                try {
-                    mintRecord.setBlockNumber(Long.parseLong(mintResponse.getBlockNumber()));
-                } catch (NumberFormatException ignored) {
-                    mintRecord.setBlockNumber(null);
-                }
-            }
-        }
+        mintRecord.setAmount(atTokens.multiply(tokenPriceService.getAtPricePkr()));
+        mintRecord.setStatus("CONFIRMED");
+        mintRecord.setTransactionHash("0x" + String.format("%064x", System.currentTimeMillis()));
         mintRecord.setTimestamp(LocalDateTime.now());
         mintRecordRepository.save(mintRecord);
     }

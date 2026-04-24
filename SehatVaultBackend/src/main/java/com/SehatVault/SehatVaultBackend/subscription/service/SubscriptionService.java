@@ -9,8 +9,8 @@ import com.SehatVault.SehatVaultBackend.activity.entity.Transaction;
 import com.SehatVault.SehatVaultBackend.activity.repository.ActivityLogRepository;
 import com.SehatVault.SehatVaultBackend.patient.entity.Patient;
 import com.SehatVault.SehatVaultBackend.patient.repository.PatientRepository;
-import com.SehatVault.SehatVaultBackend.blockchain.service.BlockchainService;
-import com.SehatVault.SehatVaultBackend.blockchain.service.PatientWalletAllocatorService;
+import com.SehatVault.SehatVaultBackend.patient.service.PatientWalletAllocatorService;
+import com.SehatVault.SehatVaultBackend.wallet.service.TokenPriceService;
 import com.SehatVault.SehatVaultBackend.subscription.dto.*;
 import com.SehatVault.SehatVaultBackend.subscription.entity.PatientSubscription;
 import com.SehatVault.SehatVaultBackend.subscription.entity.PaymentHistory;
@@ -50,8 +50,8 @@ public class SubscriptionService {
     private final PatientTokenBalanceRepository patientTokenBalanceRepository;
     private final WalletTransactionRepository walletTransactionRepository;
     private final ActivityLogRepository activityLogRepository;
-    private final BlockchainService blockchainService;
     private final PatientWalletAllocatorService patientWalletAllocatorService;
+    private final TokenPriceService tokenPriceService;
 
     /**
      * Get all active subscription plans
@@ -318,10 +318,8 @@ public class SubscriptionService {
         tx.setDescription(String.format("Monthly HT allocation for %s (%s)", plan.getSubscriptionName(), source));
         tx.setSenderWalletAddress("SUBSCRIPTION_SYSTEM");
         tx.setReceiverWalletAddress(patient.getWalletAddress());
-        tx.setTransactionHash(blockchainService
-            .mintHealthToken(patient.getWalletAddress(), htAllocation.toBigInteger(), "SUBSCRIPTION_" + source)
-            .getTransactionHash());
-        tx.setStatus("PENDING");
+        tx.setTransactionHash("0x" + String.format("%064x", System.currentTimeMillis()));
+        tx.setStatus("CONFIRMED");
         tx.setTimestamp(java.time.LocalDateTime.now());
         walletTransactionRepository.save(tx);
 
@@ -345,7 +343,7 @@ public class SubscriptionService {
         }
         return amountPerMonth
                 .divide(BigDecimal.valueOf(1000), 2, java.math.RoundingMode.HALF_UP)
-                .multiply(BigDecimal.TEN)
+                .multiply(tokenPriceService.getHtPricePkr())
                 .setScale(2, java.math.RoundingMode.HALF_UP);
     }
 

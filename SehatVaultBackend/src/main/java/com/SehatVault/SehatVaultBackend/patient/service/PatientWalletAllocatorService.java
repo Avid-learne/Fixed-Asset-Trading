@@ -1,4 +1,4 @@
-package com.SehatVault.SehatVaultBackend.blockchain.service;
+package com.SehatVault.SehatVaultBackend.patient.service;
 
 import com.SehatVault.SehatVaultBackend.patient.entity.Patient;
 import com.SehatVault.SehatVaultBackend.patient.repository.PatientRepository;

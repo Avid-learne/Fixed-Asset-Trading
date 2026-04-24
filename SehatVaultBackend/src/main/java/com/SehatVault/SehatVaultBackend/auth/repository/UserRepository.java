@@ -27,4 +27,6 @@ public interface UserRepository extends JpaRepository<User, UUID> {
      * @return true if email exists
      */
     boolean existsByEmail(String email);
+
+    boolean existsByCnic(String cnic);
 }

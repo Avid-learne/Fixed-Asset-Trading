@@ -61,6 +61,7 @@ export interface SignupRequest {
   role: string;
   walletAddress?: string;
   hospitalName?: string;
+  bankName?: string;
 }
 
 export const authService = {
@@ -98,12 +99,18 @@ export const authService = {
           cnic: request.cnic.trim(),
           role: normalizeRoleForBackend(request.role),
           hospitalName: request.hospitalName ? request.hospitalName.trim() : undefined,
+          bankName: request.bankName ? request.bankName.trim() : undefined,
         }),
         signal: controller.signal,
       });
 
       clearTimeout(timeout);
-      const data = await response.json();
+
+      const text = await response.text();
+      if (!text) {
+        throw new Error('Server returned an empty response. Check if the backend is running.');
+      }
+      const data = JSON.parse(text);
 
       if (!response.ok) {
         throw new Error(data.message || 'Signup failed');
