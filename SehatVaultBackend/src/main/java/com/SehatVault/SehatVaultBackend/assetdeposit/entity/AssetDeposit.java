@@ -39,6 +39,15 @@ public class AssetDeposit {
     @Column(name = "asset_value", nullable = false)
     private BigDecimal assetValue;
 
+    @Column(name = "asset_receipt")
+    private String assetReceipt;
+
+    @Column(name = "purity_certificate")
+    private String purityCertificate;
+
+    @Column(name = "supporting_documents")
+    private String supportingDocuments;
+
     @Column(name = "weight")
     private BigDecimal weight;
 
@@ -68,6 +77,23 @@ public class AssetDeposit {
 
     @Column(name = "bank_rejection_reason")
     private String bankRejectionReason;
+
+    // Physical custody confirmation (bank receives the asset in real life)
+    @Column(name = "custody_status")
+    private String custodyStatus;
+
+    @Column(name = "custody_confirmed_at")
+    private LocalDateTime custodyConfirmedAt;
+
+    @Column(name = "custody_confirmed_by")
+    private UUID custodyConfirmedBy;
+
+    // Baseline monthly HT benefit while asset remains on deposit
+    @Column(name = "baseline_ht_per_month")
+    private BigDecimal baselineHtPerMonth;
+
+    @Column(name = "last_baseline_ht_at")
+    private LocalDateTime lastBaselineHtAt;
 
     @PrePersist
     protected void onCreate() {

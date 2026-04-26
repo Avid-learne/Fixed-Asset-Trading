@@ -40,6 +40,15 @@ export default function BankDepositsPage() {
     }
   }
 
+  const handleConfirmCustody = async (assetId: string) => {
+    try {
+      await depositRequestService.confirmCustody(assetId)
+      await loadRequests(bankStatusFilter)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to confirm custody')
+    }
+  }
+
   useEffect(() => {
     loadRequests('pending')
   }, [])
@@ -188,6 +197,11 @@ export default function BankDepositsPage() {
                         <TableCell className="text-right">
                           {bankPending ? (
                             <div className="flex justify-end gap-2">
+                              {(row.bankApprovalStatus || '').toLowerCase() === 'approved' && (row.custodyStatus || '').toLowerCase() !== 'confirmed' ? (
+                                <Button size="sm" variant="outline" onClick={() => handleConfirmCustody(row.assetId)}>
+                                  Confirm Physical Deposit
+                                </Button>
+                              ) : null}
                               <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" disabled={actionLoadingId === row.assetId} onClick={() => approve(row)}>
                                 {actionLoadingId === row.assetId ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                                 Approve

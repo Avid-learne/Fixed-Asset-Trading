@@ -264,7 +264,7 @@ export default function HospitalDetailsPage({ params }: { params: { id: string }
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Tokens Minted</p>
-                <p className="text-2xl font-bold text-gray-900">{hospital.tokensMinted.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-gray-900">{(hospital.tokensMinted ?? 0).toLocaleString()}</p>
               </div>
               <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
                 <Coins className="h-6 w-6 text-purple-600" />
@@ -278,7 +278,7 @@ export default function HospitalDetailsPage({ params }: { params: { id: string }
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Trading Volume</p>
-                <p className="text-2xl font-bold text-gray-900">${(hospital.tradingVolume / 1000).toFixed(0)}K</p>
+                <p className="text-2xl font-bold text-gray-900">${((hospital.tradingVolume ?? 0) / 1000).toFixed(0)}K</p>
               </div>
               <div className="w-12 h-12 bg-cyan-100 rounded-full flex items-center justify-center">
                 <TrendingUp className="h-6 w-6 text-cyan-600" />
@@ -441,10 +441,10 @@ export default function HospitalDetailsPage({ params }: { params: { id: string }
             <CardContent className="space-y-6">
               <KeyValueCard
                 data={[
-                  { key: 'Plan', value: hospital.subscriptionPlan, highlight: true },
-                  { key: 'Status', value: <StatusBadge status={hospital.subscriptionStatus} size="sm" /> },
+                  { key: 'Plan', value: hospital.subscriptionPlan ?? 'N/A', highlight: true },
+                  { key: 'Status', value: <StatusBadge status={hospital.subscriptionStatus ?? 'pending'} size="sm" /> },
                   { key: 'Billing Cycle', value: 'Monthly' },
-                  { key: 'Next Billing', value: new Date(hospital.nextBilling).toLocaleDateString() },
+                  { key: 'Next Billing', value: hospital.nextBilling ? new Date(hospital.nextBilling).toLocaleDateString() : 'N/A' },
                   { key: 'Patient Limit', value: '500' },
                   { key: 'Token Limit', value: '50,000/month' }
                 ]}

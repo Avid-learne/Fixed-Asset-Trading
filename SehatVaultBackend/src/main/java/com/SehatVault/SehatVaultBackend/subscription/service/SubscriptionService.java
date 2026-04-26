@@ -18,6 +18,7 @@ import com.SehatVault.SehatVaultBackend.subscription.entity.SubscriptionPlan;
 import com.SehatVault.SehatVaultBackend.subscription.repository.PatientSubscriptionRepository;
 import com.SehatVault.SehatVaultBackend.subscription.repository.PaymentHistoryRepository;
 import com.SehatVault.SehatVaultBackend.subscription.repository.SubscriptionPlanRepository;
+import com.SehatVault.SehatVaultBackend.notification.service.NotificationService;
 import com.SehatVault.SehatVaultBackend.wallet.entity.PatientTokenBalance;
 import com.SehatVault.SehatVaultBackend.wallet.repository.PatientTokenBalanceRepository;
 import com.SehatVault.SehatVaultBackend.wallet.repository.WalletTransactionRepository;
@@ -26,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -41,6 +43,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SubscriptionService {
 
+    private static final BigDecimal THOUSAND_PKR = new BigDecimal("1000");
+    private static final BigDecimal HT_PER_THOUSAND_PKR = new BigDecimal("10");
+
     private final SubscriptionPlanRepository subscriptionPlanRepository;
     private final PatientSubscriptionRepository patientSubscriptionRepository;
     private final PaymentHistoryRepository paymentHistoryRepository;
@@ -52,6 +57,7 @@ public class SubscriptionService {
     private final ActivityLogRepository activityLogRepository;
     private final PatientWalletAllocatorService patientWalletAllocatorService;
     private final TokenPriceService tokenPriceService;
+    private final NotificationService notificationService;
 
     /**
      * Get all active subscription plans
@@ -162,12 +168,143 @@ public class SubscriptionService {
             // Initial HT allocation for the first month at the time of subscription
             allocateMonthlyHt(patient, plan, subscription, subscriptionCard, "SUBSCRIPTION_INITIAL");
 
+            notificationService.notifyUser(
+                    request.getUserId(),
+                    request.getUserId(),
+                    "Subscription Activated",
+                    "You are now subscribed to " + plan.getSubscriptionName() + ". Initial monthly HT has been credited."
+            );
+
             PatientSubscriptionDto dto = convertToSubscriptionDto(subscription, plan);
             return ApiResponse.success("Subscription successful", dto);
 
         } catch (Exception e) {
             return ApiResponse.error("Subscription failed: " + e.getMessage());
         }
+    }
+
+    /**
+     * Change an existing active plan.
+     * Policy implemented:
+     * - Plan switch happens immediately (affects next renewal allocation)
+     * - If upgrading (new monthly HT > old), credit the delta immediately
+     * - If downgrading, no refund; change still applies to next renewal
+     */
+    @Transactional
+    public ApiResponse<PatientSubscriptionDto> changePlan(ChangePlanRequest request) {
+        try {
+            if (request == null || request.getUserId() == null || request.getNewSubscriptionId() == null) {
+                return ApiResponse.error("userId and newSubscriptionId are required");
+            }
+
+            Patient patient = patientRepository.findByUserId(request.getUserId()).orElse(null);
+            if (patient == null) {
+                return ApiResponse.error("Patient not found");
+            }
+
+            PatientSubscription subscription = patientSubscriptionRepository
+                    .findByPatientIdAndStatus(patient.getId(), PatientSubscription.SubscriptionStatus.ACTIVE)
+                    .orElse(null);
+            if (subscription == null) {
+                return ApiResponse.error("No active subscription found");
+            }
+
+            SubscriptionPlan oldPlan = subscriptionPlanRepository.findById(subscription.getSubscriptionId()).orElse(null);
+            SubscriptionPlan newPlan = subscriptionPlanRepository.findById(request.getNewSubscriptionId()).orElse(null);
+            if (newPlan == null || !Boolean.TRUE.equals(newPlan.getIsActive())) {
+                return ApiResponse.error("New subscription plan not found or inactive");
+            }
+            if (oldPlan == null) {
+                return ApiResponse.error("Current subscription plan not found");
+            }
+            if (oldPlan.getSubsId().equals(newPlan.getSubsId())) {
+                return ApiResponse.error("You are already on this plan");
+            }
+
+            patientWalletAllocatorService.assignWalletToPatient(patient);
+            HealthCard subscriptionCard = getOrCreateSubscriptionCard(patient.getId());
+
+            BigDecimal oldMonthlyHt = calculateMonthlyHt(oldPlan.getAmountPerMonth());
+            BigDecimal newMonthlyHt = calculateMonthlyHt(newPlan.getAmountPerMonth());
+
+            // Record payment for plan change (mocked as success, consistent with existing subscribe flow)
+            PaymentHistory payment = new PaymentHistory();
+            payment.setPatientId(patient.getId());
+            payment.setSubsId(newPlan.getSubsId());
+            payment.setAmount(newPlan.getAmountPerMonth());
+            payment.setPaymentMethod(request.getPaymentMethod() != null ? request.getPaymentMethod() : "Plan Change");
+            payment.setStatus(PaymentHistory.PaymentStatus.SUCCESS);
+            paymentHistoryRepository.save(payment);
+
+            // Apply upgrade delta immediately
+            BigDecimal delta = newMonthlyHt.subtract(oldMonthlyHt);
+            if (delta.compareTo(BigDecimal.ZERO) > 0) {
+                // Credit only the difference to avoid double-crediting within the same cycle.
+                creditManualHt(patient, subscriptionCard, delta, "SUBSCRIPTION_UPGRADE_DELTA");
+            }
+
+            // Switch plan for next allocations
+            subscription.setSubscriptionId(newPlan.getSubsId());
+            patientSubscriptionRepository.save(subscription);
+
+            String planChangeMsg = "Your subscription plan was changed from "
+                    + oldPlan.getSubscriptionName() + " to " + newPlan.getSubscriptionName() + ".";
+            if (delta.compareTo(BigDecimal.ZERO) > 0) {
+                planChangeMsg += " Upgrade bonus: " + delta.setScale(2, RoundingMode.HALF_UP).toPlainString() + " HT credited.";
+            }
+            notificationService.notifyUser(request.getUserId(), request.getUserId(), "Subscription Plan Updated", planChangeMsg);
+
+            PatientSubscriptionDto dto = convertToSubscriptionDto(subscription, newPlan);
+            return ApiResponse.success("Plan changed successfully", dto);
+        } catch (Exception e) {
+            return ApiResponse.error("Failed to change plan: " + e.getMessage());
+        }
+    }
+
+    private void creditManualHt(Patient patient, HealthCard subscriptionCard, BigDecimal amount, String source) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) return;
+
+        subscriptionCard.setHtBalance(nz(subscriptionCard.getHtBalance()).add(amount));
+        healthCardRepository.save(subscriptionCard);
+
+        PatientTokenBalance balance = patientTokenBalanceRepository.findByPatientId(patient.getId())
+                .orElseGet(() -> {
+                    PatientTokenBalance b = new PatientTokenBalance();
+                    b.setPatientId(patient.getId());
+                    b.setTotalAt(BigDecimal.ZERO);
+                    b.setTotalHt(BigDecimal.ZERO);
+                    b.setLastUpdated(java.time.LocalDateTime.now());
+                    return b;
+                });
+        balance.setTotalHt(nz(balance.getTotalHt()).add(amount));
+        balance.setLastUpdated(java.time.LocalDateTime.now());
+        patientTokenBalanceRepository.save(balance);
+
+        UUID htTokenId = walletTransactionRepository.findTokenIdBySymbol("HT");
+        if (htTokenId != null) {
+            Transaction tx = new Transaction();
+            tx.setUserId(patient.getUserId());
+            tx.setTokenId(htTokenId);
+            tx.setType(Transaction.TransactionType.CREDIT);
+            tx.setAmount(amount.setScale(2, RoundingMode.HALF_UP));
+            tx.setDescription("Subscription HT credit (" + source + ")");
+            tx.setSenderWalletAddress("SUBSCRIPTION_SYSTEM");
+            tx.setReceiverWalletAddress(patient.getWalletAddress());
+            tx.setTransactionHash("0x" + String.format("%064x", System.currentTimeMillis()));
+            tx.setStatus("CONFIRMED");
+            tx.setTimestamp(java.time.LocalDateTime.now());
+            walletTransactionRepository.save(tx);
+        }
+
+        ActivityLog activity = new ActivityLog();
+        activity.setUserId(patient.getUserId());
+        activity.setActivityName("Subscription Plan Change");
+        activity.setDescription(amount.toPlainString() + " HT credited to Subscription Card (" + source + ")");
+        activity.setType(ActivityLog.ActivityType.ACTION);
+        activity.setStatus("SUCCESS");
+        activity.setTimestamp(java.time.LocalDateTime.now());
+        activityLogRepository.save(activity);
+
     }
 
     // ─── Hospital admin plan management ───────────────────────────────────────
@@ -335,15 +472,33 @@ public class SubscriptionService {
         activity.setStatus("SUCCESS");
         activity.setTimestamp(java.time.LocalDateTime.now());
         activityLogRepository.save(activity);
+
+        if ("SUBSCRIPTION_RECURRING".equals(source)) {
+            notificationService.notifyUser(
+                    patient.getUserId(),
+                    patient.getUserId(),
+                    "Monthly Subscription HT Credited",
+                    htAllocation.toPlainString() + " HT credited for plan " + plan.getSubscriptionName() + "."
+            );
+        } else if ("SUBSCRIPTION_INITIAL".equals(source)) {
+            notificationService.notifyUser(
+                    patient.getUserId(),
+                    patient.getUserId(),
+                    "Initial Subscription HT Credited",
+                    htAllocation.toPlainString() + " HT credited for your new subscription."
+            );
+        }
     }
 
     private BigDecimal calculateMonthlyHt(BigDecimal amountPerMonth) {
         if (amountPerMonth == null || amountPerMonth.compareTo(BigDecimal.ZERO) <= 0) {
             return BigDecimal.ZERO;
         }
+
+        // Policy: 1000 PKR subscription fee == 10 HT monthly allocation.
         return amountPerMonth
-                .divide(BigDecimal.valueOf(1000), 2, java.math.RoundingMode.HALF_UP)
-                .multiply(tokenPriceService.getHtPricePkr())
+                .divide(THOUSAND_PKR, 2, java.math.RoundingMode.HALF_UP)
+                .multiply(HT_PER_THOUSAND_PKR)
                 .setScale(2, java.math.RoundingMode.HALF_UP);
     }
 
@@ -409,6 +564,13 @@ public class SubscriptionService {
             patient.setHasSubscription(false);
             patientRepository.save(patient);
 
+            notificationService.notifyUser(
+                    userId,
+                    userId,
+                    "Subscription Cancelled",
+                    "Your subscription has been cancelled and recurring allocations are stopped."
+            );
+
             return ApiResponse.success("Subscription cancelled successfully", null);
 
         } catch (Exception e) {
@@ -434,7 +596,7 @@ public class SubscriptionService {
         }
         
         // Calculate HT tokens based on amount (1000 PKR = 10 HT)
-        dto.setHtTokens(plan.getAmountPerMonth().divide(BigDecimal.valueOf(1000)).multiply(BigDecimal.valueOf(10)).intValue());
+        dto.setHtTokens(calculateMonthlyHt(plan.getAmountPerMonth()).setScale(0, java.math.RoundingMode.DOWN).intValue());
         dto.setIsActive(plan.getIsActive());
         
         return dto;
@@ -449,7 +611,7 @@ public class SubscriptionService {
         dto.setStartDate(subscription.getStartDate());
         dto.setEndDate(subscription.getEndDate());
         dto.setStatus(subscription.getStatus().toString());
-        dto.setHtTokens(plan.getAmountPerMonth().divide(BigDecimal.valueOf(1000)).multiply(BigDecimal.valueOf(10)).intValue());
+        dto.setHtTokens(calculateMonthlyHt(plan.getAmountPerMonth()).setScale(0, java.math.RoundingMode.DOWN).intValue());
         return dto;
     }
 

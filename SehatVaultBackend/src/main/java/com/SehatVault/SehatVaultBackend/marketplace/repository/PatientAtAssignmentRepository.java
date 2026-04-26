@@ -34,6 +34,12 @@ public interface PatientAtAssignmentRepository extends JpaRepository<PatientAtAs
     @Query("SELECT p FROM PatientAtAssignment p WHERE p.patientId = :patientId AND p.availabilityStatus = 'AVAILABLE'")
     List<PatientAtAssignment> findAvailableAtByPatientId(@Param("patientId") UUID patientId);
 
+        @Query("SELECT p FROM PatientAtAssignment p WHERE p.patientId = :patientId AND p.hospitalId = :hospitalId AND p.availabilityStatus = 'AVAILABLE' ORDER BY p.createdAt ASC")
+        List<PatientAtAssignment> findAvailableAtByPatientIdAndHospitalIdOldestFirst(
+            @Param("patientId") UUID patientId,
+            @Param("hospitalId") UUID hospitalId
+        );
+
     /**
      * Find all unavailable AT for a patient
      */

@@ -96,6 +96,10 @@ export function ProfileOverviewSection({ insights }: ProfileOverviewSectionProps
                 <span>{patient.email}</span>
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
+                <CheckCircle className="h-4 w-4" />
+                <span>{patient.cnic || 'CNIC not provided'}</span>
+              </div>
+              <div className="flex items-center gap-2 text-muted-foreground">
                 <Phone className="h-4 w-4" />
                 <span>{patient.phone}</span>
               </div>

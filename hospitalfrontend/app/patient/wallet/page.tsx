@@ -11,7 +11,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 
 export default function WalletPage() {
-  const { user } = useAuth()
+  const { user, isLoading } = useAuth()
   const userId = user?.id || (user as any)?.userId
 
   const [summary, setSummary] = useState<WalletSummary | null>(null)
@@ -20,6 +20,8 @@ export default function WalletPage() {
   const [error, setError] = useState<string | null>(null)
 
   const loadWallet = async () => {
+    if (isLoading) return
+
     if (!userId) {
       setLoading(false)
       setError('User not authenticated')
@@ -46,7 +48,7 @@ export default function WalletPage() {
 
   useEffect(() => {
     loadWallet()
-  }, [userId])
+  }, [userId, isLoading])
 
   const handleTransfer = async (recipientWalletAddress: string, amount: number, note?: string) => {
     await walletService.transferHT(recipientWalletAddress, amount, note)

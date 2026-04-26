@@ -45,6 +45,27 @@ public class Patient {
     @Column(name = "kyc_status")
     private KycStatus kycStatus = KycStatus.PENDING;
 
+    @Column(name = "kyc_submitted_at")
+    private LocalDateTime kycSubmittedAt;
+
+    @Column(name = "kyc_reviewed_at")
+    private LocalDateTime kycReviewedAt;
+
+    @Column(name = "kyc_reviewed_by")
+    private UUID kycReviewedBy;
+
+    @Column(name = "kyc_rejection_reason")
+    private String kycRejectionReason;
+
+    @Column(name = "kyc_document_front")
+    private String kycDocumentFront;
+
+    @Column(name = "kyc_document_back")
+    private String kycDocumentBack;
+
+    @Column(name = "kyc_selfie")
+    private String kycSelfie;
+
     @Column(name = "registration_id", unique = true)
     private String registrationId;
 

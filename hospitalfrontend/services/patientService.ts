@@ -156,7 +156,7 @@ function transformProfileToPatient(profile: any): PatientWithBalance {
     tokenBalance: {
       assetToken: totalAt,
       healthToken: totalHt,
-      totalTokens: totalAt + totalHt,
+      lastUpdated: new Date().toISOString(),
     },
     recentDeposits: [],
     recentTransactions: [],

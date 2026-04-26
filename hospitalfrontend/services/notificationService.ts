@@ -90,6 +90,9 @@ export const notificationService = {
       headers: getAuthHeaders(),
     })
     if (!res.ok) throw new Error('Failed to mark notification as read')
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('notifications:changed'))
+    }
   },
 
   async markAllAsRead(userId: string): Promise<number> {
@@ -99,6 +102,9 @@ export const notificationService = {
     })
     if (!res.ok) throw new Error('Failed to mark notifications as read')
     const result: ApiResponse<{ updated: number }> = await res.json()
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('notifications:changed'))
+    }
     return Number(result.data?.updated || 0)
   },
 
@@ -110,6 +116,9 @@ export const notificationService = {
       headers: getAuthHeaders(),
     })
     if (!res.ok) throw new Error('Failed to delete notification')
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('notifications:changed'))
+    }
   },
 
   async deleteSent(userId: string, notificationId: string): Promise<void> {
@@ -118,6 +127,9 @@ export const notificationService = {
       headers: getAuthHeaders(),
     })
     if (!res.ok) throw new Error('Failed to delete notification')
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('notifications:changed'))
+    }
   },
 
   async deleteSelectedReceived(userId: string, notificationIds: string[]): Promise<number> {
@@ -128,6 +140,9 @@ export const notificationService = {
     })
     if (!res.ok) throw new Error('Failed to delete selected notifications')
     const result: ApiResponse<{ deleted: number }> = await res.json()
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('notifications:changed'))
+    }
     return Number(result.data?.deleted || 0)
   },
 
@@ -139,6 +154,9 @@ export const notificationService = {
     })
     if (!res.ok) throw new Error('Failed to delete selected notifications')
     const result: ApiResponse<{ deleted: number }> = await res.json()
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('notifications:changed'))
+    }
     return Number(result.data?.deleted || 0)
   },
 
@@ -149,6 +167,9 @@ export const notificationService = {
     })
     if (!res.ok) throw new Error('Failed to delete notifications')
     const result: ApiResponse<{ deleted: number }> = await res.json()
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('notifications:changed'))
+    }
     return Number(result.data?.deleted || 0)
   },
 
@@ -159,6 +180,9 @@ export const notificationService = {
     })
     if (!res.ok) throw new Error('Failed to delete notifications')
     const result: ApiResponse<{ deleted: number }> = await res.json()
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('notifications:changed'))
+    }
     return Number(result.data?.deleted || 0)
   },
 
@@ -179,6 +203,10 @@ export const notificationService = {
     const result: ApiResponse<{ totalSent: number }> = await res.json()
     if (!res.ok || !result.success) {
       throw new Error(result.message || 'Failed to send notification')
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('notifications:changed'))
     }
 
     return Number(result.data?.totalSent || 0)

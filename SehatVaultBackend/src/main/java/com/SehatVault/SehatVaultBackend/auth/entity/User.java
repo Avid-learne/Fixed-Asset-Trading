@@ -36,6 +36,18 @@ public class User {
     
     @Column(name = "cnic", unique = true)
     private String cnic;
+
+    @Column(name = "gender")
+    private String gender;
+
+    @Column(name = "nationality")
+    private String nationality;
+
+    @Column(name = "cnic_issue_date")
+    private LocalDate cnicIssueDate;
+
+    @Column(name = "cnic_expiry_date")
+    private LocalDate cnicExpiryDate;
     
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
@@ -51,6 +63,21 @@ public class User {
     
     @Column(name = "blood_group")
     private String bloodGroup;
+
+    @Column(name = "occupation")
+    private String occupation;
+
+    @Column(name = "source_of_income")
+    private String sourceOfIncome;
+
+    @Column(name = "health_issues")
+    private String healthIssues;
+
+    @Column(name = "country")
+    private String country;
+
+    @Column(name = "postal_code")
+    private String postalCode;
     
     @Column(name = "date_of_birth")
     private LocalDate dateOfBirth;

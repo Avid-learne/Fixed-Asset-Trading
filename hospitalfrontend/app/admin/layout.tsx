@@ -39,7 +39,7 @@ export default function AdminLayout({
       }
       
       // Only redirect if user doesn't have SUPER_ADMIN role AND not on correct path
-      const userRole = activeUser.role
+      const userRole = activeUser.role || 'PATIENT'
       if (userRole !== UserRole.SUPER_ADMIN && userRole !== 'SUPER_ADMIN') {
         const correctPath = roleToPath(userRole)
         if (!pathname.startsWith(correctPath)) {

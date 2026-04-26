@@ -10,8 +10,15 @@ import { Coins, Building2, ArrowRight, CheckCircle, Calculator } from 'lucide-re
 import { useRouter } from 'next/navigation'
 import { authService } from '@/lib/authService'
 import { depositRequestService, type AssetDepositItem } from '@/services/depositRequestService'
+import { profileService } from '@/services/profileService'
 
 type AssetType = 'gold' | 'silver' | ''
+
+type DepositDocumentState = {
+  receipt: string
+  purityCertificate: string
+  supportingDocuments: string
+}
 
 const GOLD_RATE_PER_GRAM = 15000 // PKR per gram
 const SILVER_RATE_PER_GRAM = 250 // PKR per gram
@@ -28,6 +35,12 @@ export default function DepositAssetPage() {
   const [loading, setLoading] = useState(false)
   const [requests, setRequests] = useState<AssetDepositItem[]>([])
   const [loadingRequests, setLoadingRequests] = useState(true)
+  const [kycStatus, setKycStatus] = useState<string>('PENDING')
+  const [documents, setDocuments] = useState<DepositDocumentState>({
+    receipt: '',
+    purityCertificate: '',
+    supportingDocuments: '',
+  })
 
   const loadMyRequests = async () => {
     try {
@@ -42,9 +55,23 @@ export default function DepositAssetPage() {
   }
 
   useEffect(() => {
-    const user = authService.getUser()
-    setAssignedHospitalName(user?.hospitalName || user?.hospitalId || '')
-    loadMyRequests()
+    const init = async () => {
+      const user = authService.getUser()
+      setAssignedHospitalName(user?.hospitalName || user?.hospitalId || '')
+
+      if (user?.id) {
+        try {
+          const profile = await profileService.getProfile(user.id)
+          setKycStatus((profile.kycStatus || 'PENDING').toUpperCase())
+        } catch {
+          setKycStatus('PENDING')
+        }
+      }
+
+      loadMyRequests()
+    }
+
+    init()
   }, [])
 
   const calculateWorth = () => {
@@ -69,10 +96,16 @@ export default function DepositAssetPage() {
       setError('')
 
       const assetValue = calculateWorth()
+      if (!documents.receipt || !documents.purityCertificate || !documents.supportingDocuments) {
+        throw new Error('Please attach the asset receipt, purity certificate, and supporting document before submitting')
+      }
       const response = await depositRequestService.submitRequest({
         assetType: assetType.toUpperCase(),
         weight: Number(weight),
         assetValue,
+        assetReceipt: documents.receipt,
+        purityCertificate: documents.purityCertificate,
+        supportingDocuments: documents.supportingDocuments,
       })
 
       setSubmittedRequest(response)
@@ -90,12 +123,19 @@ export default function DepositAssetPage() {
     setWeight('')
     setSubmittedRequest(null)
     setSubmitted(false)
+    setDocuments({
+      receipt: '',
+      purityCertificate: '',
+      supportingDocuments: '',
+    })
   }
 
   const approvedByBank = useMemo(
     () => requests.filter(item => (item.bankApprovalStatus || '').toLowerCase() === 'approved'),
     [requests]
   )
+
+  const isKycApproved = kycStatus === 'APPROVED'
 
   const requestStatusBadge = (status: string) => {
     const normalized = (status || '').toLowerCase()
@@ -132,7 +172,7 @@ export default function DepositAssetPage() {
             </div>
             <h2 className="text-3xl font-bold mb-4">Request Submitted Successfully!</h2>
             <p className="text-muted-foreground mb-2">
-              Your investment request has been sent to the hospital for verification.
+              Your investment request has been sent to the hospital for verification, including the attached asset documents.
             </p>
             <p className="text-sm text-muted-foreground mb-8">
               You will receive a notification once approvals complete and HT is credited.
@@ -164,6 +204,18 @@ export default function DepositAssetPage() {
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Request Status:</span>
                   <span className="font-medium capitalize">{submittedRequest?.status || 'pending'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Receipt:</span>
+                  <span className="font-medium">{submittedRequest?.assetReceipt || documents.receipt}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Purity certificate:</span>
+                  <span className="font-medium">{submittedRequest?.purityCertificate || documents.purityCertificate}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Supporting docs:</span>
+                  <span className="font-medium">{submittedRequest?.supportingDocuments || documents.supportingDocuments}</span>
                 </div>
               </div>
             </div>
@@ -200,6 +252,12 @@ export default function DepositAssetPage() {
       {!assignedHospitalName && (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Hospital is not assigned on your profile yet. Contact hospital admin to assign a hospital before submitting deposits.
+        </div>
+      )}
+
+      {!isKycApproved && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          KYC must be approved before submitting a deposit request. Current KYC status: {kycStatus}.
         </div>
       )}
 
@@ -279,6 +337,42 @@ export default function DepositAssetPage() {
 
             <Card>
               <CardHeader>
+                <CardTitle>Verification Documents</CardTitle>
+                <CardDescription>Upload the receipt and proof used to verify the asset.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Asset receipt</label>
+                  <Input
+                    type="file"
+                    accept="image/*,.pdf"
+                    onChange={(event) => setDocuments((prev) => ({ ...prev, receipt: event.target.files?.[0]?.name || '' }))}
+                  />
+                  <p className="text-xs text-muted-foreground">{documents.receipt || 'No file selected'}</p>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Purity / carat certificate</label>
+                  <Input
+                    type="file"
+                    accept="image/*,.pdf"
+                    onChange={(event) => setDocuments((prev) => ({ ...prev, purityCertificate: event.target.files?.[0]?.name || '' }))}
+                  />
+                  <p className="text-xs text-muted-foreground">{documents.purityCertificate || 'No file selected'}</p>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Supporting document</label>
+                  <Input
+                    type="file"
+                    accept="image/*,.pdf"
+                    onChange={(event) => setDocuments((prev) => ({ ...prev, supportingDocuments: event.target.files?.[0]?.name || '' }))}
+                  />
+                  <p className="text-xs text-muted-foreground">{documents.supportingDocuments || 'No file selected'}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Building2 className="w-5 h-5" />
                   Assigned Hospital
@@ -348,7 +442,7 @@ export default function DepositAssetPage() {
                 <Button
                   type="submit"
                   className="w-full flex items-center justify-center gap-2"
-                  disabled={loading || !assetType || !weight || selectedHospitalDisplay === 'Not Assigned'}
+                  disabled={loading || !assetType || !weight || selectedHospitalDisplay === 'Not Assigned' || !isKycApproved}
                 >
                   {loading ? 'Submitting…' : 'Submit Investment Request'}
                   {!loading && <ArrowRight className="w-4 h-4" />}

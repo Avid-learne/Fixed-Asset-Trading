@@ -226,7 +226,7 @@ export default function LinkedAssetsPage() {
           {assetTokens.map((token) => {
             const config = assetTypeConfig[token.assetType as keyof typeof assetTypeConfig] || { color: 'bg-white' }
             const isInTrade = (Number(token.totalAtAssigned || 0) - Number(token.availableAt || 0)) > 0
-            const isPending = token.availabilityStatus === 'PENDING_BANK_APPROVAL'
+            const isPending = String(token.availabilityStatus) === 'PENDING_BANK_APPROVAL'
 
             return (
               <Card key={token.assignmentId || token.assetId} className={isPending ? 'border-yellow-200 bg-yellow-50' : config.color}>

@@ -51,8 +51,9 @@ export default function PatientLayout({
       }
       
       // Only redirect if user has wrong role AND not already on correct path
-      if (activeUser.role !== UserRole.PATIENT && String(activeUser.role).toUpperCase() !== 'PATIENT') {
-        const correctPath = roleToPath(activeUser.role)
+      const currentRole = activeUser.role || 'PATIENT'
+      if (currentRole !== UserRole.PATIENT && String(currentRole).toUpperCase() !== 'PATIENT') {
+        const correctPath = roleToPath(currentRole)
         if (!pathname.startsWith(correctPath)) {
           router.push(correctPath)
         }

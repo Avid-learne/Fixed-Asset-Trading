@@ -10,4 +10,10 @@ public class DeductHtRequest {
     private UUID patientUserId;
     private BigDecimal amount;
     private String reason;
+
+    /**
+     * Optional source bucket: SUBSCRIPTION or ASSET.
+     * Defaults to SUBSCRIPTION to match requirements.
+     */
+    private String source;
 }

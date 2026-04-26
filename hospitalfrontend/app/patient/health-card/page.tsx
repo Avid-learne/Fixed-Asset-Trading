@@ -9,7 +9,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { healthCardService, HealthCard } from '@/services/healthCardService'
 
 export default function HealthCardPage() {
-  const { user } = useAuth()
+  const { user, isLoading } = useAuth()
   const userId = user?.id || (user as any)?.userId
   const [activeTab, setActiveTab] = useState('subscription')
 
@@ -25,6 +25,8 @@ export default function HealthCardPage() {
 
   useEffect(() => {
     const fetchHealthCards = async () => {
+      if (isLoading) return
+
       if (!userId) {
         setError('User not authenticated')
         setLoading(false)
@@ -51,7 +53,7 @@ export default function HealthCardPage() {
     }
 
     fetchHealthCards()
-  }, [userId])
+  }, [userId, isLoading])
 
   const formatCardDigits = (value?: string) => {
     if (!value) return ''

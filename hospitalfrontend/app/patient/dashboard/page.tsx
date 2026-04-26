@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Loader2, Heart, Clock, CheckCircle2, CreditCard, ArrowUpRight, Coins, Lock, Unlock } from 'lucide-react'
 import { dashboardService, type PatientDashboardSummary } from '@/services/dashboardService'
 import { marketplaceService, type PatientAssetToken } from '@/services/marketplaceService'
+import { profileService } from '@/services/profileService'
 import { useAuth } from '@/hooks/useAuth'
 import { formatNumber } from '@/lib/utils'
 
@@ -15,6 +16,7 @@ export default function PatientDashboardHome() {
   const { user } = useAuth()
   const [data, setData] = useState<PatientDashboardSummary | null>(null)
   const [assetTokens, setAssetTokens] = useState<PatientAssetToken[]>([])
+  const [kycStatus, setKycStatus] = useState<'PENDING' | 'IN_PROGRESS' | 'APPROVED' | 'REJECTED'>('PENDING')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -71,7 +73,19 @@ export default function PatientDashboardHome() {
     if (user?.patientId) {
       await loadAssetTokens(user.patientId)
     }
+    try {
+      const kyc = await profileService.getKycStatus()
+      setKycStatus(kyc.status)
+    } catch {
+      setKycStatus('PENDING')
+    }
   }
+
+  useEffect(() => {
+    profileService.getKycStatus()
+      .then(kyc => setKycStatus(kyc.status))
+      .catch(() => setKycStatus('PENDING'))
+  }, [])
 
   const getTotalAt = () => assetTokens.reduce((sum, token) => sum + Number(token.totalAtAssigned || 0), 0)
   const getAvailableAt = () => assetTokens.reduce((sum, token) => sum + Number(token.availableAt || 0), 0)
@@ -103,6 +117,16 @@ export default function PatientDashboardHome() {
       </div>
 
       {error && <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+
+      {kycStatus !== 'APPROVED' && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          KYC is incomplete ({kycStatus}). Complete your profile information and submit KYC to unlock deposit requests.
+          {' '}
+          <Link href="/patient/profile/info" className="font-semibold underline underline-offset-2">Update Profile</Link>
+          {' · '}
+          <Link href="/patient/profile/kyc" className="font-semibold underline underline-offset-2">Open KYC</Link>
+        </div>
+      )}
 
       {/* Asset Token Summary - Always Show */}
       <Card className={getTotalAt() > 0 ? "border-blue-200 bg-blue-50" : "border-gray-200"}>

@@ -1,5 +1,6 @@
 // lib/authService.ts
 const API_URL = process.env.NEXT_PUBLIC_AUTH_API_URL || 'http://localhost:8000/api/auth';
+const PROFILE_API_URL = process.env.NEXT_PUBLIC_PROFILE_API_URL || 'http://localhost:8000/api/profile';
 
 const normalizeRoleForBackend = (role?: string): string => {
   const normalized = (role || 'PATIENT').trim().toUpperCase();
@@ -392,7 +393,7 @@ export const authService = {
    */
   async updateProfile(userId: string, updates: Record<string, string>, token?: string): Promise<any> {
     try {
-      const response = await fetch(`${API_URL}/profile/${userId}`, {
+      const response = await fetch(`${PROFILE_API_URL}/${userId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

@@ -193,6 +193,25 @@ public class AssetDepositController {
         }
     }
 
+    /**
+     * Bank confirms the patient physically deposited the asset (custody confirmed).
+     * This is the point where AT is minted and baseline HT starts.
+     */
+    @PostMapping("/{assetId}/custody-confirm")
+    public ResponseEntity<?> confirmCustody(Authentication authentication, @PathVariable UUID assetId) {
+        try {
+            if (authentication == null || authentication.getName() == null) {
+                return ResponseEntity.status(401).body(error("Unauthorized"));
+            }
+            AssetDepositDto data = assetDepositService.confirmCustodyAndMint(authentication.getName(), assetId);
+            return ResponseEntity.ok(success("Custody confirmed", data));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(error(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(error("Error confirming custody: " + e.getMessage()));
+        }
+    }
+
     @PostMapping("/{assetId}/bank-reject")
     public ResponseEntity<?> rejectRequestByBank(
             Authentication authentication,

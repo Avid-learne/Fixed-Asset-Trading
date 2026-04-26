@@ -35,8 +35,9 @@ export default function HospitalAdminLayout({ children }: { children: React.Reac
       }
       
       // Only redirect if user doesn't have the correct role AND is not already on a valid path
-      if (activeUser.role !== UserRole.HOSPITAL_ADMIN && String(activeUser.role).toUpperCase() !== 'HOSPITAL_ADMIN') {
-        const correctPath = roleToPath(activeUser.role)
+      const currentRole = activeUser.role || 'PATIENT'
+      if (currentRole !== UserRole.HOSPITAL_ADMIN && String(currentRole).toUpperCase() !== 'HOSPITAL_ADMIN') {
+        const correctPath = roleToPath(currentRole)
         // Only redirect if not already on the correct path
         if (!pathname.startsWith(correctPath)) {
           router.push(correctPath)

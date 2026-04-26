@@ -15,6 +15,9 @@ public class AssetDepositDto {
     private UUID hospitalId;
     private String hospitalName;
     private String assetType;
+    private String assetReceipt;
+    private String purityCertificate;
+    private String supportingDocuments;
     private BigDecimal weight;
     private BigDecimal assetValue;
     private BigDecimal expectedTokens;
@@ -27,4 +30,9 @@ public class AssetDepositDto {
     private LocalDateTime bankApprovedAt;
     private LocalDateTime bankRejectedAt;
     private String bankRejectionReason;
+
+    private String custodyStatus;
+    private LocalDateTime custodyConfirmedAt;
+    private BigDecimal baselineHtPerMonth;
+    private LocalDateTime lastBaselineHtAt;
 }

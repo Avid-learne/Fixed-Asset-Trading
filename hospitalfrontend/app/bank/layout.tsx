@@ -38,8 +38,9 @@ export default function BankLayout({
       }
       
       // Only redirect if user has wrong role AND not already on correct path
-      if (activeUser.role !== UserRole.BANK_OFFICER && String(activeUser.role).toUpperCase() !== 'BANK_STAFF' && String(activeUser.role).toUpperCase() !== 'BANK_OFFICER') {
-        const correctPath = roleToPath(activeUser.role)
+      const currentRole = activeUser.role || 'PATIENT'
+      if (currentRole !== UserRole.BANK_OFFICER && String(currentRole).toUpperCase() !== 'BANK_STAFF' && String(currentRole).toUpperCase() !== 'BANK_OFFICER') {
+        const correctPath = roleToPath(currentRole)
         if (!pathname.startsWith(correctPath)) {
           router.push(correctPath)
         }

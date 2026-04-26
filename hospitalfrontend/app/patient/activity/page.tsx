@@ -48,7 +48,7 @@ const buildStatements = (transactions: Tx[]): StatementItem[] => {
 }
 
 export default function ActivityPage() {
-  const { user } = useAuth()
+  const { user, isLoading } = useAuth()
   const userId = user?.id || (user as any)?.userId
   const [query, setQuery] = useState("")
   const [filter, setFilter] = useState<"all" | "HT">("all")
@@ -62,6 +62,8 @@ export default function ActivityPage() {
 
   useEffect(() => {
     const fetchActivity = async () => {
+      if (isLoading) return
+
       if (!userId) {
         setLoading(false)
         setError("User not authenticated")
@@ -87,7 +89,7 @@ export default function ActivityPage() {
     }
 
     fetchActivity()
-  }, [userId])
+  }, [userId, isLoading])
 
   const statements = useMemo(() => buildStatements(allTx), [allTx])
 

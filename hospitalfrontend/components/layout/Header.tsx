@@ -69,6 +69,22 @@ export const Header: React.FC = () => {
     loadNotifications()
   }, [loadNotifications])
 
+  useEffect(() => {
+    const onChanged = () => {
+      loadNotifications()
+    }
+
+    const id = window.setInterval(() => {
+      loadNotifications()
+    }, 30000)
+
+    window.addEventListener('notifications:changed', onChanged)
+    return () => {
+      window.clearInterval(id)
+      window.removeEventListener('notifications:changed', onChanged)
+    }
+  }, [loadNotifications])
+
   // Refresh notifications every time dropdown opens
   useEffect(() => {
     if (showNotifications) {
@@ -106,6 +122,7 @@ export const Header: React.FC = () => {
     if (role === 'hospitaladmin' || role === 'hospital_admin') return '/hospitaladmin/notifications'
     if (role === 'hospital_staff') return '/hospital/notifications'
     if (role === 'bank_officer' || role === 'bank_staff') return '/bank/notifications'
+    if (role === 'insurance_company' || role === 'insurance') return '/insurance/notifications'
     return '/patient/notifications'
   }
 

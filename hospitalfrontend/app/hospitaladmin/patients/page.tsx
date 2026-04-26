@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -13,6 +13,7 @@ import { Users, Search, Eye, Download, TrendingUp, Wallet, Activity, Clock, Coin
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 import { useAuth } from '@/contexts/AuthContext'
 import { authService } from '@/lib/authService'
+import { profileService, type ProfileData } from '@/services/profileService'
 
 // Exchange rate: 1 USD = 280 PKR
 const USD_TO_PKR = 280
@@ -20,10 +21,18 @@ const convertToPKR = (usdAmount: number) => usdAmount * USD_TO_PKR
 
 interface Patient {
   id: string
+  userId: string
   name: string
   email: string
   phone: string
   status: 'active' | 'inactive' | 'suspended'
+  kycStatus: 'PENDING' | 'IN_PROGRESS' | 'APPROVED' | 'REJECTED'
+  kycSubmittedAt?: string
+  kycReviewedAt?: string
+  kycRejectionReason?: string
+  kycDocumentFront?: string
+  kycDocumentBack?: string
+  kycSelfie?: string
   joinDate: string
   totalAssets: number
   totalTokens: number
@@ -49,10 +58,12 @@ interface Patient {
 const mockPatients: Patient[] = [
   {
     id: 'PAT-001',
+    userId: 'PAT-001',
     name: 'John Smith',
     email: 'john.smith@example.com',
     phone: '+1 (555) 123-4567',
     status: 'active',
+    kycStatus: 'APPROVED',
     joinDate: '2024-06-15',
     totalAssets: 3,
     totalTokens: 28500,
@@ -76,10 +87,12 @@ const mockPatients: Patient[] = [
   },
   {
     id: 'PAT-002',
+    userId: 'PAT-002',
     name: 'Sarah Johnson',
     email: 'sarah.j@example.com',
     phone: '+1 (555) 234-5678',
     status: 'active',
+    kycStatus: 'APPROVED',
     joinDate: '2024-05-10',
     totalAssets: 2,
     totalTokens: 12800,
@@ -104,10 +117,12 @@ const mockPatients: Patient[] = [
   },
   {
     id: 'PAT-003',
+    userId: 'PAT-003',
     name: 'Michael Brown',
     email: 'mbrown@example.com',
     phone: '+1 (555) 345-6789',
     status: 'inactive',
+    kycStatus: 'PENDING',
     joinDate: '2024-08-22',
     totalAssets: 1,
     totalTokens: 4500,
@@ -129,14 +144,49 @@ const mockPatients: Patient[] = [
   },
 ]
 
+const mapProfileToPatient = (profile: ProfileData): Patient => ({
+  id: profile.registrationId || profile.patientId || profile.userId,
+  userId: profile.userId,
+  name: profile.name,
+  email: profile.email,
+  phone: profile.phoneNum || '',
+  status: 'active',
+  kycStatus: (profile.kycStatus || 'PENDING').toUpperCase() as Patient['kycStatus'],
+  kycSubmittedAt: profile.kycSubmittedAt,
+  kycReviewedAt: profile.kycReviewedAt,
+  kycRejectionReason: profile.kycRejectionReason,
+  kycDocumentFront: profile.kycDocumentFront,
+  kycDocumentBack: profile.kycDocumentBack,
+  kycSelfie: profile.kycSelfie,
+  joinDate: new Date().toISOString().split('T')[0],
+  totalAssets: Number(profile.totalAssets || 0),
+  totalTokens: Number(profile.totalAt || 0) + Number(profile.totalHt || 0),
+  atBalance: Number(profile.totalAt || 0),
+  htBalance: Number(profile.totalHt || 0),
+  totalDeposits: Number(profile.totalAssets || 0),
+  totalRedemptions: 0,
+  assetHistory: [],
+  portfolioValue: [
+    { month: 'Jun', value: 0 },
+    { month: 'Jul', value: 0 },
+    { month: 'Aug', value: 0 },
+    { month: 'Sep', value: 0 },
+    { month: 'Oct', value: 0 },
+    { month: 'Nov', value: 0 },
+  ],
+})
+
 export default function PatientsPage() {
   const { user } = useAuth()
   const [patients, setPatients] = useState<Patient[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
+  const [patientDialogTab, setPatientDialogTab] = useState<'overview' | 'balances' | 'history' | 'analytics' | 'kyc'>('overview')
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [reviewingKycId, setReviewingKycId] = useState<string | null>(null)
+  const [kycRejectReasons, setKycRejectReasons] = useState<Record<string, string>>({})
 
   const fetchPatients = useCallback(async () => {
     try {
@@ -166,23 +216,8 @@ export default function PatientsPage() {
 
       const data = await response.json()
       const transformedPatients = (data.data || []).map((profile: any) => ({
-        id: profile.registrationId || profile.patientId,
-        name: profile.name,
-        email: profile.email,
+        ...mapProfileToPatient(profile),
         phone: profile.phoneNum || '',
-        status: 'active' as const,
-        joinDate: new Date().toISOString().split('T')[0],
-        totalAssets: Number(profile.totalAssets || 0),
-        totalTokens: Number(profile.totalAt || 0) + Number(profile.totalHt || 0),
-        atBalance: Number(profile.totalAt || 0),
-        htBalance: Number(profile.totalHt || 0),
-        totalDeposits: Number(profile.totalAssets || 0),
-        totalRedemptions: 0,
-        assetHistory: [],
-        portfolioValue: [
-          { month: 'Jun', value: 0 }, { month: 'Jul', value: 0 }, { month: 'Aug', value: 0 },
-          { month: 'Sep', value: 0 }, { month: 'Oct', value: 0 }, { month: 'Nov', value: 0 },
-        ]
       }))
       setPatients(transformedPatients)
     } catch (err) {
@@ -213,6 +248,40 @@ export default function PatientsPage() {
     }
     const config = configs[status as keyof typeof configs]
     return <Badge variant="outline" className={config.color}>{config.label}</Badge>
+  }
+
+  const getKycBadge = (status: string) => {
+    const normalized = status.toUpperCase()
+    if (normalized === 'APPROVED') return <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">Approved</Badge>
+    if (normalized === 'REJECTED') return <Badge className="bg-rose-100 text-rose-800 border-rose-200">Rejected</Badge>
+    if (normalized === 'IN_PROGRESS') return <Badge className="bg-sky-100 text-sky-800 border-sky-200">In Review</Badge>
+    return <Badge className="bg-amber-100 text-amber-800 border-amber-200">Pending</Badge>
+  }
+
+  const kycSubmissions = patients.filter(
+    (patient) => patient.kycStatus === 'IN_PROGRESS' && !!patient.kycSubmittedAt
+  )
+
+  const openPatientDialog = (patient: Patient, tab: typeof patientDialogTab) => {
+    setSelectedPatient(patient)
+    setPatientDialogTab(tab)
+  }
+
+  const reviewKyc = async (patient: Patient, approved: boolean, reason?: string) => {
+    try {
+      setReviewingKycId(patient.userId)
+      setError(null)
+      await profileService.reviewKyc(patient.userId, {
+        approved,
+        reason: approved ? undefined : reason?.trim(),
+      })
+      setKycRejectReasons((prev) => ({ ...prev, [patient.userId]: '' }))
+      await fetchPatients()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update KYC review')
+    } finally {
+      setReviewingKycId(null)
+    }
   }
 
   const getTransactionIcon = (type: string) => {
@@ -302,154 +371,235 @@ export default function PatientsPage() {
         </Card>
       )}
 
-      {!isLoading && !error && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
-              Total Patients
-              <Users className="w-4 h-4 text-primary" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-foreground">{totalPatients}</p>
-            <p className="text-sm text-muted-foreground mt-1">{activePatients} active</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
-              Total AT Balance
-              <Coins className="w-4 h-4 text-emerald-600" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-foreground">{(totalATBalance / 1000).toFixed(1)}K</p>
-            <p className="text-sm text-muted-foreground mt-1">Asset Tokens</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
-              Total HT Balance
-              <Wallet className="w-4 h-4 text-green-600" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-foreground">{(totalHTBalance / 1000).toFixed(1)}K</p>
-            <p className="text-sm text-muted-foreground mt-1">Health Tokens</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
-              Total Assets
-              <FileText className="w-4 h-4 text-purple-600" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-foreground">{patients.reduce((sum, p) => sum + p.totalAssets, 0)}</p>
-            <p className="text-sm text-muted-foreground mt-1">Deposited</p>
-          </CardContent>
-        </Card>
-        </div>
-      )}
+      <Tabs defaultValue="directory" className="w-full">
+        <TabsList>
+          <TabsTrigger value="directory">Patient Directory</TabsTrigger>
+          <TabsTrigger value="kyc">KYC Submissions</TabsTrigger>
+        </TabsList>
 
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <CardTitle className="text-lg">Patient Directory</CardTitle>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <div className="relative flex-1 sm:w-64">
-                <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search patients..."
-                  className="pl-10"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-[150px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                  <SelectItem value="suspended">Suspended</SelectItem>
-                </SelectContent>
-              </Select>
+        <TabsContent value="directory" className="space-y-6">
+          {!isLoading && !error && (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
+                    Total Patients
+                    <Users className="w-4 h-4 text-primary" />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold text-foreground">{totalPatients}</p>
+                  <p className="text-sm text-muted-foreground mt-1">{activePatients} active</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
+                    Total AT Balance
+                    <Coins className="w-4 h-4 text-emerald-600" />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold text-foreground">{(totalATBalance / 1000).toFixed(1)}K</p>
+                  <p className="text-sm text-muted-foreground mt-1">Asset Tokens</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
+                    Total HT Balance
+                    <Wallet className="w-4 h-4 text-green-600" />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold text-foreground">{(totalHTBalance / 1000).toFixed(1)}K</p>
+                  <p className="text-sm text-muted-foreground mt-1">Health Tokens</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
+                    Total Assets
+                    <FileText className="w-4 h-4 text-purple-600" />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold text-foreground">{patients.reduce((sum, p) => sum + p.totalAssets, 0)}</p>
+                  <p className="text-sm text-muted-foreground mt-1">Deposited</p>
+                </CardContent>
+              </Card>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Patient ID</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead className="text-right">AT Balance</TableHead>
-                <TableHead className="text-right">HT Balance</TableHead>
-                <TableHead>Assets</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredPatients.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                    No patients found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredPatients.map((patient) => (
-                  <TableRow key={patient.id}>
-                    <TableCell className="font-mono text-xs">{patient.id}</TableCell>
-                    <TableCell className="font-medium">{patient.name}</TableCell>
-                    <TableCell>
-                      <div>
-                        <p className="text-sm">{patient.email}</p>
-                        <p className="text-xs text-muted-foreground">{patient.phone}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right font-medium">{patient.atBalance.toLocaleString()}</TableCell>
-                    <TableCell className="text-right font-medium text-green-600">{patient.htBalance.toLocaleString()}</TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        <p className="font-medium">{patient.totalAssets} Asset{patient.totalAssets !== 1 ? 's' : ''}</p>
-                        <div className="text-xs text-muted-foreground mt-1 space-y-1">
-                          {patient.assetHistory
-                            .filter(asset => asset.type === 'deposit')
-                            .map(asset => (
-                              <div key={asset.id} className="flex items-center gap-1">
-                                <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                                <span>{asset.assetType || 'Asset'}: PKR {convertToPKR(asset.amount).toLocaleString()}</span>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>{getStatusBadge(patient.status)}</TableCell>
-                    <TableCell className="text-right">
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => setSelectedPatient(patient)}
-                      >
-                        <Eye className="w-4 h-4 mr-1" />
-                        View
-                      </Button>
-                    </TableCell>
+          )}
+
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <CardTitle className="text-lg">Patient Directory</CardTitle>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="relative flex-1 sm:w-64">
+                    <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search patients..."
+                      className="pl-10"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-full sm:w-[150px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="suspended">Suspended</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Patient ID</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Contact</TableHead>
+                    <TableHead className="text-right">AT Balance</TableHead>
+                    <TableHead className="text-right">HT Balance</TableHead>
+                    <TableHead>Assets</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                  {filteredPatients.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                        No patients found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredPatients.map((patient) => (
+                      <TableRow key={patient.id}>
+                        <TableCell className="font-mono text-xs">{patient.id}</TableCell>
+                        <TableCell className="font-medium">{patient.name}</TableCell>
+                        <TableCell>
+                          <div>
+                            <p className="text-sm">{patient.email}</p>
+                            <p className="text-xs text-muted-foreground">{patient.phone}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right font-medium">{patient.atBalance.toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-medium text-green-600">{patient.htBalance.toLocaleString()}</TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            <p className="font-medium">{patient.totalAssets} Asset{patient.totalAssets !== 1 ? 's' : ''}</p>
+                            <div className="text-xs text-muted-foreground mt-1 space-y-1">
+                              {patient.assetHistory
+                                .filter(asset => asset.type === 'deposit')
+                                .map(asset => (
+                                  <div key={asset.id} className="flex items-center gap-1">
+                                    <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                                    <span>{asset.assetType || 'Asset'}: PKR {convertToPKR(asset.amount).toLocaleString()}</span>
+                                  </div>
+                                ))}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>{getStatusBadge(patient.status)}</TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openPatientDialog(patient, 'overview')}
+                          >
+                            <Eye className="w-4 h-4 mr-1" />
+                            View
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="kyc" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">KYC Submissions</CardTitle>
+              <CardDescription>
+                Review and verify submitted KYC documents.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Patient</TableHead>
+                    <TableHead>Submitted</TableHead>
+                    <TableHead>Documents</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {kycSubmissions.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                        No KYC submissions to review
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    kycSubmissions.map((patient) => {
+                      const isBusy = reviewingKycId === patient.userId
+
+                      return (
+                        <TableRow key={patient.userId}>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{patient.name}</p>
+                              <p className="text-xs text-muted-foreground">{patient.email}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {patient.kycSubmittedAt ? new Date(patient.kycSubmittedAt).toLocaleString() : '-'}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            <div className="space-y-1">
+                              <div>Front: {patient.kycDocumentFront || '—'}</div>
+                              <div>Back: {patient.kycDocumentBack || '—'}</div>
+                              <div>Selfie: {patient.kycSelfie || '—'}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell>{getKycBadge(patient.kycStatus)}</TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openPatientDialog(patient, 'kyc')}
+                                disabled={isBusy}
+                              >
+                                <Eye className="w-4 h-4 mr-1" />
+                                View
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Patient Details Dialog */}
       <Dialog open={!!selectedPatient} onOpenChange={(open) => !open && setSelectedPatient(null)}>
@@ -472,12 +622,13 @@ export default function PatientsPage() {
           </DialogHeader>
           
           {selectedPatient && (
-            <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
+            <Tabs value={patientDialogTab} onValueChange={(v) => setPatientDialogTab(v as any)} className="w-full">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="balances">Balances</TabsTrigger>
                 <TabsTrigger value="history">History</TabsTrigger>
                 <TabsTrigger value="analytics">Analytics</TabsTrigger>
+                <TabsTrigger value="kyc">KYC Submission</TabsTrigger>
               </TabsList>
 
               <TabsContent value="overview" className="space-y-4">
@@ -704,6 +855,80 @@ export default function PatientsPage() {
                     </CardContent>
                   </Card>
                 </div>
+              </TabsContent>
+
+              <TabsContent value="kyc" className="space-y-4">
+                <Card className="border-emerald-200 bg-emerald-50/30">
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center justify-between gap-3">
+                      <span>KYC Submission</span>
+                      {getKycBadge(selectedPatient.kycStatus)}
+                    </CardTitle>
+                    <CardDescription>
+                      Review the full submission before verifying or rejecting.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="rounded-lg border bg-white p-3 text-sm">
+                        <p className="text-xs uppercase tracking-wide text-slate-500">Submitted</p>
+                        <p className="mt-1 text-slate-900">
+                          {selectedPatient.kycSubmittedAt ? new Date(selectedPatient.kycSubmittedAt).toLocaleString() : 'Not submitted'}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border bg-white p-3 text-sm">
+                        <p className="text-xs uppercase tracking-wide text-slate-500">Reviewed</p>
+                        <p className="mt-1 text-slate-900">
+                          {selectedPatient.kycReviewedAt ? new Date(selectedPatient.kycReviewedAt).toLocaleString() : 'Not reviewed yet'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border bg-white p-4">
+                      <p className="text-sm font-medium text-slate-900">Submitted documents</p>
+                      <div className="mt-3 space-y-2 text-sm text-slate-600">
+                        <p>ID front: {selectedPatient.kycDocumentFront || 'Not attached'}</p>
+                        <p>ID back: {selectedPatient.kycDocumentBack || 'Not attached'}</p>
+                        <p>Selfie / live photo: {selectedPatient.kycSelfie || 'Not attached'}</p>
+                      </div>
+                    </div>
+
+                    {selectedPatient.kycRejectionReason && (
+                      <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+                        Previous rejection reason: {selectedPatient.kycRejectionReason}
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Rejection reason (optional)</label>
+                      <Input
+                        value={kycRejectReasons[selectedPatient.userId] || ''}
+                        onChange={(event) =>
+                          setKycRejectReasons((prev) => ({ ...prev, [selectedPatient.userId]: event.target.value }))
+                        }
+                        placeholder="Add a note if rejecting"
+                        disabled={reviewingKycId === selectedPatient.userId}
+                      />
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => reviewKyc(selectedPatient, false, kycRejectReasons[selectedPatient.userId])}
+                        disabled={reviewingKycId === selectedPatient.userId}
+                      >
+                        Reject KYC
+                      </Button>
+                      <Button
+                        onClick={() => reviewKyc(selectedPatient, true)}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                        disabled={reviewingKycId === selectedPatient.userId}
+                      >
+                        Verify KYC
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
               </TabsContent>
             </Tabs>
           )}

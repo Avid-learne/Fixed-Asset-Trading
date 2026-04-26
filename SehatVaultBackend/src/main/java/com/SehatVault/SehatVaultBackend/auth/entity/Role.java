@@ -31,6 +31,7 @@ public class Role {
         patient,
         hospital_admin,
         hospital_staff,
+        insurance_company,
         bank_staff,
         admin
     }

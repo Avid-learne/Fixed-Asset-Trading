@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 interface KeyValuePair {
   key: string
-  value: string | number
+  value: React.ReactNode
   highlight?: boolean
 }
 

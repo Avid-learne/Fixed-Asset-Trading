@@ -14,11 +14,32 @@ import {
 import { StatusBadge, SwitchToggle, ActionConfirmModal, KeyValueCard } from '../../components'
 
 // Mock data
-const bankInfo = {
+type BankStatus = 'active' | 'inactive'
+
+type BankInfo = {
+  id: string
+  name: string
+  swiftCode: string
+  status: BankStatus
+  address: string
+  phone: string
+  email: string
+  website: string
+  regulatoryLicense: string
+  complianceOfficerName: string
+  complianceOfficerEmail: string
+  createdAt: string
+  verificationLoad: number
+  linkedHospitals: number
+  documentsProcessed: number
+  complianceScore: number
+}
+
+const bankInfo: BankInfo = {
   id: 'BANK-001',
   name: 'National Bank of Pakistan',
   swiftCode: 'NBPAPKKAXXX',
-  status: 'active' as const,
+  status: 'active',
   address: 'I.I. Chundrigar Road, Karachi, Pakistan',
   phone: '+92-21-111-627-627',
   email: 'info@nbp.com',
@@ -44,7 +65,7 @@ const staffMembers = [
 
 export default function BankDetailsPage({ params }: { params: { id: string } }) {
   const router = useRouter()
-  const [bank, setBank] = useState(bankInfo)
+  const [bank, setBank] = useState<BankInfo>(bankInfo)
   const [showDisableModal, setShowDisableModal] = useState(false)
 
   const handleToggleStatus = () => {

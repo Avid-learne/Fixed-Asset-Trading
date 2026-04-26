@@ -178,6 +178,57 @@ public class NotificationService {
         return new SendNotificationResponse(batch.size());
     }
 
+    @Transactional
+    public void notifyUser(UUID senderUserId, UUID receiverUserId, String title, String message) {
+        if (senderUserId == null || receiverUserId == null) {
+            return;
+        }
+        String safeTitle = sanitize(title, "Notification");
+        String safeMessage = message == null ? "" : message.trim();
+        if (safeMessage.isEmpty()) {
+            return;
+        }
+        Notification n = new Notification();
+        n.setSenderId(senderUserId);
+        n.setReceiverId(receiverUserId);
+        n.setNotificationText(safeTitle + "::" + safeMessage);
+        n.setStatus(Notification.NotificationStatus.UNREAD);
+        n.setTimestamp(LocalDateTime.now());
+        notificationRepository.save(n);
+    }
+
+    @Transactional
+    public int notifyUsers(UUID senderUserId, Set<UUID> receiverIds, String title, String message) {
+        if (senderUserId == null || receiverIds == null || receiverIds.isEmpty()) {
+            return 0;
+        }
+        String safeTitle = sanitize(title, "Notification");
+        String safeMessage = message == null ? "" : message.trim();
+        if (safeMessage.isEmpty()) {
+            return 0;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        String payload = safeTitle + "::" + safeMessage;
+        List<Notification> batch = receiverIds.stream()
+                .filter(receiverId -> receiverId != null)
+                .map(receiverId -> {
+                    Notification n = new Notification();
+                    n.setSenderId(senderUserId);
+                    n.setReceiverId(receiverId);
+                    n.setNotificationText(payload);
+                    n.setStatus(Notification.NotificationStatus.UNREAD);
+                    n.setTimestamp(now);
+                    return n;
+                })
+                .toList();
+        if (batch.isEmpty()) {
+            return 0;
+        }
+        notificationRepository.saveAll(batch);
+        return batch.size();
+    }
+
     // ─── PRIVATE HELPERS ────────────────────────────────
 
     private Set<UUID> resolveRecipients(UUID senderUserId, String targetType, SendNotificationRequest request) {

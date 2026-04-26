@@ -8,7 +8,7 @@ import ATWalletCard from '@/components/patient/ATWalletCard'
 import { Card, CardContent } from '@/components/ui/card'
 
 export default function ATWalletPage() {
-  const { user } = useAuth()
+  const { user, isLoading } = useAuth()
   const userId = user?.id || (user as any)?.userId
 
   const [summary, setSummary] = useState<WalletSummary | null>(null)
@@ -18,6 +18,8 @@ export default function ATWalletPage() {
 
   useEffect(() => {
     const loadAtWallet = async () => {
+      if (isLoading) return
+
       if (!userId) {
         setLoading(false)
         setError('User not authenticated')
@@ -41,7 +43,7 @@ export default function ATWalletPage() {
     }
 
     loadAtWallet()
-  }, [userId])
+  }, [userId, isLoading])
 
   if (loading) {
     return (

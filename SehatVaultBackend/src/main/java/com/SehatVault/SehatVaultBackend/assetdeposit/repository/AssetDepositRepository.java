@@ -69,4 +69,6 @@ public interface AssetDepositRepository extends JpaRepository<AssetDeposit, UUID
         List<AssetDeposit> findByPatientIdOrderBySubmittedAtDesc(UUID patientId);
 
         List<AssetDeposit> findByBankIdOrderBySubmittedAtDesc(UUID bankId);
+
+        List<AssetDeposit> findByStatusIgnoreCase(String status);
 }

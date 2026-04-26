@@ -17,6 +17,10 @@ import com.SehatVault.SehatVaultBackend.wallet.dto.TransferHtRequest;
 import com.SehatVault.SehatVaultBackend.wallet.entity.PatientTokenBalance;
 import com.SehatVault.SehatVaultBackend.wallet.repository.PatientTokenBalanceRepository;
 import com.SehatVault.SehatVaultBackend.wallet.repository.WalletTransactionRepository;
+import com.SehatVault.SehatVaultBackend.healthcard.entity.Card;
+import com.SehatVault.SehatVaultBackend.healthcard.entity.HealthCard;
+import com.SehatVault.SehatVaultBackend.healthcard.repository.CardRepository;
+import com.SehatVault.SehatVaultBackend.healthcard.repository.HealthCardRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +41,8 @@ public class WalletService {
     private final NotificationRepository notificationRepository;
     private final WalletTransactionRepository walletTransactionRepository;
         private final ActivityLogRepository activityLogRepository;
+        private final CardRepository cardRepository;
+        private final HealthCardRepository healthCardRepository;
 
     public WalletSummaryDto getWalletSummary(UUID userId) {
         Patient patient = patientRepository.findByUserId(userId)
@@ -194,6 +200,11 @@ public class WalletService {
                 PatientTokenBalance patientBalance = patientTokenBalanceRepository.findByPatientId(patient.getId())
                                 .orElseThrow(() -> new IllegalArgumentException("Patient wallet balance not found"));
 
+                // Enforce source bucket balance (Subscription Card vs Asset Health Card)
+                String source = request.getSource() == null ? "SUBSCRIPTION" : request.getSource().trim().toUpperCase();
+                String cardName = "SUBSCRIPTION".equals(source) ? "Subscription Card" : "Asset Health Card";
+                deductFromHealthCard(patient.getId(), cardName, request.getAmount());
+
                 BigDecimal currentHt = nz(patientBalance.getTotalHt());
                 if (currentHt.compareTo(request.getAmount()) < 0) {
                         throw new IllegalArgumentException("Insufficient HT balance for redemption");
@@ -228,7 +239,7 @@ public class WalletService {
                 ActivityLog patientActivity = new ActivityLog();
                 patientActivity.setUserId(patient.getUserId());
                 patientActivity.setActivityName("HT Redemption");
-                patientActivity.setDescription(String.format("%s HT redeemed for service: %s", request.getAmount(), reason));
+                patientActivity.setDescription(String.format("%s HT redeemed from %s for service: %s", request.getAmount(), cardName, reason));
                 patientActivity.setType(ActivityLog.ActivityType.ACTION);
                 patientActivity.setStatus("SUCCESS");
                 patientActivity.setTimestamp(LocalDateTime.now());
@@ -243,6 +254,27 @@ public class WalletService {
                 staffActivity.setStatus("SUCCESS");
                 staffActivity.setTimestamp(LocalDateTime.now());
                 activityLogRepository.save(staffActivity);
+        }
+
+        private void deductFromHealthCard(UUID patientId, String cardName, BigDecimal amount) {
+                if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+                        throw new IllegalArgumentException("Deduction amount must be greater than zero");
+                }
+
+                Card card = cardRepository.findByCardNameIgnoreCase(cardName)
+                                .orElseThrow(() -> new IllegalArgumentException(cardName + " not found for patient"));
+
+                HealthCard hc = healthCardRepository.findByPatientIdAndCardId(patientId, card.getCardId())
+                                .stream()
+                                .findFirst()
+                                .orElseThrow(() -> new IllegalArgumentException(cardName + " not found for patient"));
+
+                BigDecimal current = hc.getHtBalance() == null ? BigDecimal.ZERO : hc.getHtBalance();
+                if (current.compareTo(amount) < 0) {
+                        throw new IllegalArgumentException("Insufficient HT balance in " + cardName);
+                }
+                hc.setHtBalance(current.subtract(amount));
+                healthCardRepository.save(hc);
         }
 
     private WalletTransactionDto mapRow(WalletTransactionRepository.WalletTransactionRow row) {

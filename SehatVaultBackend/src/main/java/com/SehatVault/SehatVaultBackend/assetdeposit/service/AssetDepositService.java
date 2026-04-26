@@ -28,8 +28,11 @@ import com.SehatVault.SehatVaultBackend.patient.entity.Patient;
 import com.SehatVault.SehatVaultBackend.patient.repository.PatientRepository;
 import com.SehatVault.SehatVaultBackend.wallet.entity.PatientTokenBalance;
 import com.SehatVault.SehatVaultBackend.wallet.repository.PatientTokenBalanceRepository;
-import com.SehatVault.SehatVaultBackend.notification.entity.Notification;
-import com.SehatVault.SehatVaultBackend.notification.repository.NotificationRepository;
+import com.SehatVault.SehatVaultBackend.wallet.repository.WalletTransactionRepository;
+import com.SehatVault.SehatVaultBackend.activity.entity.Transaction;
+import com.SehatVault.SehatVaultBackend.activity.entity.ActivityLog;
+import com.SehatVault.SehatVaultBackend.activity.repository.ActivityLogRepository;
+import com.SehatVault.SehatVaultBackend.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -39,6 +42,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
@@ -63,7 +67,9 @@ public class AssetDepositService {
     private final HospitalAtPoolService hospitalAtPoolService;
     private final PatientWalletAllocatorService patientWalletAllocatorService;
     private final AtTradingService atTradingService;
-    private final NotificationRepository notificationRepository;
+    private final NotificationService notificationService;
+    private final WalletTransactionRepository walletTransactionRepository;
+    private final ActivityLogRepository activityLogRepository;
 
     @Transactional(readOnly = true)
     public List<HospitalOptionDto> getHospitalOptions() {
@@ -89,12 +95,25 @@ public class AssetDepositService {
         if (request.getAssetValue() == null || request.getAssetValue().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("assetValue must be greater than 0");
         }
+        if (request.getAssetReceipt() == null || request.getAssetReceipt().isBlank()) {
+            throw new IllegalArgumentException("assetReceipt is required");
+        }
+        if (request.getPurityCertificate() == null || request.getPurityCertificate().isBlank()) {
+            throw new IllegalArgumentException("purityCertificate is required");
+        }
+        if (request.getSupportingDocuments() == null || request.getSupportingDocuments().isBlank()) {
+            throw new IllegalArgumentException("supportingDocuments is required");
+        }
 
         User user = requireUser(email);
         requireRole(user, Role.RoleType.patient, "Only patients can submit deposit requests");
 
         Patient patient = patientRepository.findByUserId(user.getUserId())
                 .orElseThrow(() -> new IllegalArgumentException("Patient profile not found"));
+
+        if (patient.getKycStatus() != Patient.KycStatus.APPROVED) {
+            throw new IllegalArgumentException("KYC must be approved before submitting a deposit request");
+        }
 
         UUID resolvedHospitalId = patient.getHospitalId() != null ? patient.getHospitalId() : user.getHospitalId();
         if (resolvedHospitalId == null) {
@@ -115,6 +134,9 @@ public class AssetDepositService {
         deposit.setBankId(null); // Bank assigned when hospital admin approves and forwards
         deposit.setAssetType(normalizeAssetType(request.getAssetType()));
         deposit.setAssetValue(request.getAssetValue());
+        deposit.setAssetReceipt(request.getAssetReceipt().trim());
+        deposit.setPurityCertificate(request.getPurityCertificate().trim());
+        deposit.setSupportingDocuments(request.getSupportingDocuments().trim());
         deposit.setWeight(request.getWeight());
         deposit.setStatus("pending");
         deposit.setBankApprovalStatus(null);
@@ -379,51 +401,108 @@ public class AssetDepositService {
         Hospital hospital = hospitalRepository.findById(hospitalId)
                 .orElseThrow(() -> new IllegalArgumentException("Hospital not found"));
 
-        // Mint AT from approved asset value. HT is only given through profit distribution.
-        BigDecimal atTokens = nzNum(saved.getAssetValue()).divide(tokenPriceService.getAtPricePkr(), 2, RoundingMode.DOWN);
+        // Bank approval is NOT the minting point. Patient must physically deposit asset first.
+        sendNotification(bankUser.getUserId(), patientUser.getUserId(),
+            "Deposit Approved by Bank",
+            "Your " + saved.getAssetType() + " deposit was approved by the bank. Please visit the bank to physically deposit the asset."
+                + " Tokens will be minted after custody is confirmed.");
 
-        validateMintCap(saved, atTokens);
+        // Notify hospital admin about bank approval
+        notifyHospitalAdmins(hospitalId, bankUser.getUserId(),
+            "Deposit Approved by Bank",
+            "Bank approved deposit for patient " + patientUser.getName()
+                + " (" + saved.getAssetType() + " worth PKR " + saved.getAssetValue() + ")."
+                + " Awaiting physical custody confirmation.");
 
-        String patientWalletAddress = patientWalletAllocatorService.assignWalletToPatient(patient);
+        return toDto(saved, patient, patientUser, hospital);
+    }
 
+        @Transactional
+        public AssetDepositDto confirmCustodyAndMint(String email, UUID assetId) {
+        User bankUser = requireUser(email);
+        requireRole(bankUser, Role.RoleType.bank_staff, "Only bank staff can confirm custody");
+
+        Bank bank = bankRepository.findByEmail(bankUser.getEmail())
+            .orElseThrow(() -> new IllegalArgumentException("No bank profile found for this account"));
+
+        AssetDeposit deposit = assetDepositRepository.findById(assetId)
+            .orElseThrow(() -> new IllegalArgumentException("Deposit request not found"));
+
+        assertSameBank(bank, deposit);
+
+        if (!"approved".equalsIgnoreCase(nz(deposit.getStatus()))
+            || !"approved".equalsIgnoreCase(nz(deposit.getBankApprovalStatus()))) {
+            throw new IllegalArgumentException("Custody can only be confirmed after hospital + bank approval");
+        }
+        if ("confirmed".equalsIgnoreCase(nz(deposit.getCustodyStatus()))) {
+            throw new IllegalArgumentException("Custody already confirmed");
+        }
+
+        Patient patient = patientRepository.findById(deposit.getPatientId())
+            .orElseThrow(() -> new IllegalArgumentException("Patient not found"));
+        User patientUser = userRepository.findById(patient.getUserId())
+            .orElseThrow(() -> new IllegalArgumentException("Patient user not found"));
+
+        UUID hospitalId = patient.getHospitalId() != null ? patient.getHospitalId() : patientUser.getHospitalId();
+        Hospital hospital = hospitalRepository.findById(hospitalId)
+            .orElseThrow(() -> new IllegalArgumentException("Hospital not found"));
+
+        // Mark custody confirmed
+        deposit.setCustodyStatus("confirmed");
+        deposit.setCustodyConfirmedAt(LocalDateTime.now());
+        deposit.setCustodyConfirmedBy(bankUser.getUserId());
+        deposit.setStatus("custody_confirmed");
+
+        // Mint AT from approved asset value.
+        BigDecimal atTokens = nzNum(deposit.getAssetValue()).divide(tokenPriceService.getAtPricePkr(), 2, RoundingMode.DOWN);
+        validateMintCap(deposit, atTokens);
+
+        patientWalletAllocatorService.assignWalletToPatient(patient);
 
         PatientTokenBalance balance = patientTokenBalanceRepository
-                .findByPatientId(patient.getId())
-                .orElseGet(() -> {
-                    PatientTokenBalance b = new PatientTokenBalance();
-                    b.setPatientId(patient.getId());
-                    b.setTotalAt(BigDecimal.ZERO);
-                    b.setTotalHt(BigDecimal.ZERO);
-                    b.setLastUpdated(LocalDateTime.now());
-                    return b;
-                });
+            .findByPatientId(patient.getId())
+            .orElseGet(() -> {
+                PatientTokenBalance b = new PatientTokenBalance();
+                b.setPatientId(patient.getId());
+                b.setTotalAt(BigDecimal.ZERO);
+                b.setTotalHt(BigDecimal.ZERO);
+                b.setLastUpdated(LocalDateTime.now());
+                return b;
+            });
         balance.setTotalAt(nzNum(balance.getTotalAt()).add(atTokens));
         balance.setLastUpdated(LocalDateTime.now());
         patientTokenBalanceRepository.save(balance);
 
-        recordMint(saved, patient.getId(), bankUser.getUserId(), atTokens, null);
-        hospitalAtPoolService.addToPool(hospitalId, patient.getId(), saved.getAssetId(), atTokens);
+        recordMint(deposit, patient.getId(), bankUser.getUserId(), atTokens, null);
+        hospitalAtPoolService.addToPool(hospitalId, patient.getId(), deposit.getAssetId(), atTokens);
+        atTradingService.initializeAtAssignment(patient.getId(), deposit.getAssetId(), hospitalId, atTokens);
 
-        // Initialize AT assignment for AT Trading System
-        atTradingService.initializeAtAssignment(patient.getId(), saved.getAssetId(), hospitalId, atTokens);
-        log.info("AT assignment initialized for patient {} with {} AT from approved asset {}",
-                patient.getId(), atTokens, saved.getAssetId());
+        // Baseline HT/month starts after custody is confirmed.
+        BigDecimal baseline = getHospitalBaselineHt(hospital);
+        deposit.setBaselineHtPerMonth(baseline);
+        // Credit first month immediately on confirmation.
+        if (baseline.compareTo(BigDecimal.ZERO) > 0) {
+            creditAssetBaselineHt(patient, baseline, "ASSET_BASELINE_INITIAL", deposit.getAssetId());
+            deposit.setLastBaselineHtAt(LocalDateTime.now());
+        }
 
-        // Notify patient that tokens were minted
+        AssetDeposit saved = assetDepositRepository.save(deposit);
+
         sendNotification(bankUser.getUserId(), patientUser.getUserId(),
-                "Asset Tokens Minted",
-                "Your " + saved.getAssetType() + " deposit has been approved by the bank. "
-                        + atTokens + " AT tokens have been minted to your wallet.");
+            "Asset Custody Confirmed",
+            "The bank confirmed physical custody of your " + saved.getAssetType() + " deposit. "
+                + atTokens + " AT tokens have been minted."
+                + (baseline.compareTo(BigDecimal.ZERO) > 0
+                ? (" Monthly baseline benefit: " + baseline.toPlainString() + " HT.")
+                : ""));
 
-        // Notify hospital admin about successful minting
         notifyHospitalAdmins(hospitalId, bankUser.getUserId(),
-                "Deposit Approved & Tokens Minted",
-                "Bank approved deposit for patient " + patientUser.getName()
-                        + ". " + atTokens + " AT minted from " + saved.getAssetType()
-                        + " worth PKR " + saved.getAssetValue());
+            "Custody Confirmed & Tokens Minted",
+            "Bank confirmed custody for patient " + patientUser.getName() + ". "
+                + atTokens + " AT minted.");
 
         return toDto(saved, patient, patientUser, hospital);
-    }
+        }
 
     @Transactional
     public AssetDepositDto rejectRequestByBank(String email, UUID assetId, String reason) {
@@ -481,6 +560,53 @@ public class AssetDepositService {
         return toDto(saved, patient, patientUser, hospital);
     }
 
+    /**
+     * Credits monthly baseline HT for custody-confirmed deposits.
+     * Uses AssetDeposit.lastBaselineHtAt to ensure idempotency.
+     */
+    @Transactional
+    public int processMonthlyAssetBaselines() {
+        List<AssetDeposit> deposits = assetDepositRepository.findByStatusIgnoreCase("custody_confirmed");
+        int credits = 0;
+        LocalDateTime now = LocalDateTime.now();
+
+        for (AssetDeposit deposit : deposits) {
+            BigDecimal baseline = nzNum(deposit.getBaselineHtPerMonth());
+            if (baseline.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+
+            LocalDateTime last = deposit.getLastBaselineHtAt();
+            if (last == null) {
+                // If missing, credit once and set.
+                last = deposit.getCustodyConfirmedAt();
+            }
+            if (last == null) {
+                continue;
+            }
+
+            long fullMonths = ChronoUnit.MONTHS.between(last.toLocalDate().atStartOfDay(), now.toLocalDate().atStartOfDay());
+            if (fullMonths <= 0) {
+                continue;
+            }
+
+            Patient patient = patientRepository.findById(deposit.getPatientId()).orElse(null);
+            if (patient == null) {
+                continue;
+            }
+
+            for (int i = 0; i < fullMonths; i++) {
+                creditAssetBaselineHt(patient, baseline, "ASSET_BASELINE_RECURRING", deposit.getAssetId());
+                credits++;
+            }
+
+            deposit.setLastBaselineHtAt(now);
+            assetDepositRepository.save(deposit);
+        }
+
+        return credits;
+    }
+
     private AssetDepositDto toDto(AssetDeposit deposit, Patient patient, User patientUser, Hospital hospital) {
         AssetDepositDto dto = new AssetDepositDto();
         dto.setAssetId(deposit.getAssetId());
@@ -490,6 +616,9 @@ public class AssetDepositService {
         dto.setHospitalId(hospital != null ? hospital.getHospitalId() : null);
         dto.setHospitalName(hospital != null ? hospital.getHospitalName() : "Not Assigned");
         dto.setAssetType(deposit.getAssetType());
+        dto.setAssetReceipt(deposit.getAssetReceipt());
+        dto.setPurityCertificate(deposit.getPurityCertificate());
+        dto.setSupportingDocuments(deposit.getSupportingDocuments());
         dto.setWeight(deposit.getWeight());
         dto.setAssetValue(nzNum(deposit.getAssetValue()));
         dto.setExpectedTokens(nzNum(deposit.getAssetValue()).divide(tokenPriceService.getAtPricePkr(), 2, RoundingMode.DOWN));
@@ -502,7 +631,74 @@ public class AssetDepositService {
         dto.setBankApprovedAt(deposit.getBankApprovedAt());
         dto.setBankRejectedAt(deposit.getBankRejectedAt());
         dto.setBankRejectionReason(deposit.getBankRejectionReason());
+
+        dto.setCustodyStatus(nz(deposit.getCustodyStatus()));
+        dto.setCustodyConfirmedAt(deposit.getCustodyConfirmedAt());
+        dto.setBaselineHtPerMonth(nzNum(deposit.getBaselineHtPerMonth()));
+        dto.setLastBaselineHtAt(deposit.getLastBaselineHtAt());
         return dto;
+    }
+
+    private BigDecimal getHospitalBaselineHt(Hospital hospital) {
+        // Minimal policy: default 50 HT/month unless overridden via DB column.
+        try {
+            // Optional column can be added later; default used if not present in DB.
+            Double configured = null;
+            try {
+                java.lang.reflect.Method getter = hospital.getClass().getMethod("getAssetBaselineHtPerMonth");
+                Object val = getter.invoke(hospital);
+                if (val instanceof Double d) configured = d;
+            } catch (Exception ignored) {
+                // Backward compatible: hospital may not yet have this field/column.
+            }
+            if (configured != null && configured > 0) {
+                return BigDecimal.valueOf(configured).setScale(2, RoundingMode.HALF_UP);
+            }
+        } catch (Exception ignored) {
+        }
+        return new BigDecimal("50.00");
+    }
+
+    private void creditAssetBaselineHt(Patient patient, BigDecimal htCredit, String source, UUID assetId) {
+        creditAssetHealthCard(patient.getId(), htCredit);
+
+        PatientTokenBalance balance = patientTokenBalanceRepository.findByPatientId(patient.getId())
+                .orElseGet(() -> {
+                    PatientTokenBalance b = new PatientTokenBalance();
+                    b.setPatientId(patient.getId());
+                    b.setTotalAt(BigDecimal.ZERO);
+                    b.setTotalHt(BigDecimal.ZERO);
+                    b.setLastUpdated(LocalDateTime.now());
+                    return b;
+                });
+        balance.setTotalHt(nzNum(balance.getTotalHt()).add(nzNum(htCredit)));
+        balance.setLastUpdated(LocalDateTime.now());
+        patientTokenBalanceRepository.save(balance);
+
+        UUID htTokenId = walletTransactionRepository.findTokenIdBySymbol("HT");
+        if (htTokenId != null) {
+            Transaction tx = new Transaction();
+            tx.setUserId(patient.getUserId());
+            tx.setTokenId(htTokenId);
+            tx.setType(Transaction.TransactionType.CREDIT);
+            tx.setAmount(nzNum(htCredit));
+            tx.setDescription("Asset baseline HT credit (" + source + ") for asset " + assetId);
+            tx.setSenderWalletAddress("ASSET_BASELINE_SYSTEM");
+            tx.setReceiverWalletAddress(patient.getWalletAddress());
+            tx.setTransactionHash("0x" + String.format("%064x", System.currentTimeMillis()));
+            tx.setStatus("CONFIRMED");
+            tx.setTimestamp(LocalDateTime.now());
+            walletTransactionRepository.save(tx);
+        }
+
+        ActivityLog activity = new ActivityLog();
+        activity.setUserId(patient.getUserId());
+        activity.setActivityName("Asset Monthly HT Baseline");
+        activity.setDescription(htCredit.toPlainString() + " HT credited to Asset Health Card (asset " + assetId + ")");
+        activity.setType(ActivityLog.ActivityType.ACTION);
+        activity.setStatus("SUCCESS");
+        activity.setTimestamp(LocalDateTime.now());
+        activityLogRepository.save(activity);
     }
 
     private String normalizeAssetType(String input) {
@@ -620,13 +816,7 @@ public class AssetDepositService {
 
     private void sendNotification(UUID senderId, UUID receiverId, String title, String message) {
         try {
-            Notification notification = new Notification();
-            notification.setSenderId(senderId);
-            notification.setReceiverId(receiverId);
-            notification.setNotificationText(title + "::" + message);
-            notification.setStatus(Notification.NotificationStatus.UNREAD);
-            notification.setTimestamp(LocalDateTime.now());
-            notificationRepository.save(notification);
+            notificationService.notifyUser(senderId, receiverId, title, message);
         } catch (Exception e) {
             log.warn("Failed to send notification: {}", e.getMessage());
         }

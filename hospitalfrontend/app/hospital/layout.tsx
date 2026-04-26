@@ -39,8 +39,9 @@ export default function HospitalLayout({
       }
       
       // Only redirect if user has wrong role AND not already on correct path
-      if (activeUser.role !== UserRole.HOSPITAL_STAFF && String(activeUser.role).toUpperCase() !== 'HOSPITAL_STAFF') {
-        const correctPath = roleToPath(activeUser.role)
+      const currentRole = activeUser.role || 'PATIENT'
+      if (currentRole !== UserRole.HOSPITAL_STAFF && String(currentRole).toUpperCase() !== 'HOSPITAL_STAFF') {
+        const correctPath = roleToPath(currentRole)
         if (!pathname.startsWith(correctPath)) {
           router.push(correctPath)
         }

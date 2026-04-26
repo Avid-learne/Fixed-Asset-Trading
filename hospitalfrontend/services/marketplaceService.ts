@@ -106,7 +106,6 @@ interface BackendTrade {
   quantity?: number
   tradeDate?: string
   currentValue?: number
-  amountAfterTrade?: number
   exitValue?: number
   unrealizedPnl?: number
   realizedPnl?: number

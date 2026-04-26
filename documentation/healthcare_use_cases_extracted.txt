@@ -1,0 +1,122 @@
+Healthcare Tokenization System
+Use Case Documentation
+Asset Token (AT)  •  Health Token (HT)  •  Four Use Cases
+
+System Overview
+This document details all four use cases of the healthcare tokenization system, where hospitals
+generate income through asset trading and patients redeem health benefits via tokens.
+
+Portals: 
+Bank Portal • Patient Portal • Hospital Admin Portal • Hospital Staff Portal
+Tokens: 
+Asset Token (AT) — represents deposited asset value  |  Health Token (HT) — redeemed for health benefits
+Prerequisite: 
+All use cases require the patient to complete KYC and connect to a hospital before proceeding.
+Use Case 1 — Asset Trading
+What is it?
+A patient owns a physical asset — gold or silver. Instead of letting it sit idle, they deposit it into this system to generate health benefits over time. The asset is used as trading capital, the profit from that trading is shared among all parties, and the patient receives Health Tokens (HT) as their benefit — redeemable for healthcare services.
+Step 1 — Patient submits a deposit request
+The patient, who has already completed KYC and is connected to a hospital, goes to the Patient Portal and submits a deposit request. This includes the type of asset (gold or silver), its estimated value, weight, and supporting documents such as ownership proof, valuation certificates, and any other required paperwork.
+Step 2 — Hospital reviews and decides
+The deposit request lands in the Hospital Admin Portal. The hospital staff reviews the documents, verifies the asset details, and makes a decision — accept or reject. If rejected, the patient is notified with a reason and the process ends. If accepted, the request is forwarded to the bank that the hospital is integrated with.
+Step 3 — Bank reviews and gives final approval
+The bank acts as the custodian. They perform their own due diligence — verifying the asset documents, assessing the asset's value, and confirming the patient's identity. The bank either approves or rejects. Their decision is final and is communicated back to the patient through the system. If rejected at this stage, the hospital is also notified.
+Step 4 — Patient physically deposits the asset
+Once the bank approves, the patient goes to the bank in real life and physically hands over their gold or silver. The bank takes custody of the asset. From this point forward, the asset is locked with the bank as collateral for the duration of the arrangement.
+Step 5 — Hospital mints Asset Tokens (AT)
+After the physical deposit is confirmed, the hospital calculates the monetary value of the asset. This money is what will actually be used for trading. To represent this value digitally in the system, the hospital mints Asset Tokens. The conversion is fixed — for example, 1 AT = 100 Rs. So if the asset is worth 50,000 Rs, the patient receives 500 AT in their asset card on the Patient Portal. The AT is a representation, not the money itself. The money goes into the trading pool.
+Step 6 — The trading period begins
+The hospital uses the pooled asset money — from this patient and potentially others — to conduct real financial trading. The trading cycle has a defined duration, for example four months. During this entire period, the patient's asset stays with the bank and the money stays in the trading pool.
+During this period, the patient receives a fixed number of Health Tokens every month, credited directly to their asset card. This is a guaranteed baseline benefit — it does not depend on whether the trade has been profitable yet. Think of it as an interim benefit for having committed their asset to the system.
+Step 7 — Profit is generated and distributed
+At the end of the trading cycle, the profit is calculated. This profit is then split among three parties:
+The patient receives their share, which is converted into additional Health Tokens and credited as a bonus on top of the monthly HT already received.
+The hospital retains its share. This retained share is what funds the next trading cycle — the hospital does not need to find new capital.
+The bank receives its share as a custodian fee for safeguarding the asset and providing approval infrastructure.
+The critical question — what happens after the first trade?
+The system is designed as a perpetual engine. The physical asset never leaves the bank — it stays as permanent collateral and the patient's AT balance remains intact. The trading capital regenerates from profit, not from the asset itself. The patient keeps receiving fixed monthly HT across every subsequent cycle because their asset is still on deposit, and extra bonus HT is given at the end of each completed trade cycle.
+What does the patient see in their portal?
+In their Patient Portal, the patient has an asset card showing their AT balance, the monthly HT received so far, the current status of the trading cycle, and any bonus HT credited after profit distribution. HT in their wallet can be redeemed anytime for health benefits.
+What can go wrong?
+If the bank or hospital rejects the application, the patient cannot participate. If the trading cycle generates no profit or a loss, the patient still receives their fixed monthly HT — which the hospital must honor from its operational budget — but there is no bonus HT at the end of that cycle. The patient's asset and AT remain untouched regardless of trading outcomes.
+Use Case 2 — Subscription
+What is it?
+A patient who does not own gold or silver — or simply does not want to deposit an asset — can still access health benefits through a monthly subscription. They choose a plan, pay a recurring fee, and receive Health Tokens every month into their wallet. It is straightforward, predictable, and requires no asset, no bank involvement, and no trading.
+Who is it for?
+This use case is designed for patients who want immediate, low-friction access to health benefits. They may not have assets to deposit, or they may not want to lock anything up with a bank for months. As long as they have completed KYC and are connected to a hospital, they can subscribe.
+Step 1 — Patient browses and selects a plan
+The patient logs into the Patient Portal and views the available subscription plans. There are three tiers — Basic, Standard, and Premium. Each plan differs in monthly fee, HT credits per month, and the breadth of health benefits accessible.
+The three plans
+Basic plan
+The entry level. It has the lowest monthly fee and gives the patient a limited number of HT per month. The benefits accessible with Basic are core services — general consultations, basic diagnostics, and standard pharmacy coverage. It is designed for patients who want some coverage without a large financial commitment.
+Standard plan
+The middle tier. The monthly fee is higher than Basic, the HT allocation is larger, and the benefits extend beyond core services. Patients on Standard can access a broader range of treatments, specialist consultations, or additional services that Basic does not cover.
+Premium plan
+The highest tier. It carries the highest monthly fee and grants the maximum HT allocation per month. Patients on Premium have full access to whatever benefits the hospital has listed in the system — priority services, advanced diagnostics, elective treatments, and anything else the hospital makes available for HT redemption.
+Step 2 — Patient subscribes and payment is processed
+Once the patient selects a plan, they confirm the subscription through the Patient Portal. The monthly payment is processed and goes to the hospital directly. There is no bank involved in the subscription use case at all.
+Step 3 — Health Tokens are credited monthly
+At the start of each billing cycle, the system credits the patient's wallet with the number of HT corresponding to their plan. These tokens appear in a dedicated subscription card inside the Patient Portal — separate from the asset card that belongs to Use Case 1. This separation is deliberate, so the patient can always see which tokens came from their subscription and which came from their asset deposit.
+Step 4 — Patient redeems HT for health benefits
+Whenever the patient needs a health service, they use their HT from the subscription card. The hospital's system checks the balance, deducts the appropriate amount, and the service is rendered. The patient does not need to pay out of pocket for anything covered within their HT balance.
+Unused HT, plan changes, and cancellation
+What happens to unused HT is a hospital-defined policy. Two common approaches: a use-it-or-lose-it model where unused HT expire at the end of the cycle, or a rollover model where unused HT accumulate up to a cap. Plan upgrades take effect immediately or at the next billing cycle. Downgrades and cancellations typically take effect at the next billing cycle. Remaining HT at cancellation may be usable until the end of the current cycle.
+Key difference from Use Case 1
+In Use Case 1, the patient's benefit is tied to a physical asset and a trading cycle — HT is a product of collateral and profit. In Use Case 2 there is no asset, no bank, no trading, and no profit distribution. The patient pays for tokens on a recurring basis. Use Case 1 has higher potential upside (bonus HT from profit) but requires asset ownership and longer commitment. Use Case 2 is simpler, immediately active, and more accessible — but the patient receives only what their plan guarantees, nothing more.
+Use Case 3 — Instant AT to HT Redemption
+What is it?
+A patient has already deposited their physical asset with the bank, the hospital has minted Asset Tokens representing that asset's value, and those AT are sitting in the patient's asset card. However, the trading cycle has not started yet. No profit has been generated. No monthly HT are flowing yet. The patient suddenly needs health benefits right now — they cannot wait for the trade to begin and run its course. This use case solves that problem by allowing the hospital staff to convert the patient's Asset Tokens directly into Health Tokens on demand, based on the urgency of the situation.
+Why does this situation arise?
+The gap between asset deposit and trade commencement is a real operational window. After the bank approves the asset and the patient physically deposits it, the hospital needs time to pool enough capital from multiple patients, finalize the trading arrangements, and formally begin the cycle. This window could be days or weeks. During this time, the patient has AT in their wallet but no HT and no monthly benefit flowing yet. If a medical emergency occurs in this window, the patient is stuck — they have value locked in the system but cannot access any benefit from it. Use Case 3 is the release valve for exactly this scenario.
+Step 1 — Patient raises an emergency redemption request
+The patient logs into the Patient Portal and submits an instant redemption request. They explain the nature of their medical need, how urgently they require benefits, and how many AT they are requesting to convert. This request is not automatic — it requires human review and approval from the hospital side. The patient cannot self-convert their AT into HT.
+Step 2 — Hospital staff receives and reviews the request
+The request appears in the Hospital Staff Portal. A designated staff member opens the request and reviews the patient's situation — the medical need, the urgency of the case, the patient's AT balance, and any supporting documentation submitted. The staff member is the conversion authority. They decide both whether to approve and at what rate to convert.
+Step 3 — Urgency is assessed and classified
+This is the most critical part of the process. The staff member classifies the request into one of three urgency levels, which directly determines how many AT are converted and at what rate.
+Routine: A non-critical diagnostic or scheduled appointment. Only a partial portion of AT is converted at the standard rate.
+Moderate emergency: A pressing medical need that cannot wait but is not immediately life-threatening. A larger portion of AT is converted at a slightly elevated rate.
+Critical emergency: The patient needs immediate and extensive medical attention. The maximum allowable portion of AT is converted, potentially the entire balance, at the highest conversion rate.
+Step 4 — Staff executes the conversion
+Once the urgency level is determined and conversion parameters are set, the staff member executes the conversion through the Hospital Staff Portal. This is an instant on-system action. The specified number of AT is deducted from the patient's asset card and the corresponding number of HT is credited to the patient's wallet in real time. No additional bank approval is required at this stage.
+Step 5 — Patient receives HT and redeems immediately
+The moment the conversion is executed, the HT appear in the patient's wallet and are immediately redeemable for health services. The AT balance in the asset card is reduced by exactly the amount converted.
+Consequences of converting AT before trading begins
+When the trading cycle eventually starts, the hospital calculates each patient's participation based on their AT balance at that time. If a patient converted some or all of their AT into HT before the trade started, their participation in the trading cycle is reduced proportionally — less monthly HT during the trade, and a smaller profit share bonus at the end. In the extreme case where all AT are converted, the patient has zero participation in that cycle. This trade-off must be disclosed clearly to the patient at the time of the request.
+Why the patient cannot convert AT themselves
+AT represents collateral that the bank has accepted and the hospital has minted against. Allowing self-conversion would undermine the collateral structure. The bank approved the deposit on the assumption that AT would remain intact as a representation of the asset during the trading period. The staff approval gate exists to protect both system integrity and the patient from uninformed decisions that damage their own trading participation.
+Audit trail requirement
+Every instant redemption conversion must be logged with: the patient's identity, the timestamp, the urgency classification, the staff member's justification, the number of AT converted, the number of HT issued, and the staff member's ID. This log protects the hospital from arbitrary conversion claims and gives the bank visibility into collateral changes.
+Use Case 4 — Token Fractionalization with Insurance NOC
+What is it?
+A patient who holds Health Tokens wants to extend the benefit of those tokens to people they care about — a spouse, a child, a parent, a close friend. Instead of the patient being the only person who can redeem health benefits from their HT balance, they split their token ownership into fractions and assign those fractions to named beneficiaries. Each beneficiary then has their own allocated share of HT that they can redeem independently, from their own profile, without needing the primary patient to be present or involved. An insurance company is brought into this process to validate the arrangement and provide legal backing for it.
+Why does an insurance company need to be involved?
+Without a third-party validator, the system has no way to verify that the people being named as beneficiaries are legitimate. A patient could theoretically name anyone — a stranger, a fraudulent account — and transfer the economic value of their HT under the guise of family sharing. The insurance company performs the verification, checks the relationships, accepts liability for the validity of the fractions, and issues a No Objection Certificate — the NOC — which is the legal document that authorizes the fractionalization to proceed. Without a valid NOC, the system does not allow fractionalization to happen at all.
+What is a No Objection Certificate in this context?
+The NOC is a formal document issued by the insurance company stating they have reviewed the patient's request, verified the named beneficiaries, confirmed the relationships are genuine, and have no objection to the patient's HT being split and assigned. It also defines the period during which the fractions are valid — the NOC is not open-ended. It has a start date and an expiry date.
+The NOC also transfers a layer of liability to the insurance company. If a beneficiary uses their fraction inappropriately, or if a dispute arises, the insurance company is the first point of accountability — not the hospital and not the patient alone. This gives the hospital protection and provides a formal dispute resolution anchor.
+Step 1 — Patient submits a fractionalization request
+The patient logs into the Patient Portal and initiates a fractionalization request, specifying who the beneficiaries are, what fraction of HT each beneficiary should receive, and the intended duration. For example, a patient with 1000 HT might specify 35% to their spouse, 25% to their child, 15% to a parent, and retain 25% themselves. The total must always equal 100% of whatever is being fractionated.
+Step 2 — Hospital admin reviews the request
+The request lands in the Hospital Admin Portal. The admin reviews whether the patient is eligible to fractionalize — sufficient HT balance, account in good standing, KYC complete, and no active restrictions. The admin also checks whether the percentages are within hospital-defined policy limits. If everything checks out, the request is forwarded to the insurance company.
+Step 3 — Insurance company verifies beneficiaries
+The insurance company receives the request with the list of named beneficiaries. They conduct their own verification — checking identity documents, confirming stated relationships through documentation such as a marriage certificate for a spouse or a birth certificate for a child. For a friend who is not a family member, stricter review and additional documentation may be required. Once satisfied, they issue the NOC.
+Step 4 — NOC is issued and fractionalization is authorized
+The signed NOC is submitted back to the hospital system. The Hospital Admin Portal receives it, logs it against the patient's account, and authorizes the fractionalization engine to proceed. The NOC number, issue date, expiry date, and insurer details are all recorded and attached to every fractional token subsequently created.
+Step 5 — Token fractionalization is executed
+The system splits the patient's HT according to the specified percentages. Each beneficiary receives a fractional token allocation in their own profile. These are not copies of the original HT — they are a legally divided portion of the original balance. The primary patient's wallet is updated to reflect their retained share. The total HT in the system remains the same — nothing is created or destroyed, it is simply divided.
+Each beneficiary's allocation appears in their own Patient Portal under a dedicated fractional benefits card, showing how many HT they hold, who assigned it to them, and when the allocation expires.
+Step 6 — Beneficiaries redeem independently
+Each beneficiary can now access the hospital or use the portal independently and redeem health benefits using their fractional HT allocation without the primary patient needing to authorize individual redemptions. Their fractional card behaves like any other HT wallet for benefit redemption. The hospital staff can see that the HT being redeemed is a fractional allocation and can verify the NOC backing it before processing the service.
+What is token fractionalization technically?
+Token fractionalization means that ownership of a token — in this case an HT — is divided into sub-units that can be held and exercised by different parties simultaneously. The original token is not duplicated. Instead, the system records that a token with a total value of 1000 HT is now owned in defined proportions across multiple parties. Each party can only redeem up to their own percentage of the total. When one party redeems, only their share is deducted — the other parties are unaffected. The fractions are independent slices of a shared original.
+Revocation, expiry, and disputes
+Revocation
+The primary patient can revoke a fraction at any time through the Patient Portal. Once revoked, the fraction is removed from the beneficiary's profile and the HT represented by that fraction return to the primary patient's wallet. If the NOC has specific terms about revocation — such as a minimum notice period or a restriction during active treatment of the beneficiary — those terms govern.
+NOC expiry
+When the NOC reaches its expiry date, all active fractions under that NOC are frozen. The primary patient is notified and given the option to renew — which requires going back to the insurance company for a new NOC — or to let the fractions lapse, in which case all unspent fractional HT return to the primary patient's wallet.
+Disputes and misuse
+Because the insurance company issued the NOC and accepted liability, any dispute about misuse or fraudulent redemption is routed to the insurance company first. The hospital's role is to flag suspicious activity and suspend the fractional allocation pending investigation. If misuse is found, the insurance company compensates the hospital for fraudulent redemptions and pursues the matter with the beneficiary. The primary patient is protected from financial liability for a beneficiary's misuse, provided they submitted accurate information when requesting the NOC.
+Key design principles
+The primary patient is always in control — they initiate, define the fractions, and can revoke. The insurance NOC is not a transfer of control, it is a transfer of liability verification. Beneficiaries receive usage rights, not ownership. The HT still belongs to the primary patient's account structure. Beneficiaries can spend their allocation but cannot reassign it, convert it to AT, or transfer it out of the system. Fractionalization is always time-bound by the NOC period, which prevents permanent open-ended token splitting that the hospital cannot track or manage.
+

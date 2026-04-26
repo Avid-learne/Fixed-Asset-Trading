@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import { ChartCard } from '../components/ChartCard'
 import { StatusBadge } from '../components/StatusBadge'
-import { KeyValueCard } from './components/KeyValueCard'
+import { KeyValueCard } from '../components/KeyValueCard'
 import { dashboardService, type SuperAdminDashboardSummary } from '@/services/dashboardService'
 
 export default function SuperadminDashboard() {
@@ -79,15 +79,7 @@ export default function SuperadminDashboard() {
 
       // Set system alerts based on data
       const alerts = []
-      if (dashboardData.pendingBlockchainTxs && dashboardData.pendingBlockchainTxs > 0) {
-        alerts.push({ 
-          id: 'ALT-001', 
-          type: 'warning', 
-          message: `${dashboardData.pendingBlockchainTxs} pending blockchain transactions`, 
-          time: 'Just now' 
-        })
-      }
-      if (dashboardData.systemUptime && dashboardData.systemUptime < 99.9) {
+      if (dashboardData.systemUptime < 99.9) {
         alerts.push({ 
           id: 'ALT-002', 
           type: 'warning', 

@@ -29,6 +29,7 @@ export default function SubscriptionPage() {
   
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState<ApiSubscriptionPlan | null>(null)
+  const [paymentMode, setPaymentMode] = useState<'subscribe' | 'change'>('subscribe')
   const [cardNumber, setCardNumber] = useState('')
   const [expiryDate, setExpiryDate] = useState('')
   const [cvv, setCvv] = useState('')
@@ -83,7 +84,7 @@ export default function SubscriptionPage() {
         Promise.race([plansPromise, timeoutPromise]),
         Promise.race([subscriptionPromise, timeoutPromise]),
         Promise.race([historyPromise, timeoutPromise])
-      ])
+      ]) as [ApiSubscriptionPlan[], PatientSubscription | null, PaymentHistory[]]
       
       setPlans(plansData || [])
       setCurrentSubscription(subscriptionData || null)
@@ -104,10 +105,8 @@ export default function SubscriptionPage() {
   }
 
   const handleSubscribe = (plan: ApiSubscriptionPlan) => {
-    if (currentSubscription?.status === 'ACTIVE') {
-      alert('Please cancel your current active subscription before selecting another plan.')
-      return
-    }
+    const hasActive = currentSubscription?.status === 'ACTIVE'
+    setPaymentMode(hasActive ? 'change' : 'subscribe')
     setSelectedPlan(plan)
     setPaymentOpen(true)
   }
@@ -135,17 +134,26 @@ export default function SubscriptionPage() {
     
     setSubscribing(true)
     try {
-      const response = await subscriptionService.subscribe({
-        userId,
-        subscriptionId: selectedPlan.subsId,
-        paymentMethod: 'Credit Card',
-        cardNumber: cardNumber,
-        expiryDate: expiryDate,
-        cvv: cvv,
-      })
+      const response = paymentMode === 'change'
+        ? await subscriptionService.changePlan({
+            userId,
+            newSubscriptionId: selectedPlan.subsId,
+            paymentMethod: 'Credit Card',
+            cardNumber: cardNumber,
+            expiryDate: expiryDate,
+            cvv: cvv,
+          })
+        : await subscriptionService.subscribe({
+            userId,
+            subscriptionId: selectedPlan.subsId,
+            paymentMethod: 'Credit Card',
+            cardNumber: cardNumber,
+            expiryDate: expiryDate,
+            cvv: cvv,
+          })
       
       if (response.success) {
-        alert('Subscription successful!')
+        alert(paymentMode === 'change' ? 'Plan updated successfully!' : 'Subscription successful!')
         setPaymentOpen(false)
         // Reset form
         setCardNumber('')
@@ -154,7 +162,7 @@ export default function SubscriptionPage() {
         // Reload data
         await loadData()
       } else {
-        alert(response.message || 'Subscription failed')
+        alert(response.message || (paymentMode === 'change' ? 'Plan change failed' : 'Subscription failed'))
       }
     } catch (error) {
       console.error('Payment error:', error)
@@ -288,7 +296,7 @@ export default function SubscriptionPage() {
                 </Button>
               ) : (
                 <Button size="sm" className="w-full" onClick={() => handleSubscribe(plan)}>
-                  Subscribe Now
+                  {currentSubscription?.status === 'ACTIVE' ? 'Change Plan' : 'Subscribe Now'}
                 </Button>
               )}
             </CardFooter>
@@ -355,7 +363,7 @@ export default function SubscriptionPage() {
           <ModalHeader>
             <ModalTitle className="flex items-center gap-2">
               <CreditCard className="w-5 h-5" />
-              Complete Payment
+              {paymentMode === 'change' ? 'Confirm Plan Change' : 'Complete Payment'}
             </ModalTitle>
           </ModalHeader>
           {selectedPlan && (
@@ -422,7 +430,9 @@ export default function SubscriptionPage() {
                   Processing...
                 </>
               ) : (
-                `Pay Rs. ${selectedPlan?.amountPerMonth.toLocaleString()}`
+                paymentMode === 'change'
+                  ? `Confirm Rs. ${selectedPlan?.amountPerMonth.toLocaleString()}`
+                  : `Pay Rs. ${selectedPlan?.amountPerMonth.toLocaleString()}`
               )}
             </Button>
           </ModalFooter>

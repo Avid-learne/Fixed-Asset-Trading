@@ -15,6 +15,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
+  const buildAuthUser = (storedUser: ReturnType<typeof authService.getUser>, response?: { userId?: string; email?: string; name?: string } | null): AuthUser | null => {
+    if (!storedUser) return null
+
+    const normalizedRole = (storedUser.role?.toUpperCase() || 'PATIENT') as UserRole
+
+    return {
+      id: response?.userId || storedUser.id || '',
+      email: response?.email || storedUser.email || '',
+      name: response?.name || storedUser.name || '',
+      role: normalizedRole,
+      permissions: ROLE_PERMISSIONS[normalizedRole] || [],
+      createdAt: new Date().toISOString(),
+      mfaEnabled: false,
+      isActive: true,
+      hospitalId: storedUser.hospitalId,
+      bankId: storedUser.bankId,
+      patientId: storedUser.patientId,
+    }
+  }
+
   useEffect(() => {
     // Load user from backend on mount
     const loadUser = async () => {
@@ -29,11 +49,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
           return
         }
 
+        // Hydrate immediately from local storage so pages don't enter false unauth states.
+        const fallbackUser = buildAuthUser(storedUser)
+        if (fallbackUser) {
+          setUser(fallbackUser)
+        }
+
         // Create timeout for verification
         const timeoutId = setTimeout(() => {
-          console.warn('User verification timed out, clearing auth state')
-          authService.logout()
-          setUser(null)
+          console.warn('User verification timed out, using stored auth state')
           setIsLoading(false)
         }, 8000); // 8 second timeout
 
@@ -42,34 +66,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
         clearTimeout(timeoutId)
         
         if (response && response.success) {
-          // Map backend response to AuthUser
-          const authUser: AuthUser = {
-            id: response.userId || storedUser.id || '',
-            email: response.email || storedUser.email || '',
-            name: response.name || storedUser.name || '',
-            role: (storedUser.role?.toUpperCase() || 'PATIENT') as UserRole,
-            permissions: ROLE_PERMISSIONS[(storedUser.role?.toUpperCase() || 'PATIENT') as UserRole] || [],
-            createdAt: new Date().toISOString(),
-            mfaEnabled: false,
-            isActive: true,
-            hospitalId: storedUser.hospitalId,
-            bankId: storedUser.bankId,
-            patientId: storedUser.patientId,
+          const authUser = buildAuthUser(storedUser, response)
+          if (authUser) {
+            console.log('User loaded successfully:', authUser.email)
+            setUser(authUser)
           }
-          
-          console.log('User loaded successfully:', authUser.email)
-          setUser(authUser)
         } else {
-          // Token invalid, clear auth
-          console.warn('Token verification failed, clearing auth state')
-          authService.logout()
-          setUser(null)
+          console.warn('Token verification failed, continuing with stored auth state')
         }
       } catch (error) {
         console.error('Failed to load user:', error)
-        // Clear invalid auth state
-        authService.logout()
-        setUser(null)
+        // Keep stored auth state on transient errors; route guards handle true unauthenticated users.
       } finally {
         setIsLoading(false)
       }
@@ -164,20 +171,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (response.success && response.userId) {
         const storedUser = authService.getUser()
         if (storedUser) {
-          const authUser: AuthUser = {
-            id: response.userId || storedUser.id || '',
-            email: response.email || storedUser.email || '',
-            name: response.name || storedUser.name || '',
-            role: (storedUser.role?.toUpperCase() || 'PATIENT') as UserRole,
-            permissions: ROLE_PERMISSIONS[(storedUser.role?.toUpperCase() || 'PATIENT') as UserRole] || [],
-            createdAt: new Date().toISOString(),
-            mfaEnabled: false,
-            isActive: true,
-            hospitalId: storedUser.hospitalId,
-            bankId: storedUser.bankId,
-            patientId: storedUser.patientId,
-          }
-          
+          const authUser = buildAuthUser(storedUser, response)
+          if (!authUser) throw new Error('Unable to initialize user session')
           setUser(authUser)
         }
       } else {
@@ -202,30 +197,30 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (response && response.success) {
         const storedUser = authService.getUser()
         if (storedUser) {
-          const authUser: AuthUser = {
-            id: response.userId || storedUser.id || '',
-            email: response.email || storedUser.email || '',
-            name: response.name || storedUser.name || '',
-            role: (storedUser.role?.toUpperCase() || 'PATIENT') as UserRole,
-            permissions: ROLE_PERMISSIONS[(storedUser.role?.toUpperCase() || 'PATIENT') as UserRole] || [],
-            createdAt: new Date().toISOString(),
-            mfaEnabled: false,
-            isActive: true,
-            hospitalId: storedUser.hospitalId,
-            bankId: storedUser.bankId,
-            patientId: storedUser.patientId,
-          }
-          
+          const authUser = buildAuthUser(storedUser, response)
+          if (!authUser) throw new Error('Unable to refresh user session')
           setUser(authUser)
         }
+      } else {
+        const storedUser = authService.getUser()
+        const fallbackUser = buildAuthUser(storedUser)
+        if (fallbackUser) {
+          setUser(fallbackUser)
+        } else {
+          authService.logout()
+          setUser(null)
+        }
+      }
+    } catch (error) {
+      console.error('Refresh user error:', error)
+      const storedUser = authService.getUser()
+      const fallbackUser = buildAuthUser(storedUser)
+      if (fallbackUser) {
+        setUser(fallbackUser)
       } else {
         authService.logout()
         setUser(null)
       }
-    } catch (error) {
-      console.error('Refresh user error:', error)
-      authService.logout()
-      setUser(null)
     }
   }
 

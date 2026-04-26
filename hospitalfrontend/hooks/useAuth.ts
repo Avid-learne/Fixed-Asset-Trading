@@ -24,7 +24,18 @@ export const useAuth = () => {
         const token = authService.getToken();
         if (token) {
           const userData = authService.getUser();
-          setUser(userData);
+          if (userData?.id && userData?.email && userData?.name && userData?.role) {
+            setUser({
+              id: userData.id,
+              email: userData.email,
+              name: userData.name,
+              role: userData.role,
+              hospitalId: userData.hospitalId,
+              patientId: userData.patientId,
+            });
+          } else {
+            setUser(null);
+          }
         } else {
           setUser(null);
         }

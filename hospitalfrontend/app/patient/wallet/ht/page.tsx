@@ -11,7 +11,7 @@ import { AlertCircle, Loader2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 
 export default function HTWalletPage() {
-  const { user } = useAuth()
+  const { user, isLoading } = useAuth()
   const userId = user?.id || (user as any)?.userId
 
   const [summary, setSummary] = useState<WalletSummary | null>(null)
@@ -20,6 +20,8 @@ export default function HTWalletPage() {
   const [error, setError] = useState<string | null>(null)
 
   const loadWallet = async () => {
+    if (isLoading) return
+
     if (!userId) {
       setLoading(false)
       setError('User not authenticated')
@@ -44,7 +46,7 @@ export default function HTWalletPage() {
 
   useEffect(() => {
     loadWallet()
-  }, [userId])
+  }, [userId, isLoading])
 
   const handleTransfer = async (recipientWalletAddress: string, amount: number, note?: string) => {
     await walletService.transferHT(recipientWalletAddress, amount, note)

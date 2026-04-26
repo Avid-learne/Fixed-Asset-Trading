@@ -212,6 +212,7 @@ export default function DepositsPage() {
                   <TableHead className="text-right">Weight</TableHead>
                   <TableHead className="text-right">Value</TableHead>
                   <TableHead className="text-right">AT</TableHead>
+                  <TableHead>Documents</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Bank Review</TableHead>
                   <TableHead>Submitted</TableHead>
@@ -237,6 +238,14 @@ export default function DepositsPage() {
                         <TableCell className="text-right">{toNumber(row.weight).toLocaleString()} g</TableCell>
                         <TableCell className="text-right">PKR {toNumber(row.assetValue).toLocaleString()}</TableCell>
                         <TableCell className="text-right font-semibold text-emerald-700">{toNumber(row.expectedTokens).toLocaleString()} AT</TableCell>
+                        <TableCell>
+                          <div className="space-y-1 text-xs text-slate-600">
+                            {row.assetReceipt && <p>Receipt: {row.assetReceipt}</p>}
+                            {row.purityCertificate && <p>Purity: {row.purityCertificate}</p>}
+                            {row.supportingDocuments && <p>Support: {row.supportingDocuments}</p>}
+                            {!row.assetReceipt && !row.purityCertificate && !row.supportingDocuments && <p>No documents</p>}
+                          </div>
+                        </TableCell>
                         <TableCell>{statusBadge(row.status)}</TableCell>
                         <TableCell>{bankReviewBadge(row.bankApprovalStatus)}</TableCell>
                         <TableCell>{new Date(row.submittedAt).toLocaleDateString()}</TableCell>

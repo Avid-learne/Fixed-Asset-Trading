@@ -2,10 +2,12 @@
 
 'use client'
 
-import React from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/store/authStore'
+import { notificationService } from '@/services/notificationService'
 import {
   Sidebar as CollapsibleSidebar,
   SidebarProvider,
@@ -126,6 +128,10 @@ interface LayoutSidebarProps extends SidebarProps {
 
 export const Sidebar: React.FC<LayoutSidebarProps> = ({ userRole, withProvider = true }) => {
   const pathname = usePathname()
+  const { user } = useAuthStore()
+  const userId = (user as any)?.id || (user as any)?.userId
+
+  const [unreadCount, setUnreadCount] = useState(0)
 
   const getNavItems = () => {
     switch (userRole) {
@@ -144,7 +150,40 @@ export const Sidebar: React.FC<LayoutSidebarProps> = ({ userRole, withProvider =
     }
   }
 
-  const navItems = getNavItems()
+  const navItems = useMemo(() => getNavItems(), [userRole])
+
+  const loadUnreadNavDots = useCallback(async () => {
+    if (!userId) {
+      setUnreadCount(0)
+      return
+    }
+
+    try {
+      const count = await notificationService.getUnreadCount(String(userId))
+      setUnreadCount(count)
+    } catch {
+      setUnreadCount(0)
+    }
+  }, [userId])
+
+  useEffect(() => {
+    loadUnreadNavDots()
+  }, [loadUnreadNavDots])
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      loadUnreadNavDots()
+    }, 30000)
+    return () => window.clearInterval(id)
+  }, [loadUnreadNavDots])
+
+  useEffect(() => {
+    const onChanged = () => {
+      loadUnreadNavDots()
+    }
+    window.addEventListener('notifications:changed', onChanged)
+    return () => window.removeEventListener('notifications:changed', onChanged)
+  }, [loadUnreadNavDots])
 
   const sidebarNode = (
     <CollapsibleSidebar variant="sidebar" collapsible="icon">
@@ -164,6 +203,8 @@ export const Sidebar: React.FC<LayoutSidebarProps> = ({ userRole, withProvider =
             <SidebarMenu>
               {navItems.map((item) => {
                 const Icon = item.icon
+                const isNotificationsTab = item.name.toLowerCase() === 'notifications'
+                const hasUnreadDot = isNotificationsTab && unreadCount > 0
                 // Check if current item is a base/root path
                 const basePaths = ['/patient', '/hospital', '/hospitaladmin', '/bank', '/admin']
                 const isBasePath = basePaths.includes(item.href)
@@ -187,8 +228,13 @@ export const Sidebar: React.FC<LayoutSidebarProps> = ({ userRole, withProvider =
                   <SidebarMenuItem key={item.name}>
                     <SidebarMenuButton asChild isActive={isActive} tooltip={item.name}>
                       <Link href={item.href} className="flex items-center gap-2">
-                        <Icon className="w-5 h-5" />
-                        <span>{item.name}</span>
+                        <span className="relative inline-flex items-center justify-center">
+                          <Icon className="w-5 h-5" />
+                          {hasUnreadDot && (
+                            <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-primary" />
+                          )}
+                        </span>
+                        <span className={cn(hasUnreadDot && 'font-bold')}>{item.name}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

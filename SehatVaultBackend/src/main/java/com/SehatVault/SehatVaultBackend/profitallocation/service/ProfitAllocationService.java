@@ -24,6 +24,10 @@ import com.SehatVault.SehatVaultBackend.profitallocation.repository.ProfitDistri
 import com.SehatVault.SehatVaultBackend.wallet.entity.PatientTokenBalance;
 import com.SehatVault.SehatVaultBackend.wallet.repository.PatientTokenBalanceRepository;
 import com.SehatVault.SehatVaultBackend.wallet.repository.WalletTransactionRepository;
+import com.SehatVault.SehatVaultBackend.healthcard.entity.Card;
+import com.SehatVault.SehatVaultBackend.healthcard.entity.HealthCard;
+import com.SehatVault.SehatVaultBackend.healthcard.repository.CardRepository;
+import com.SehatVault.SehatVaultBackend.healthcard.repository.HealthCardRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,6 +56,8 @@ public class ProfitAllocationService {
     private final WalletTransactionRepository walletTransactionRepository;
     private final HospitalRepository hospitalRepository;
     private final TokenPriceService tokenPriceService;
+    private final CardRepository cardRepository;
+    private final HealthCardRepository healthCardRepository;
 
     @Transactional(readOnly = true)
     public ProfitAllocationPreviewResponse getPreview(String email, BigDecimal requestedProfit) {
@@ -151,6 +157,9 @@ public class ProfitAllocationService {
             balance.setLastUpdated(LocalDateTime.now());
             patientTokenBalanceRepository.save(balance);
 
+            // Also credit the Asset Health Card for separation from subscription HT.
+            creditAssetHealthCard(item.getPatientId(), item.getHtAmount());
+
             Transaction tx = new Transaction();
             tx.setUserId(item.getUserId());
             tx.setTokenId(htTokenId);
@@ -173,6 +182,31 @@ public class ProfitAllocationService {
         response.setHospitalAmountPkr(preview.getHospitalAmountPkr());
         response.setTokenMintPoolPkr(preview.getTokenMintPoolPkr());
         return response;
+    }
+
+    private void creditAssetHealthCard(UUID patientId, BigDecimal htCredit) {
+        if (htCredit == null || htCredit.compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+        Card card = cardRepository.findByCardNameIgnoreCase("Asset Health Card").orElseGet(() -> {
+            Card c = new Card();
+            c.setCardName("Asset Health Card");
+            return cardRepository.save(c);
+        });
+
+        HealthCard hc = healthCardRepository.findByPatientIdAndCardId(patientId, card.getCardId())
+                .stream()
+                .findFirst()
+                .orElseGet(() -> {
+                    HealthCard created = new HealthCard();
+                    created.setPatientId(patientId);
+                    created.setCardId(card.getCardId());
+                    created.setHtBalance(BigDecimal.ZERO);
+                    return healthCardRepository.save(created);
+                });
+
+        hc.setHtBalance(nz(hc.getHtBalance()).add(htCredit));
+        healthCardRepository.save(hc);
     }
 
     @Transactional(readOnly = true)

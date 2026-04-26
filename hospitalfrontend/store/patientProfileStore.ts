@@ -5,6 +5,7 @@ import { StoredAuthUser } from '@/lib/authService'
 export type PatientProfile = {
   fullName: string
   email: string
+  cnic: string
   phone: string
   city: string
   address: string
@@ -26,6 +27,7 @@ type PatientProfileState = {
 const initialProfile: PatientProfile = {
   fullName: '',
   email: '',
+  cnic: '',
   phone: '',
   city: '',
   address: '',
@@ -42,6 +44,7 @@ const calculateCompletion = (profile: PatientProfile): number => {
   const fields: Array<[keyof PatientProfile, boolean]> = [
     ['fullName', Boolean(profile.fullName.trim())],
     ['email', Boolean(profile.email.trim())],
+    ['cnic', Boolean(profile.cnic.trim())],
     ['phone', Boolean(profile.phone.trim())],
     ['city', Boolean(profile.city.trim())],
     ['address', Boolean(profile.address.trim())],
@@ -71,18 +74,20 @@ export const usePatientProfileStore = create<PatientProfileState>(set => ({
       if (!user) {
         return state
       }
+      const userAny = user as any
 
       const merged: PatientProfile = {
         ...state.profile,
-        fullName: user.name || state.profile.fullName,
-        email: user.email || state.profile.email,
-        phone: user.phoneNum || state.profile.phone,
-        city: user.city || state.profile.city,
-        address: user.address || state.profile.address,
-        bloodGroup: user.bloodGroup || state.profile.bloodGroup,
-        dateOfBirth: user.dateOfBirth || state.profile.dateOfBirth,
-        walletAddress: (user as any).walletAddress || state.profile.walletAddress,
-        affiliatedHospital: user.hospitalName || user.hospitalId || state.profile.affiliatedHospital,
+        fullName: userAny.name || state.profile.fullName,
+        email: userAny.email || state.profile.email,
+        cnic: userAny.cnic || state.profile.cnic,
+        phone: userAny.phoneNum || state.profile.phone,
+        city: userAny.city || state.profile.city,
+        address: userAny.address || state.profile.address,
+        bloodGroup: userAny.bloodGroup || state.profile.bloodGroup,
+        dateOfBirth: userAny.dateOfBirth || state.profile.dateOfBirth,
+        walletAddress: userAny.walletAddress || state.profile.walletAddress,
+        affiliatedHospital: userAny.hospitalName || userAny.hospitalId || state.profile.affiliatedHospital,
         status: state.profile.status || 'Verified Patient',
       }
 

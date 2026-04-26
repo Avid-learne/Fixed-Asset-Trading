@@ -18,8 +18,9 @@ class ApiClient {
     this.client.interceptors.request.use(
       async (config) => {
         const session = await getSession()
-        if (session?.accessToken) {
-          config.headers.Authorization = `Bearer ${session.accessToken}`
+        const accessToken = (session as any)?.accessToken
+        if (accessToken) {
+          config.headers.Authorization = `Bearer ${accessToken}`
         }
         return config
       },

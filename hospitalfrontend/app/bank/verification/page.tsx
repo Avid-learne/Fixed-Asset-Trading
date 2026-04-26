@@ -1,26 +1,30 @@
 // app/bank/verification/page.tsx
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/Modal'
 import { Search, Eye, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
 import { formatDate, formatCurrency } from '@/lib/utils'
+import { profileService, type ProfileData } from '@/services/profileService'
 
 interface PatientVerification {
   id: string
+  userId: string
   patientId: string
   patientName: string
   email: string
   phone: string
   submittedAt: string
   status: 'Pending' | 'Verified' | 'Rejected'
-  documents: string[]
+  documents: { label: string; value: string }[]
+  kycRejectionReason?: string
 }
 
 export default function PatientVerificationPage() {
@@ -30,6 +34,7 @@ export default function PatientVerificationPage() {
   const [processing, setProcessing] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [rejectReason, setRejectReason] = useState('')
 
   useEffect(() => {
     fetchVerifications()
@@ -38,14 +43,38 @@ export default function PatientVerificationPage() {
   const fetchVerifications = async () => {
     try {
       setLoading(true)
-      // Service call will be implemented when API is connected
-      // const response = await bankService.getVerifications()
-      // setVerifications(response.data)
-      setVerifications([])
+      const patients = await profileService.getHospitalPatients()
+      setVerifications(
+        patients
+          .map(mapPatientToVerification)
+          .sort((left, right) => left.submittedAt.localeCompare(right.submittedAt))
+      )
     } catch (error) {
       console.error('Error fetching verifications:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const mapPatientToVerification = (patient: ProfileData): PatientVerification => {
+    const normalizedStatus = (patient.kycStatus || 'PENDING').toUpperCase()
+    const documents = [
+      { label: 'ID front', value: patient.kycDocumentFront || '' },
+      { label: 'ID back', value: patient.kycDocumentBack || '' },
+      { label: 'Selfie / live photo', value: patient.kycSelfie || '' },
+    ].filter(document => document.value)
+
+    return {
+      id: patient.patientId || patient.userId,
+      userId: patient.userId,
+      patientId: patient.registrationId || patient.patientId || patient.userId,
+      patientName: patient.name,
+      email: patient.email,
+      phone: patient.phoneNum,
+      submittedAt: patient.kycSubmittedAt || patient.dateOfBirth || new Date().toISOString(),
+      status: normalizedStatus === 'APPROVED' ? 'Verified' : normalizedStatus === 'REJECTED' ? 'Rejected' : 'Pending',
+      documents,
+      kycRejectionReason: patient.kycRejectionReason,
     }
   }
 
@@ -54,13 +83,12 @@ export default function PatientVerificationPage() {
 
     try {
       setProcessing(true)
-      // await bankService.verifyPatient(selectedPatient.id)
-      alert('Patient verified successfully!')
+      await profileService.reviewKyc(selectedPatient.userId, { approved: true })
       setSelectedPatient(null)
+      setRejectReason('')
       fetchVerifications()
     } catch (error) {
       console.error('Error verifying patient:', error)
-      alert('Failed to verify patient. Please try again.')
     } finally {
       setProcessing(false)
     }
@@ -68,16 +96,18 @@ export default function PatientVerificationPage() {
 
   const handleReject = async () => {
     if (!selectedPatient) return
+    if (!rejectReason.trim()) {
+      return
+    }
 
     try {
       setProcessing(true)
-      // await bankService.rejectPatient(selectedPatient.id)
-      alert('Patient verification rejected')
+      await profileService.reviewKyc(selectedPatient.userId, { approved: false, reason: rejectReason.trim() })
       setSelectedPatient(null)
+      setRejectReason('')
       fetchVerifications()
     } catch (error) {
       console.error('Error rejecting patient:', error)
-      alert('Failed to reject verification. Please try again.')
     } finally {
       setProcessing(false)
     }
@@ -99,6 +129,10 @@ export default function PatientVerificationPage() {
     return config[status as keyof typeof config] || 'bg-gray-100 text-gray-800'
   }
 
+  const pendingCount = useMemo(() => verifications.filter(v => v.status === 'Pending').length, [verifications])
+  const verifiedCount = useMemo(() => verifications.filter(v => v.status === 'Verified').length, [verifications])
+  const rejectedCount = useMemo(() => verifications.filter(v => v.status === 'Rejected').length, [verifications])
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -111,8 +145,8 @@ export default function PatientVerificationPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Patient Verification</h1>
-        <p className="text-gray-500 mt-1">Verify patient identity and KYC documentation</p>
+        <h1 className="text-3xl font-bold text-gray-900">KYC Verification</h1>
+        <p className="text-gray-500 mt-1">Review patient identity documents before deposit access is enabled</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -123,7 +157,7 @@ export default function PatientVerificationPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-gray-900">
-              {verifications.filter(v => v.status === 'Pending').length}
+              {pendingCount}
             </div>
             <p className="text-xs text-gray-500 mt-1">Awaiting review</p>
           </CardContent>
@@ -136,7 +170,7 @@ export default function PatientVerificationPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-gray-900">
-              {verifications.filter(v => v.status === 'Verified').length}
+              {verifiedCount}
             </div>
             <p className="text-xs text-gray-500 mt-1">Approved patients</p>
           </CardContent>
@@ -149,7 +183,7 @@ export default function PatientVerificationPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-gray-900">
-              {verifications.filter(v => v.status === 'Rejected').length}
+              {rejectedCount}
             </div>
             <p className="text-xs text-gray-500 mt-1">Verification declined</p>
           </CardContent>
@@ -198,6 +232,7 @@ export default function PatientVerificationPage() {
                   <TableHead>Email</TableHead>
                   <TableHead>Phone</TableHead>
                   <TableHead>Submitted Date</TableHead>
+                  <TableHead>Documents</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -219,6 +254,9 @@ export default function PatientVerificationPage() {
                     </TableCell>
                     <TableCell className="text-gray-600">
                       {formatDate(verification.submittedAt)}
+                    </TableCell>
+                    <TableCell className="text-gray-600">
+                      {verification.documents.length} file(s)
                     </TableCell>
                     <TableCell>
                       <Badge className={getStatusBadge(verification.status)}>
@@ -277,14 +315,22 @@ export default function PatientVerificationPage() {
                     {selectedPatient.status}
                   </Badge>
                 </div>
+                {selectedPatient.kycRejectionReason && (
+                  <div className="col-span-2">
+                    <p className="text-sm text-gray-500">Rejection Reason</p>
+                    <p className="text-sm text-gray-900">{selectedPatient.kycRejectionReason}</p>
+                  </div>
+                )}
               </div>
 
               <div>
                 <p className="text-sm text-gray-500 mb-2">Submitted Documents</p>
                 <div className="space-y-2">
-                  {selectedPatient.documents.map((doc, index) => (
+                  {selectedPatient.documents.length === 0 ? (
+                    <p className="text-sm text-gray-500">No documents attached</p>
+                  ) : selectedPatient.documents.map((doc, index) => (
                     <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                      <span className="text-sm text-gray-900">{doc}</span>
+                      <span className="text-sm text-gray-900">{doc.label}: {doc.value}</span>
                       <Button variant="ghost" size="sm">View</Button>
                     </div>
                   ))}
@@ -295,8 +341,19 @@ export default function PatientVerificationPage() {
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <p className="text-sm text-blue-800">
                     <CheckCircle className="w-4 h-4 inline mr-2" />
-                    Review all documents carefully before making a decision
+                    Review all documents carefully before making a decision. Only approved KYC submissions unlock deposit requests.
                   </p>
+                </div>
+              )}
+
+              {selectedPatient.status === 'Pending' && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-gray-700">Rejection reason, if needed</p>
+                  <Textarea
+                    value={rejectReason}
+                    onChange={(event) => setRejectReason(event.target.value)}
+                    placeholder="Add a note for the patient if the KYC is rejected"
+                  />
                 </div>
               )}
             </div>
@@ -310,7 +367,7 @@ export default function PatientVerificationPage() {
                 <Button
                   variant="destructive"
                   onClick={handleReject}
-                  disabled={processing}
+                  disabled={processing || !rejectReason.trim()}
                 >
                   {processing ? 'Processing…' : 'Reject'}
                 </Button>

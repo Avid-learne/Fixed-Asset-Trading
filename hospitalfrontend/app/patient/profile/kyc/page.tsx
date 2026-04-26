@@ -1,404 +1,507 @@
 'use client'
 
-import React, { useState } from 'react'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { useEffect, useMemo, useState } from 'react'
+import { AlertCircle, CheckCircle2, Clock, Loader2, Send, UploadCloud, XCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { 
-  Upload, 
-  FileText, 
-  CheckCircle, 
-  Clock, 
-  XCircle, 
-  AlertCircle,
-  Camera,
-  CreditCard,
-  Home,
-  Briefcase,
-  FileImage,
-  Download,
-  Eye,
-  Trash2
-} from 'lucide-react'
+import { Progress } from '@/components/ui/progress'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
+import { authService } from '@/lib/authService'
+import { profileService, ProfileData } from '@/services/profileService'
 
-type DocumentStatus = 'pending' | 'verified' | 'rejected' | 'not_submitted'
+type KycState = 'PENDING' | 'IN_PROGRESS' | 'APPROVED' | 'REJECTED'
 
-type Document = {
-  id: string
-  name: string
-  type: string
-  status: DocumentStatus
-  uploadedAt?: string
-  verifiedAt?: string
-  rejectionReason?: string
-  fileUrl?: string
+type KycFormState = {
+  fullName: string
+  dateOfBirth: string
+  gender: string
+  nationality: string
+  cnic: string
+  cnicIssueDate: string
+  cnicExpiryDate: string
+  phoneNum: string
+  email: string
+  address: string
+  city: string
+  country: string
+  postalCode: string
+  occupation: string
+  sourceOfIncome: string
+  healthIssues: string
 }
 
-type AssetRequest = {
-  id: string
-  assetType: 'gold' | 'silver'
-  amount: number
-  status: 'pending' | 'approved' | 'rejected' | 'verification_needed'
-  submittedAt: string
-  documents: Document[]
-  remarks?: string
+type DocumentSelectionState = {
+  front: string
+  back: string
+  selfie: string
 }
 
-type SubscriptionRequest = {
-  id: string
-  plan: 'Basic' | 'Premium' | 'Enterprise'
-  status: 'active' | 'pending' | 'expired'
-  startDate: string
-  endDate?: string
-  documents: Document[]
+const STATUS_META: Record<KycState, { label: string; className: string; description: string }> = {
+  PENDING: {
+    label: 'Pending',
+    className: 'bg-amber-100 text-amber-800 border-amber-200',
+    description: 'Your KYC has not been submitted for review yet.',
+  },
+  IN_PROGRESS: {
+    label: 'In Review',
+    className: 'bg-sky-100 text-sky-800 border-sky-200',
+    description: 'Hospital admin is reviewing your submitted details and attached documents.',
+  },
+  APPROVED: {
+    label: 'Approved',
+    className: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    description: 'KYC is verified. Full patient features are available.',
+  },
+  REJECTED: {
+    label: 'Rejected',
+    className: 'bg-rose-100 text-rose-800 border-rose-200',
+    description: 'Your previous KYC was rejected. Update profile details and resubmit.',
+  },
 }
 
 export default function ProfileKYCPage() {
-  const [activeTab, setActiveTab] = useState('identity')
-  const [uploadingFiles, setUploadingFiles] = useState<Record<string, boolean>>({})
+  const [kycStatus, setKycStatus] = useState<KycState>('PENDING')
+  const [profile, setProfile] = useState<ProfileData | null>(null)
+  const [form, setForm] = useState<KycFormState>({
+    fullName: '',
+    dateOfBirth: '',
+    gender: '',
+    nationality: '',
+    cnic: '',
+    cnicIssueDate: '',
+    cnicExpiryDate: '',
+    phoneNum: '',
+    email: '',
+    address: '',
+    city: '',
+    country: '',
+    postalCode: '',
+    occupation: '',
+    sourceOfIncome: '',
+    healthIssues: '',
+  })
+  const [documents, setDocuments] = useState<DocumentSelectionState>({
+    front: '',
+    back: '',
+    selfie: '',
+  })
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
-  // Mock data - replace with actual API calls
-  const [identityDocs, setIdentityDocs] = useState<Document[]>([
-    {
-      id: '1',
-      name: 'National ID Card',
-      type: 'identity',
-      status: 'not_submitted'
-    },
-    {
-      id: '2',
-      name: 'Selfie with ID',
-      type: 'identity',
-      status: 'not_submitted'
-    }
-  ])
+  useEffect(() => {
+    const loadKycData = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
 
-  const [addressDocs, setAddressDocs] = useState<Document[]>([
-    {
-      id: '3',
-      name: 'Proof of Address',
-      type: 'address',
-      status: 'not_submitted'
-    },
-    {
-      id: '4',
-      name: 'Utility Bill',
-      type: 'address',
-      status: 'not_submitted'
-    }
-  ])
+        const user = authService.getUser()
+        if (!user?.id) {
+          throw new Error('User is not authenticated')
+        }
 
-  const handleFileUpload = async (docType: string, docId: string, file: File) => {
-    setUploadingFiles({ ...uploadingFiles, [docId]: true })
-    
-    // Simulate upload - In production, replace with actual API call
-    setTimeout(() => {
-      const currentDate = new Date().toISOString().split('T')[0]
-      
-      // Update the appropriate document list based on type
-      if (docType === 'identity') {
-        setIdentityDocs(identityDocs.map(doc => 
-          doc.id === docId 
-            ? { ...doc, status: 'pending', uploadedAt: currentDate, fileUrl: `/uploads/${file.name}` }
-            : doc
-        ))
-      } else if (docType === 'address') {
-        setAddressDocs(addressDocs.map(doc => 
-          doc.id === docId 
-            ? { ...doc, status: 'pending', uploadedAt: currentDate, fileUrl: `/uploads/${file.name}` }
-            : doc
-        ))
+        const [profileData, kycData] = await Promise.all([
+          profileService.getProfile(user.id),
+          profileService.getKycStatus(),
+        ])
+
+        setProfile(profileData)
+        setKycStatus(kycData.status)
+        setForm({
+          fullName: profileData.name || '',
+          dateOfBirth: profileData.dateOfBirth || '',
+          gender: profileData.gender || '',
+          nationality: profileData.nationality || '',
+          cnic: profileData.cnic || '',
+          cnicIssueDate: profileData.cnicIssueDate || '',
+          cnicExpiryDate: profileData.cnicExpiryDate || '',
+          phoneNum: profileData.phoneNum || '',
+          email: profileData.email || '',
+          address: profileData.address || '',
+          city: profileData.city || '',
+          country: profileData.country || '',
+          postalCode: profileData.postalCode || '',
+          occupation: profileData.occupation || '',
+          sourceOfIncome: profileData.sourceOfIncome || '',
+          healthIssues: profileData.healthIssues || '',
+        })
+        setDocuments({
+          front: profileData.kycDocumentFront || '',
+          back: profileData.kycDocumentBack || '',
+          selfie: profileData.kycSelfie || '',
+        })
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unable to load KYC information')
+      } finally {
+        setIsLoading(false)
       }
-      
-      setUploadingFiles({ ...uploadingFiles, [docId]: false })
-      alert(`${file.name} uploaded successfully! Status changed to Unverified (Pending Review)`)
-    }, 2000)
+    }
+
+    loadKycData()
+  }, [])
+
+  const requiredFields = useMemo(
+    () => [
+      { label: 'Full name', value: form.fullName },
+      { label: 'Date of birth', value: form.dateOfBirth },
+      { label: 'Gender', value: form.gender },
+      { label: 'Nationality', value: form.nationality },
+      { label: 'CNIC', value: form.cnic },
+      { label: 'CNIC issue date', value: form.cnicIssueDate },
+      { label: 'CNIC expiry date', value: form.cnicExpiryDate },
+      { label: 'Phone number', value: form.phoneNum },
+      { label: 'Email', value: form.email },
+      { label: 'Current address', value: form.address },
+      { label: 'City', value: form.city },
+      { label: 'Country', value: form.country },
+      { label: 'Postal code', value: form.postalCode },
+      { label: 'Occupation', value: form.occupation },
+      { label: 'Source of income', value: form.sourceOfIncome },
+    ],
+    [form],
+  )
+
+  const missingKycFields = requiredFields
+    .filter(field => !field.value.trim())
+    .map(field => field.label)
+
+  const completionPercent = Math.round(((requiredFields.length - missingKycFields.length) / requiredFields.length) * 100)
+
+  const canSubmit = (kycStatus === 'PENDING' || kycStatus === 'REJECTED') && missingKycFields.length === 0
+  const statusMeta = STATUS_META[kycStatus]
+
+  const setField = (key: keyof KycFormState) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const value = event.target.value
+    setForm(prev => ({ ...prev, [key]: value }))
+    if (error) setError(null)
+    if (success) setSuccess(null)
   }
 
-  const getStatusBadge = (status: DocumentStatus) => {
-    switch (status) {
-      case 'verified':
-        return <Badge className="bg-green-100 text-green-800 border-green-200"><CheckCircle className="w-3 h-3 mr-1" />Verified</Badge>
-      case 'pending':
-        return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200"><Clock className="w-3 h-3 mr-1" />Unverified</Badge>
-      case 'rejected':
-        return <Badge className="bg-red-100 text-red-800 border-red-200"><XCircle className="w-3 h-3 mr-1" />Rejected</Badge>
-      case 'not_submitted':
-        return <Badge variant="outline"><AlertCircle className="w-3 h-3 mr-1" />Not Submitted</Badge>
-      default:
-        return null
+  const selectFile = (key: keyof DocumentSelectionState) => (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    setDocuments(prev => ({ ...prev, [key]: file ? file.name : '' }))
+  }
+
+  const buildPayload = () => ({
+    name: form.fullName,
+    cnic: form.cnic,
+    gender: form.gender,
+    nationality: form.nationality,
+    cnicIssueDate: form.cnicIssueDate,
+    cnicExpiryDate: form.cnicExpiryDate,
+    phoneNum: form.phoneNum,
+    address: form.address,
+    city: form.city,
+    country: form.country,
+    postalCode: form.postalCode,
+    occupation: form.occupation,
+    sourceOfIncome: form.sourceOfIncome,
+    healthIssues: form.healthIssues,
+    dateOfBirth: form.dateOfBirth,
+    kycDocumentFront: documents.front,
+    kycDocumentBack: documents.back,
+    kycSelfie: documents.selfie,
+  })
+
+  const persistDraft = async () => {
+    const user = authService.getUser()
+    if (!user?.id) {
+      throw new Error('User is not authenticated')
+    }
+
+    const updatedProfile = await profileService.updateProfile(user.id, buildPayload())
+    setProfile(updatedProfile)
+    return updatedProfile
+  }
+
+  const handleSubmitKyc = async () => {
+    try {
+      setIsSubmitting(true)
+      setError(null)
+      setSuccess(null)
+
+      if (missingKycFields.length > 0) {
+        throw new Error(`Please complete the required fields before submitting: ${missingKycFields.join(', ')}`)
+      }
+
+      if (!documents.front || !documents.back || !documents.selfie) {
+        throw new Error('Please attach front ID, back ID, and selfie/live photo before submitting KYC')
+      }
+
+      await persistDraft()
+
+      const response = await profileService.submitKyc()
+      setKycStatus(response.status)
+      setSuccess('KYC submitted successfully. Hospital admin review is now pending.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to submit KYC')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
-  const getRequestStatusBadge = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return <Badge className="bg-green-100 text-green-800 border-green-200">Approved</Badge>
-      case 'pending':
-        return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Pending Review</Badge>
-      case 'rejected':
-        return <Badge className="bg-red-100 text-red-800 border-red-200">Rejected</Badge>
-      case 'verification_needed':
-        return <Badge className="bg-orange-100 text-orange-800 border-orange-200">Verification Needed</Badge>
-      case 'active':
-        return <Badge className="bg-blue-100 text-blue-800 border-blue-200">Active</Badge>
-      case 'expired':
-        return <Badge className="bg-gray-100 text-gray-800 border-gray-200">Expired</Badge>
-      default:
-        return null
-    }
-  }
-
-  const calculateKYCCompletion = () => {
-    const allDocs = [...identityDocs, ...addressDocs]
-    const verifiedDocs = allDocs.filter(doc => doc.status === 'verified').length
-    return Math.round((verifiedDocs / allDocs.length) * 100)
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[300px] items-center justify-center">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading KYC data...
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="space-y-6 max-w-7xl">
-      <div>
+    <div className="max-w-6xl space-y-6">
+      <div className="rounded-2xl border bg-gradient-to-r from-slate-950 via-slate-900 to-slate-800 p-6 text-white shadow-sm">
         <h1 className="text-3xl font-bold">KYC Verification</h1>
-        <p className="text-muted-foreground mt-1">
-          Complete your verification to unlock full platform access and manage your assets.
+        <p className="mt-2 max-w-3xl text-sm text-slate-300 md:text-base">
+          Fill in your details step by step, and submit only when every section is complete.
         </p>
+        <div className="mt-4 flex flex-wrap gap-2 text-xs">
+          <Badge className="bg-white/10 text-white hover:bg-white/15">Simple review flow</Badge>
+          <Badge className="bg-white/10 text-white hover:bg-white/15">Patient self-service</Badge>
+        </div>
       </div>
 
-      {/* KYC Status Overview */}
-      <Card className="border-2">
+      <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Verification Status</CardTitle>
-              <CardDescription>Track your document verification progress</CardDescription>
-            </div>
-            <div className="text-right">
-              <div className="text-3xl font-bold text-primary">{calculateKYCCompletion()}%</div>
-              <div className="text-sm text-muted-foreground">Complete</div>
-            </div>
-          </div>
+          <CardTitle className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-primary" />
+              Current KYC Status
+            </span>
+            <Badge className={statusMeta.className}>{statusMeta.label}</Badge>
+          </CardTitle>
+          <CardDescription>{statusMeta.description}</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="w-full bg-gray-200 rounded-full h-3">
-            <div 
-              className="bg-primary rounded-full h-3 transition-all duration-300"
-              style={{ width: `${calculateKYCCompletion()}%` }}
-            />
+        <CardContent className="space-y-4">
+          <Progress value={completionPercent} />
+          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+            <span>{completionPercent}% ready</span>
+            <span>Required fields missing: {missingKycFields.length}</span>
+            {kycStatus === 'IN_PROGRESS' && <span className="inline-flex items-center gap-1 text-sky-600"><Clock className="h-4 w-4" />Under review</span>}
+            {kycStatus === 'REJECTED' && <span className="inline-flex items-center gap-1 text-rose-600"><XCircle className="h-4 w-4" />Needs attention</span>}
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-            <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
-              <CheckCircle className="w-6 h-6 text-green-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold text-green-600">
-                {[...identityDocs, ...addressDocs].filter(d => d.status === 'verified').length}
-              </div>
-              <div className="text-xs text-gray-600">Verified</div>
-            </div>
-            <div className="text-center p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-              <Clock className="w-6 h-6 text-yellow-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold text-yellow-600">
-                {[...identityDocs, ...addressDocs].filter(d => d.status === 'pending').length}
-              </div>
-              <div className="text-xs text-gray-600">Pending</div>
-            </div>
-            <div className="text-center p-4 bg-red-50 rounded-lg border border-red-200">
-              <XCircle className="w-6 h-6 text-red-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold text-red-600">
-                {[...identityDocs, ...addressDocs].filter(d => d.status === 'rejected').length}
-              </div>
-              <div className="text-xs text-gray-600">Rejected</div>
-            </div>
-            <div className="text-center p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <AlertCircle className="w-6 h-6 text-gray-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold text-gray-600">
-                {[...identityDocs, ...addressDocs].filter(d => d.status === 'not_submitted').length}
-              </div>
-              <div className="text-xs text-gray-600">Not Submitted</div>
-            </div>
-          </div>
+
+          {error && (
+            <div className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>
+          )}
+
+          {success && (
+            <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{success}</div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Main Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="identity">Identity Verification</TabsTrigger>
-          <TabsTrigger value="address">Address Verification</TabsTrigger>
-        </TabsList>
-
-        {/* Identity Documents Tab */}
-        <TabsContent value="identity" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="w-5 h-5" />
-                Identity Verification
-              </CardTitle>
-              <CardDescription>Upload your government-issued ID and selfie</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {identityDocs.map((doc) => (
-                <div key={doc.id} className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      {doc.name.includes('Selfie') ? <Camera className="w-5 h-5 text-gray-400" /> : <FileText className="w-5 h-5 text-gray-400" />}
-                      <div>
-                        <h4 className="font-medium">{doc.name}</h4>
-                        {doc.uploadedAt && (
-                          <p className="text-xs text-gray-500">Uploaded on {doc.uploadedAt}</p>
-                        )}
-                      </div>
-                    </div>
-                    {getStatusBadge(doc.status)}
-                  </div>
-                  
-                  {doc.status === 'not_submitted' && (
-                    <div className="flex items-center gap-2">
-                      <Input
-                        id={`identity-upload-${doc.id}`}
-                        type="file"
-                        accept="image/*,.pdf"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0]
-                          if (file) handleFileUpload('identity', doc.id, file)
-                        }}
-                        disabled={uploadingFiles[doc.id]}
-                        className="hidden"
-                      />
-                      <Button 
-                        size="sm" 
-                        disabled={uploadingFiles[doc.id]}
-                        onClick={() => document.getElementById(`identity-upload-${doc.id}`)?.click()}
-                        className="w-full"
-                      >
-                        <Upload className="w-4 h-4 mr-2" />
-                        {uploadingFiles[doc.id] ? 'Uploading...' : 'Upload Document'}
-                      </Button>
-                    </div>
-                  )}
-
-                  {doc.fileUrl && doc.status !== 'not_submitted' && (
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline">
-                        <Eye className="w-4 h-4 mr-2" />
-                        View
-                      </Button>
-                      <Button size="sm" variant="outline">
-                        <Download className="w-4 h-4 mr-2" />
-                        Download
-                      </Button>
-                    </div>
-                  )}
-
-                  {doc.status === 'verified' && doc.verifiedAt && (
-                    <div className="mt-2 text-sm text-green-600 flex items-center gap-1">
-                      <CheckCircle className="w-4 h-4" />
-                      Verified on {doc.verifiedAt}
-                    </div>
-                  )}
-
-                  {doc.rejectionReason && (
-                    <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-800">
-                      <strong>Rejection Reason:</strong> {doc.rejectionReason}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Address Proof Tab */}
-        <TabsContent value="address" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Home className="w-5 h-5" />
-                Proof of Address
-              </CardTitle>
-              <CardDescription>Upload utility bill or bank statement (not older than 3 months)</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {addressDocs.map((doc) => (
-                <div key={doc.id} className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <FileText className="w-5 h-5 text-gray-400" />
-                      <div>
-                        <h4 className="font-medium">{doc.name}</h4>
-                        {doc.uploadedAt && (
-                          <p className="text-xs text-gray-500">Uploaded on {doc.uploadedAt}</p>
-                        )}
-                      </div>
-                    </div>
-                    {getStatusBadge(doc.status)}
-                  </div>
-                  
-                  {doc.status === 'not_submitted' && (
-                    <div className="flex items-center gap-2">
-                      <Input
-                        id={`address-upload-${doc.id}`}
-                        type="file"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0]
-                          if (file) handleFileUpload('address', doc.id, file)
-                        }}
-                        disabled={uploadingFiles[doc.id]}
-                        className="hidden"
-                      />
-                      <Button 
-                        size="sm"
-                        disabled={uploadingFiles[doc.id]}
-                        onClick={() => document.getElementById(`address-upload-${doc.id}`)?.click()}
-                        className="w-full"
-                      >
-                        <Upload className="w-4 h-4 mr-2" />
-                        {uploadingFiles[doc.id] ? 'Uploading...' : 'Upload Document'}
-                      </Button>
-                    </div>
-                  )}
-
-                  {doc.fileUrl && doc.status !== 'not_submitted' && (
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline">
-                        <Eye className="w-4 h-4 mr-2" />
-                        View
-                      </Button>
-                      <Button size="sm" variant="outline">
-                        <Download className="w-4 h-4 mr-2" />
-                        Download
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              <Button variant="outline" className="w-full">
-                <Upload className="w-4 h-4 mr-2" />
-                Add Additional Address Proof
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* Help Section */}
-      <Card className="bg-blue-50 border-blue-200">
-        <CardContent className="pt-6">
-          <div className="flex items-start gap-4">
-            <AlertCircle className="w-5 h-5 text-emerald-600 mt-0.5" />
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>1. Basic information</CardTitle>
+            <CardDescription>Start with the details that identify you as the patient.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="fullName">Full name</Label>
+              <Input id="fullName" value={form.fullName} onChange={setField('fullName')} placeholder="Enter your full name" />
+            </div>
             <div className="space-y-2">
-              <h4 className="font-semibold text-blue-900">Need Help?</h4>
-              <p className="text-sm text-blue-800">
-                All documents must be clear, legible, and not expired. Ensure you provide high-quality photos of your ID and proof of address. Processing typically takes 2-5 business days.
-              </p>
-              <Button size="sm" variant="outline" className="border-emerald-300 text-emerald-700 hover:bg-emerald-100">
-                Contact Support
+              <Label htmlFor="dateOfBirth">Date of birth</Label>
+              <Input id="dateOfBirth" type="date" value={form.dateOfBirth} onChange={setField('dateOfBirth')} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="gender">Gender</Label>
+              <Select value={form.gender} onValueChange={value => setForm(prev => ({ ...prev, gender: value }))}>
+                <SelectTrigger id="gender">
+                  <SelectValue placeholder="Select gender" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Male">Male</SelectItem>
+                  <SelectItem value="Female">Female</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                  <SelectItem value="Prefer not to say">Prefer not to say</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="nationality">Nationality</Label>
+              <Input id="nationality" value={form.nationality} onChange={setField('nationality')} placeholder="e.g. Pakistani" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Quick guide</CardTitle>
+            <CardDescription>Work through the form in order.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm text-muted-foreground">
+            <p>1. Basic identity</p>
+            <p>2. CNIC details</p>
+            <p>3. Contact and address</p>
+            <p>4. Occupation and health notes</p>
+            <p>5. Document uploads</p>
+            <p>6. Submit for review</p>
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>2. Identity details</CardTitle>
+            <CardDescription>Use the same details on your government ID.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="cnic">CNIC</Label>
+              <Input id="cnic" value={form.cnic} onChange={setField('cnic')} placeholder="35202-1234567-8" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cnicIssueDate">Issue date</Label>
+              <Input id="cnicIssueDate" type="date" value={form.cnicIssueDate} onChange={setField('cnicIssueDate')} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cnicExpiryDate">Expiry date</Label>
+              <Input id="cnicExpiryDate" type="date" value={form.cnicExpiryDate} onChange={setField('cnicExpiryDate')} />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>3. Contact and address</CardTitle>
+            <CardDescription>Make sure hospitals can reach you easily.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="phoneNum">Phone number</Label>
+              <Input id="phoneNum" value={form.phoneNum} onChange={setField('phoneNum')} placeholder="+92 300 1234567" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" value={form.email} readOnly disabled />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="address">Current address</Label>
+              <Textarea id="address" value={form.address} onChange={setField('address')} placeholder="House, street, area" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="city">City</Label>
+              <Input id="city" value={form.city} onChange={setField('city')} placeholder="Karachi" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="country">Country</Label>
+              <Input id="country" value={form.country} onChange={setField('country')} placeholder="Pakistan" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="postalCode">Postal code</Label>
+              <Input id="postalCode" value={form.postalCode} onChange={setField('postalCode')} placeholder="75500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>4. Occupation and health</CardTitle>
+            <CardDescription>These help compliance understand the application context.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="occupation">Occupation</Label>
+              <Input id="occupation" value={form.occupation} onChange={setField('occupation')} placeholder="e.g. Teacher" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sourceOfIncome">Source of income</Label>
+              <Input id="sourceOfIncome" value={form.sourceOfIncome} onChange={setField('sourceOfIncome')} placeholder="Salary, business, pension, etc." />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="healthIssues">Health issues or diseases</Label>
+              <Textarea id="healthIssues" value={form.healthIssues} onChange={setField('healthIssues')} placeholder="Optional: mention relevant conditions, allergies, or none" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>5. Verification documents</CardTitle>
+            <CardDescription>Attach the documents compliance should review.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-3">
+            <div className="space-y-2 rounded-lg border border-dashed p-4">
+              <Label htmlFor="idFront">ID front</Label>
+              <Input id="idFront" type="file" accept="image/*,.pdf" onChange={selectFile('front')} />
+              <p className="text-xs text-muted-foreground">{documents.front || 'No file selected'}</p>
+            </div>
+            <div className="space-y-2 rounded-lg border border-dashed p-4">
+              <Label htmlFor="idBack">ID back</Label>
+              <Input id="idBack" type="file" accept="image/*,.pdf" onChange={selectFile('back')} />
+              <p className="text-xs text-muted-foreground">{documents.back || 'No file selected'}</p>
+            </div>
+            <div className="space-y-2 rounded-lg border border-dashed p-4">
+              <Label htmlFor="selfie">Selfie / live photo</Label>
+              <Input id="selfie" type="file" accept="image/*" capture="user" onChange={selectFile('selfie')} />
+              <p className="text-xs text-muted-foreground">{documents.selfie || 'No file selected'}</p>
+            </div>
+            <div className="md:col-span-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+              <div className="flex items-start gap-2">
+                <UploadCloud className="mt-0.5 h-4 w-4 text-slate-500" />
+                <p>
+                  Keep the document images clear and uncut. Attach all three files before submitting.
+                </p>
+              </div>
+            </div>
+            <div className="md:col-span-3 rounded-md border border-slate-200 bg-white p-4 text-sm text-slate-700">
+              <p className="font-medium text-slate-900">Submitted document preview</p>
+              <div className="mt-2 grid gap-2 md:grid-cols-3">
+                <div className="rounded-md border bg-slate-50 px-3 py-2">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">ID front</p>
+                  <p className="mt-1 break-words text-sm">{documents.front || 'Not attached yet'}</p>
+                </div>
+                <div className="rounded-md border bg-slate-50 px-3 py-2">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">ID back</p>
+                  <p className="mt-1 break-words text-sm">{documents.back || 'Not attached yet'}</p>
+                </div>
+                <div className="rounded-md border bg-slate-50 px-3 py-2">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Selfie / live photo</p>
+                  <p className="mt-1 break-words text-sm">{documents.selfie || 'Not attached yet'}</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2 border-emerald-200 bg-emerald-50/40">
+          <CardContent className="pt-6 space-y-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <Button onClick={handleSubmitKyc} disabled={!canSubmit || isSubmitting}>
+                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                Submit KYC for review
               </Button>
             </div>
+
+            <div className="rounded-md border border-emerald-200 bg-white p-3 text-sm text-emerald-900">
+              <p className="font-medium">Before you submit</p>
+              <p className="mt-1">Make sure all required fields are filled and your ID front, back, and selfie are attached.</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="border-blue-200 bg-blue-50">
+        <CardHeader>
+          <CardTitle>Need a quick cleanup?</CardTitle>
+          <CardDescription>If you need to change basic contact details, update them in the Basic Profile tab first.</CardDescription>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-3 text-sm text-blue-900">
+            <AlertCircle className="mt-0.5 h-5 w-5 text-blue-700" />
+            <p>
+              KYC review is handled by the hospital admin. If rejected, come back here, correct the details, and resubmit.
+            </p>
           </div>
         </CardContent>
       </Card>

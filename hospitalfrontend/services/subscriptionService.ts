@@ -45,6 +45,15 @@ export interface SubscribeRequest {
   cvv: string;
 }
 
+export interface ChangePlanRequest {
+  userId: string;
+  newSubscriptionId: string;
+  paymentMethod: string;
+  cardNumber: string;
+  expiryDate: string;
+  cvv: string;
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   message: string;
@@ -157,6 +166,34 @@ export const subscriptionService = {
         throw new Error('Request timed out');
       }
       console.error('Error subscribing to plan:', error);
+      throw error;
+    }
+  },
+
+  async changePlan(request: ChangePlanRequest): Promise<ApiResponse<PatientSubscription>> {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+
+      const response = await fetch(`${API_URL}/change`, {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+      const result: ApiResponse<PatientSubscription> = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Change plan failed');
+      }
+
+      return result;
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Request timed out');
+      }
       throw error;
     }
   },

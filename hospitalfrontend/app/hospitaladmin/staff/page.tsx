@@ -390,7 +390,7 @@ export default function StaffManagementPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {Object.entries(selectedStaff.permissions).map(([key, value]) => (
+                      {Object.entries(selectedStaff.permissions ?? {}).map(([key, value]) => (
                         <div key={key} className="flex items-center justify-between py-2 border-b last:border-0">
                           <div className="flex items-center gap-3">
                             <Checkbox checked={value} disabled />
@@ -412,7 +412,7 @@ export default function StaffManagementPage() {
                     <div className="mt-6 p-4 bg-blue-50 rounded-lg">
                       <p className="text-sm text-blue-900 font-medium mb-2">Permission Summary</p>
                       <p className="text-sm text-blue-700">
-                        This {selectedStaff.role} has {Object.values(selectedStaff.permissions).filter(Boolean).length} out of {Object.keys(selectedStaff.permissions).length} permissions enabled.
+                        This {selectedStaff.role} has {Object.values(selectedStaff.permissions ?? {}).filter(Boolean).length} out of {Object.keys(selectedStaff.permissions ?? {}).length} permissions enabled.
                       </p>
                     </div>
 
@@ -436,7 +436,7 @@ export default function StaffManagementPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {selectedStaff.activityLog.map((log, index) => (
+                      {(selectedStaff.activityLog ?? []).map((log, index) => (
                         <div key={index} className="flex gap-4 pb-4 border-b last:border-0">
                           <div className="flex-shrink-0 mt-1">
                             <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">

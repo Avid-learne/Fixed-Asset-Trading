@@ -13,6 +13,7 @@ import { authService } from '@/lib/authService'
 type FormState = {
   fullName: string
   email: string
+  cnic: string
   phone: string
   city: string
   address: string
@@ -52,6 +53,7 @@ export function ProfileContactForm({
     () => ({
       fullName: profile.fullName,
       email: profile.email,
+      cnic: profile.cnic,
       phone: profile.phone,
       city: profile.city,
       address: profile.address,
@@ -62,6 +64,7 @@ export function ProfileContactForm({
     [
       profile.fullName,
       profile.email,
+      profile.cnic,
       profile.phone,
       profile.city,
       profile.address,
@@ -81,6 +84,7 @@ export function ProfileContactForm({
     const user = authService.getUser()
     if (!user?.id) return
     profileService.getProfile(user.id).then(data => {
+      setForm(prev => ({ ...prev, cnic: data.cnic || '' }))
       if (data.walletAddress) {
         updateProfile({ walletAddress: data.walletAddress })
       }
@@ -102,6 +106,9 @@ export function ProfileContactForm({
       nextErrors.email = 'Email is required.'
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(state.email)) {
       nextErrors.email = 'Enter a valid email address.'
+    }
+    if (!state.cnic.trim()) {
+      nextErrors.cnic = 'CNIC is required for KYC.'
     }
     if (!state.phone.trim()) {
       nextErrors.phone = 'Phone number is required.'
@@ -166,6 +173,7 @@ export function ProfileContactForm({
       // Call backend API to update profile
       const updatedProfile = await profileService.updateProfile(user.id, {
         name: form.fullName,
+        cnic: form.cnic,
         phoneNum: form.phone,
         city: form.city,
         address: form.address,
@@ -181,6 +189,7 @@ export function ProfileContactForm({
       updateProfile({
         fullName: updatedProfile.name,
         email: updatedProfile.email,
+        cnic: updatedProfile.cnic || form.cnic,
         phone: updatedProfile.phoneNum,
         city: updatedProfile.city || '',
         address: updatedProfile.address || '',
@@ -226,6 +235,17 @@ export function ProfileContactForm({
               aria-invalid={Boolean(errors.email)}
             />
             {errors.email && <p className="text-sm text-error">{errors.email}</p>}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="cnic">CNIC</Label>
+            <Input
+              id="cnic"
+              value={form.cnic}
+              onChange={handleChange('cnic')}
+              placeholder="e.g. 35202-1234567-8"
+              aria-invalid={Boolean(errors.cnic)}
+            />
+            {errors.cnic && <p className="text-sm text-error">{errors.cnic}</p>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="phone">Phone</Label>

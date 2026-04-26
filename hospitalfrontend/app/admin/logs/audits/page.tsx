@@ -161,8 +161,8 @@ export default function AuditLogsPage() {
   const timelineEvents = displayLogs.slice(0, 10).map((log) => ({
     id: log.id,
     type: log.status,
-    title: log.action,
-    description: log.details,
+    action: log.action,
+    details: log.details,
     timestamp: log.timestamp,
     user: log.user,
     metadata: {

@@ -10,6 +10,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -151,6 +152,80 @@ public class ProfileController {
         } catch (Exception e) {
             return ResponseEntity.status(500)
                     .body(createErrorResponse("Error updating wallet address: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Get current patient's KYC status
+     * GET /api/profile/kyc/status
+     */
+    @GetMapping("/kyc/status")
+    public ResponseEntity<?> getKycStatus(Authentication authentication) {
+        try {
+            if (authentication == null || authentication.getName() == null) {
+                return ResponseEntity.status(401).body(createErrorResponse("Unauthorized"));
+            }
+
+            String status = profileService.getKycStatus(authentication.getName()).name();
+            Map<String, Object> data = new HashMap<>();
+            data.put("status", status);
+            return ResponseEntity.ok(createSuccessResponse("KYC status retrieved successfully", data));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(createErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500)
+                    .body(createErrorResponse("Error retrieving KYC status: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Submit current patient's KYC for review
+     * POST /api/profile/kyc/submit
+     */
+    @PostMapping("/kyc/submit")
+    public ResponseEntity<?> submitKyc(Authentication authentication) {
+        try {
+            if (authentication == null || authentication.getName() == null) {
+                return ResponseEntity.status(401).body(createErrorResponse("Unauthorized"));
+            }
+
+            String status = profileService.submitKyc(authentication.getName()).name();
+            Map<String, Object> data = new HashMap<>();
+            data.put("status", status);
+            return ResponseEntity.ok(createSuccessResponse("KYC submitted successfully", data));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(createErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500)
+                    .body(createErrorResponse("Error submitting KYC: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Review a patient's KYC submission
+     * POST /api/profile/kyc/review/{userId}
+     */
+    @PostMapping("/kyc/review/{userId}")
+    public ResponseEntity<?> reviewKyc(
+            Authentication authentication,
+            @PathVariable UUID userId,
+            @RequestBody Map<String, Object> request) {
+        try {
+            if (authentication == null || authentication.getName() == null) {
+                return ResponseEntity.status(401).body(createErrorResponse("Unauthorized"));
+            }
+
+            boolean approved = request != null && Boolean.parseBoolean(String.valueOf(request.getOrDefault("approved", false)));
+            String reason = request != null && request.get("reason") != null ? String.valueOf(request.get("reason")) : null;
+            String status = profileService.reviewKyc(authentication.getName(), userId, approved, reason).name();
+            Map<String, Object> data = new HashMap<>();
+            data.put("status", status);
+            return ResponseEntity.ok(createSuccessResponse("KYC review saved successfully", data));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(createErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500)
+                    .body(createErrorResponse("Error reviewing KYC: " + e.getMessage()));
         }
     }
 

@@ -18,6 +18,9 @@ export type AssetDepositRequest = {
   assetType: string
   weight: number
   assetValue: number
+  assetReceipt: string
+  purityCertificate: string
+  supportingDocuments: string
 }
 
 export type AssetDepositItem = {
@@ -28,6 +31,9 @@ export type AssetDepositItem = {
   hospitalId: string
   hospitalName: string
   assetType: string
+  assetReceipt?: string
+  purityCertificate?: string
+  supportingDocuments?: string
   weight: number
   assetValue: number
   expectedTokens: number
@@ -40,6 +46,11 @@ export type AssetDepositItem = {
   bankApprovedAt?: string
   bankRejectedAt?: string
   bankRejectionReason?: string
+
+  custodyStatus?: string
+  custodyConfirmedAt?: string
+  baselineHtPerMonth?: number
+  lastBaselineHtAt?: string
 }
 
 const getAuthHeaders = (): HeadersInit => {
@@ -138,5 +149,13 @@ export const depositRequestService = {
       body: JSON.stringify({ reason }),
     })
     return parseResponse<AssetDepositItem>(response, 'Failed to reject request by bank')
+  },
+
+  async confirmCustody(assetId: string): Promise<AssetDepositItem> {
+    const response = await fetch(`${API_BASE}/asset-deposits/${assetId}/custody-confirm`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    })
+    return parseResponse<AssetDepositItem>(response, 'Failed to confirm custody')
   },
 }

@@ -68,6 +68,19 @@ public class SubscriptionController {
     }
 
     /**
+     * Change an active subscription plan.
+     * POST /api/subscriptions/change
+     */
+    @PostMapping("/change")
+    public ResponseEntity<ApiResponse<PatientSubscriptionDto>> changePlan(@RequestBody ChangePlanRequest request) {
+        ApiResponse<PatientSubscriptionDto> response = subscriptionService.changePlan(request);
+        if (response.isSuccess()) {
+            return ResponseEntity.ok(response);
+        }
+        return ResponseEntity.badRequest().body(response);
+    }
+
+    /**
      * Get payment history for a patient
      * GET /api/subscriptions/payment-history/{userId}
      */
