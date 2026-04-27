@@ -113,7 +113,6 @@ export default function HospitalAdminHome() {
         </div>
         <div className="flex gap-2">
           <Link href="/hospitaladmin/minting"><Button>Mint Tokens</Button></Link>
-          <Link href="/hospitaladmin/trading"><Button variant="outline">Simulate Trade</Button></Link>
         </div>
       </div>
 
