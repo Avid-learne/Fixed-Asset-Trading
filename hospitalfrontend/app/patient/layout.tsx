@@ -1,8 +1,7 @@
 // src/app/patient/layout.tsx
 'use client'
 
-import { useEffect } from 'react'
-import { useSession } from 'next-auth/react'
+import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
@@ -18,55 +17,76 @@ export default function PatientLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { data: session, status } = useSession()
   const router = useRouter()
   const pathname = usePathname()
   const { setUser, user } = useAuthStore()
   const hydrateFromAuthUser = usePatientProfileStore(state => state.hydrateFromAuthUser)
+  const [mounted, setMounted] = useState(false)
 
+  // First effect: Initialize auth on mount
   useEffect(() => {
-    const hydrateUser = async () => {
-      const refreshedUser = await authService.fetchCurrentUser()
-      if (refreshedUser?.success) {
+    if (typeof window === 'undefined') return
+
+    const initializeAuth = async () => {
+      try {
+        const localToken = authService.getToken()
         const localUser = authService.getUser()
-        hydrateFromAuthUser(localUser)
-      } else {
-        hydrateFromAuthUser(authService.getUser())
-      }
-    }
 
-    const localToken = authService.getToken()
-    const localUser = authService.getUser()
-    const activeUser = session?.user || localUser
+        console.log('[PatientLayout] Initializing - token:', !!localToken, 'user:', !!localUser)
 
-    if (status === 'unauthenticated' && !localToken) {
-      router.push('/auth')
-      return
-    }
-
-    if (activeUser) {
-      // Only set user if not already set or if user has changed
-      if (!user || user.id !== activeUser.id) {
-        setUser(activeUser as any)
-      }
-      
-      // Only redirect if user has wrong role AND not already on correct path
-      const currentRole = activeUser.role || 'PATIENT'
-      if (currentRole !== UserRole.PATIENT && String(currentRole).toUpperCase() !== 'PATIENT') {
-        const correctPath = roleToPath(currentRole)
-        if (!pathname.startsWith(correctPath)) {
-          router.push(correctPath)
+        // If no token, redirect to auth
+        if (!localToken) {
+          console.log('[PatientLayout] No token found, redirecting to auth')
+          router.push('/auth')
+          setMounted(true)
+          return
         }
+
+        // User from localStorage
+        if (localUser) {
+          console.log('[PatientLayout] User found in localStorage:', localUser.email)
+          setUser(localUser as any)
+          hydrateFromAuthUser(localUser)
+        } else {
+          console.warn('[PatientLayout] Token exists but no user in localStorage')
+          router.push('/auth')
+          setMounted(true)
+          return
+        }
+
+        setMounted(true)
+      } catch (error) {
+        console.error('[PatientLayout] Error initializing auth:', error)
+        router.push('/auth')
+        setMounted(true)
       }
-
-      hydrateUser()
     }
-  }, [session?.user?.id, status, pathname, hydrateFromAuthUser])
 
-  if (status === 'loading' || !user) {
+    initializeAuth()
+  }, [router, setUser, hydrateFromAuthUser])
+
+  // Second effect: Handle role-based redirects
+  useEffect(() => {
+    if (!mounted || !user) return
+
+    const currentRole = user.role || UserRole.PATIENT
+    if (currentRole !== UserRole.PATIENT) {
+      const correctPath = roleToPath(currentRole)
+      if (!pathname.startsWith(correctPath)) {
+        console.log(`[PatientLayout] Wrong role ${currentRole}, redirecting to ${correctPath}`)
+        router.push(correctPath)
+      }
+    }
+  }, [mounted, user, pathname, router])
+
+  // Show loader while mounting or before user is loaded
+  if (!mounted || !user) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
       </div>
     )
   }

@@ -115,14 +115,18 @@ export default function Auth() {
       });
 
       if (response.success) {
-        setEmail(""); setPassword(""); setName(""); setCnic("");
+        setEmail(email); // Keep email to pre-fill login form
+        setPassword(""); setName(""); setCnic("");
         setWallet(""); setHospitalName(""); setBankName("");
-        setSuccessMessage("Account created successfully! Redirecting...");
-        router.push(authService.getRoleRedirectPath(response.role));
+        setSuccessMessage("Account created successfully! Please sign in with your credentials.");
+        // Switch to signin tab instead of auto-login
+        const signinTab = document.querySelector('[value="signin"]') as HTMLButtonElement;
+        signinTab?.click();
       } else {
         setError(response.message || "Sign-up failed. Please try again");
       }
     } catch (err) {
+      console.error('Signup error:', err);
       setError(err instanceof Error ? err.message : "An error occurred during signup");
     } finally {
       setIsLoading(false);

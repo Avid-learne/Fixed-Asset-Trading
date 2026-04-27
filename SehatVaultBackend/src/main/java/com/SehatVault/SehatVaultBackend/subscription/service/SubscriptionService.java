@@ -130,6 +130,12 @@ public class SubscriptionService {
 
             patientWalletAllocatorService.assignWalletToPatient(patient);
 
+            // ↓ NEW: Check KYC status before allowing subscription ↓
+            if (patient.getKycStatus() == null || !patient.getKycStatus().equals(Patient.KycStatus.APPROVED)) {
+                return ApiResponse.error(
+                        "KYC verification is required before you can subscribe. Please complete your KYC first.");
+            }
+
             // Check if patient already has an active subscription
             boolean hasActive = patientSubscriptionRepository
                     .existsByPatientIdAndStatus(patient.getId(), PatientSubscription.SubscriptionStatus.ACTIVE);
@@ -172,8 +178,8 @@ public class SubscriptionService {
                     request.getUserId(),
                     request.getUserId(),
                     "Subscription Activated",
-                    "You are now subscribed to " + plan.getSubscriptionName() + ". Initial monthly HT has been credited."
-            );
+                    "You are now subscribed to " + plan.getSubscriptionName()
+                            + ". Initial monthly HT has been credited.");
 
             PatientSubscriptionDto dto = convertToSubscriptionDto(subscription, plan);
             return ApiResponse.success("Subscription successful", dto);
@@ -209,7 +215,8 @@ public class SubscriptionService {
                 return ApiResponse.error("No active subscription found");
             }
 
-            SubscriptionPlan oldPlan = subscriptionPlanRepository.findById(subscription.getSubscriptionId()).orElse(null);
+            SubscriptionPlan oldPlan = subscriptionPlanRepository.findById(subscription.getSubscriptionId())
+                    .orElse(null);
             SubscriptionPlan newPlan = subscriptionPlanRepository.findById(request.getNewSubscriptionId()).orElse(null);
             if (newPlan == null || !Boolean.TRUE.equals(newPlan.getIsActive())) {
                 return ApiResponse.error("New subscription plan not found or inactive");
@@ -227,7 +234,8 @@ public class SubscriptionService {
             BigDecimal oldMonthlyHt = calculateMonthlyHt(oldPlan.getAmountPerMonth());
             BigDecimal newMonthlyHt = calculateMonthlyHt(newPlan.getAmountPerMonth());
 
-            // Record payment for plan change (mocked as success, consistent with existing subscribe flow)
+            // Record payment for plan change (mocked as success, consistent with existing
+            // subscribe flow)
             PaymentHistory payment = new PaymentHistory();
             payment.setPatientId(patient.getId());
             payment.setSubsId(newPlan.getSubsId());
@@ -250,9 +258,11 @@ public class SubscriptionService {
             String planChangeMsg = "Your subscription plan was changed from "
                     + oldPlan.getSubscriptionName() + " to " + newPlan.getSubscriptionName() + ".";
             if (delta.compareTo(BigDecimal.ZERO) > 0) {
-                planChangeMsg += " Upgrade bonus: " + delta.setScale(2, RoundingMode.HALF_UP).toPlainString() + " HT credited.";
+                planChangeMsg += " Upgrade bonus: " + delta.setScale(2, RoundingMode.HALF_UP).toPlainString()
+                        + " HT credited.";
             }
-            notificationService.notifyUser(request.getUserId(), request.getUserId(), "Subscription Plan Updated", planChangeMsg);
+            notificationService.notifyUser(request.getUserId(), request.getUserId(), "Subscription Plan Updated",
+                    planChangeMsg);
 
             PatientSubscriptionDto dto = convertToSubscriptionDto(subscription, newPlan);
             return ApiResponse.success("Plan changed successfully", dto);
@@ -262,7 +272,8 @@ public class SubscriptionService {
     }
 
     private void creditManualHt(Patient patient, HealthCard subscriptionCard, BigDecimal amount, String source) {
-        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) return;
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0)
+            return;
 
         subscriptionCard.setHtBalance(nz(subscriptionCard.getHtBalance()).add(amount));
         healthCardRepository.save(subscriptionCard);
@@ -414,10 +425,10 @@ public class SubscriptionService {
     }
 
     private void allocateMonthlyHt(Patient patient,
-                                   SubscriptionPlan plan,
-                                   PatientSubscription subscription,
-                                   HealthCard subscriptionCard,
-                                   String source) {
+            SubscriptionPlan plan,
+            PatientSubscription subscription,
+            HealthCard subscriptionCard,
+            String source) {
         BigDecimal htAllocation = calculateMonthlyHt(plan.getAmountPerMonth());
         if (htAllocation.compareTo(BigDecimal.ZERO) <= 0) {
             return;
@@ -478,15 +489,13 @@ public class SubscriptionService {
                     patient.getUserId(),
                     patient.getUserId(),
                     "Monthly Subscription HT Credited",
-                    htAllocation.toPlainString() + " HT credited for plan " + plan.getSubscriptionName() + "."
-            );
+                    htAllocation.toPlainString() + " HT credited for plan " + plan.getSubscriptionName() + ".");
         } else if ("SUBSCRIPTION_INITIAL".equals(source)) {
             notificationService.notifyUser(
                     patient.getUserId(),
                     patient.getUserId(),
                     "Initial Subscription HT Credited",
-                    htAllocation.toPlainString() + " HT credited for your new subscription."
-            );
+                    htAllocation.toPlainString() + " HT credited for your new subscription.");
         }
     }
 
@@ -510,7 +519,8 @@ public class SubscriptionService {
         Random rng = new Random();
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < 16; i++) {
-            if (i > 0 && i % 4 == 0) sb.append('-');
+            if (i > 0 && i % 4 == 0)
+                sb.append('-');
             sb.append(rng.nextInt(10));
         }
         String num = sb.toString();
@@ -568,8 +578,7 @@ public class SubscriptionService {
                     userId,
                     userId,
                     "Subscription Cancelled",
-                    "Your subscription has been cancelled and recurring allocations are stopped."
-            );
+                    "Your subscription has been cancelled and recurring allocations are stopped.");
 
             return ApiResponse.success("Subscription cancelled successfully", null);
 
@@ -587,18 +596,19 @@ public class SubscriptionService {
         dto.setHospitalName("SehatVault Hospital"); // TODO: Join with hospital table
         dto.setSubscriptionName(plan.getSubscriptionName());
         dto.setAmountPerMonth(plan.getAmountPerMonth());
-        
+
         // Parse features from text to list
         if (plan.getFeatures() != null && !plan.getFeatures().isEmpty()) {
             dto.setFeatures(Arrays.asList(plan.getFeatures().split("\\|")));
         } else {
             dto.setFeatures(new ArrayList<>());
         }
-        
+
         // Calculate HT tokens based on amount (1000 PKR = 10 HT)
-        dto.setHtTokens(calculateMonthlyHt(plan.getAmountPerMonth()).setScale(0, java.math.RoundingMode.DOWN).intValue());
+        dto.setHtTokens(
+                calculateMonthlyHt(plan.getAmountPerMonth()).setScale(0, java.math.RoundingMode.DOWN).intValue());
         dto.setIsActive(plan.getIsActive());
-        
+
         return dto;
     }
 
@@ -611,7 +621,8 @@ public class SubscriptionService {
         dto.setStartDate(subscription.getStartDate());
         dto.setEndDate(subscription.getEndDate());
         dto.setStatus(subscription.getStatus().toString());
-        dto.setHtTokens(calculateMonthlyHt(plan.getAmountPerMonth()).setScale(0, java.math.RoundingMode.DOWN).intValue());
+        dto.setHtTokens(
+                calculateMonthlyHt(plan.getAmountPerMonth()).setScale(0, java.math.RoundingMode.DOWN).intValue());
         return dto;
     }
 
@@ -620,17 +631,17 @@ public class SubscriptionService {
         dto.setPaymentId(payment.getPaymentId());
         dto.setPatientId(payment.getPatientId());
         dto.setSubsId(payment.getSubsId());
-        
+
         // Get subscription name
         subscriptionPlanRepository.findById(payment.getSubsId())
                 .ifPresent(plan -> dto.setSubscriptionName(plan.getSubscriptionName()));
-        
+
         dto.setAmount(payment.getAmount());
         dto.setPaymentMethod(payment.getPaymentMethod());
         dto.setStatus(payment.getStatus().toString());
         dto.setInvoiceUrl(payment.getInvoiceUrl());
         dto.setTimestamp(payment.getTimestamp());
-        
+
         return dto;
     }
 }

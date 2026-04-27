@@ -14,6 +14,19 @@ const normalizeRoleForBackend = (role?: string): string => {
   return roleMap[normalized] || 'patient';
 };
 
+// Normalize backend role to frontend UserRole
+const normalizeRoleFromBackend = (role?: string): string => {
+  const normalized = (role || 'patient').trim().toLowerCase();
+  const roleMap: Record<string, string> = {
+    patient: 'Patient',
+    hospital_staff: 'Hospital_Staff',
+    hospital_admin: 'HospitalAdmin',
+    bank_staff: 'Bank_Officer', // Map bank_staff to Bank_Officer
+    admin: 'Super_Admin',
+  };
+  return roleMap[normalized] || 'Patient';
+};
+
 export interface AuthResponse {
   userId?: string;
   id: string;
@@ -108,10 +121,12 @@ export const authService = {
       clearTimeout(timeout);
 
       const text = await response.text();
+      console.log('[Signup Response Text]:', text);
       if (!text) {
         throw new Error('Server returned an empty response. Check if the backend is running.');
       }
       const data = JSON.parse(text);
+      console.log('[Signup Response Data]:', data);
 
       if (!response.ok) {
         throw new Error(data.message || 'Signup failed');
@@ -121,6 +136,8 @@ export const authService = {
         // Store token and user data
         authService.setToken(data.token);
         authService.setUser(data);
+      } else if (data.success) {
+        console.warn('[Signup] Success but no token in response. Data:', data);
       }
 
       return data;
@@ -188,20 +205,25 @@ export const authService = {
       clearTimeout(timeout);
       const data = await response.json();
       
-      console.log('Login response:', data); // Debug log
+      console.log('[Login Response Status]:', response.status);
+      console.log('[Login Response Data]:', data);
 
       if (!response.ok) {
+        console.error('[Login Failed]:', data.message || 'Login failed');
         throw new Error(data.message || 'Login failed');
       }
 
       if (data.success && data.token) {
-        console.log('Storing token:', data.token); // Debug log
+        console.log('[Login Success] Storing token:', data.token);
         // Store token and user data
         authService.setToken(data.token);
         authService.setUser(data);
-        console.log('Token stored in localStorage:', localStorage.getItem('authToken')); // Debug log
+        console.log('[Token Stored] Read back from localStorage:', localStorage.getItem('authToken'));
+      } else if (data.success) {
+        console.warn('[Login] Success but no token in response:', data);
       } else {
-        console.warn('No token in response or success=false:', data); // Debug warning
+        console.error('[Login] Failed - success=false:', data);
+        throw new Error(data.message || 'Login failed');
       }
 
       return data;
@@ -294,14 +316,15 @@ export const authService = {
    */
   setUser(user: Partial<AuthResponse>): void {
     if (typeof window !== 'undefined') {
-      const resolvedRole = user.role ? user.role.toUpperCase() : 'PATIENT';
+      // Normalize role from backend to frontend UserRole format
+      const normalizedRole = normalizeRoleFromBackend(user.role);
       localStorage.setItem(
         'user',
         JSON.stringify({
           id: user.userId || user.id,
           email: user.email,
           name: user.name,
-          role: resolvedRole,
+          role: normalizedRole,
           phoneNum: user.phoneNum || '',
           address: user.address || '',
           city: user.city || '',
@@ -312,6 +335,7 @@ export const authService = {
           patientId: user.patientId || null,
         })
       );
+      console.log('[setUser] Normalized role from', user.role, 'to', normalizedRole);
     }
   },
 

@@ -1,8 +1,7 @@
 // src/app/hospital/layout.tsx
 'use client'
 
-import { useEffect } from 'react'
-import { useSession } from 'next-auth/react'
+import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
@@ -17,42 +16,69 @@ export default function HospitalLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { data: session, status } = useSession()
   const router = useRouter()
   const pathname = usePathname()
   const { setUser, user } = useAuthStore()
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    const localToken = authService.getToken()
-    const localUser = authService.getUser()
-    const activeUser = session?.user || localUser
+    if (typeof window === 'undefined') return
 
-    if (status === 'unauthenticated' && !localToken) {
-      router.push('/auth')
-      return
-    }
+    const initializeAuth = async () => {
+      try {
+        const localToken = authService.getToken()
+        const localUser = authService.getUser()
 
-    if (activeUser) {
-      // Only set user if not already set or if user has changed
-      if (!user || user.id !== activeUser.id) {
-        setUser(activeUser as any)
-      }
-      
-      // Only redirect if user has wrong role AND not already on correct path
-      const currentRole = activeUser.role || 'PATIENT'
-      if (currentRole !== UserRole.HOSPITAL_STAFF && String(currentRole).toUpperCase() !== 'HOSPITAL_STAFF') {
-        const correctPath = roleToPath(currentRole)
-        if (!pathname.startsWith(correctPath)) {
-          router.push(correctPath)
+        console.log('[HospitalLayout] Initializing - token:', !!localToken, 'user:', !!localUser)
+
+        if (!localToken) {
+          console.log('[HospitalLayout] No token found, redirecting to auth')
+          router.push('/auth')
+          setMounted(true)
+          return
         }
+
+        if (localUser) {
+          console.log('[HospitalLayout] User found in localStorage:', localUser.email)
+          setUser(localUser as any)
+        } else {
+          console.warn('[HospitalLayout] Token exists but no user in localStorage')
+          router.push('/auth')
+          setMounted(true)
+          return
+        }
+
+        setMounted(true)
+      } catch (error) {
+        console.error('[HospitalLayout] Error initializing auth:', error)
+        router.push('/auth')
+        setMounted(true)
       }
     }
-  }, [session?.user?.id, status, pathname])
 
-  if (status === 'loading' || !user) {
+    initializeAuth()
+  }, [router, setUser])
+
+  useEffect(() => {
+    if (!mounted || !user) return
+
+    const currentRole = user.role || UserRole.HOSPITAL_STAFF
+    if (currentRole !== UserRole.HOSPITAL_STAFF && currentRole !== UserRole.HOSPITAL_ADMIN) {
+      const correctPath = roleToPath(currentRole)
+      if (!pathname.startsWith(correctPath)) {
+        console.log(`[HospitalLayout] Wrong role ${currentRole}, redirecting to ${correctPath}`)
+        router.push(correctPath)
+      }
+    }
+  }, [mounted, user, pathname, router])
+
+  if (!mounted || !user) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
       </div>
     )
   }

@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Coins, Building2, ArrowRight, CheckCircle, Calculator } from 'lucide-react'
+import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter, ModalClose } from '@/components/ui/Modal'
+import { Coins, Building2, ArrowRight, CheckCircle, Calculator, AlertCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { authService } from '@/lib/authService'
 import { depositRequestService, type AssetDepositItem } from '@/services/depositRequestService'
@@ -41,6 +42,12 @@ export default function DepositAssetPage() {
     purityCertificate: '',
     supportingDocuments: '',
   })
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [pendingDepositData, setPendingDepositData] = useState<{
+    assetType: string
+    weight: number
+    assetValue: number
+  } | null>(null)
 
   const loadMyRequests = async () => {
     try {
@@ -92,17 +99,37 @@ export default function DepositAssetPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      setLoading(true)
       setError('')
 
       const assetValue = calculateWorth()
       if (!documents.receipt || !documents.purityCertificate || !documents.supportingDocuments) {
         throw new Error('Please attach the asset receipt, purity certificate, and supporting document before submitting')
       }
-      const response = await depositRequestService.submitRequest({
+
+      // Show confirmation dialog instead of submitting immediately
+      setPendingDepositData({
         assetType: assetType.toUpperCase(),
         weight: Number(weight),
         assetValue,
+      })
+      setShowConfirm(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to prepare deposit')
+    }
+  }
+
+  const handleConfirmDeposit = async () => {
+    if (!pendingDepositData) return
+
+    try {
+      setLoading(true)
+      setError('')
+      setShowConfirm(false)
+
+      const response = await depositRequestService.submitRequest({
+        assetType: pendingDepositData.assetType,
+        weight: pendingDepositData.weight,
+        assetValue: pendingDepositData.assetValue,
         assetReceipt: documents.receipt,
         purityCertificate: documents.purityCertificate,
         supportingDocuments: documents.supportingDocuments,
@@ -136,6 +163,18 @@ export default function DepositAssetPage() {
   )
 
   const isKycApproved = kycStatus === 'APPROVED'
+
+  const areAllDocumentsSubmitted = () => {
+    return documents.receipt && documents.purityCertificate && documents.supportingDocuments
+  }
+
+  const getMissingDocuments = () => {
+    const missing: string[] = []
+    if (!documents.receipt) missing.push('Asset Receipt')
+    if (!documents.purityCertificate) missing.push('Purity Certificate')
+    if (!documents.supportingDocuments) missing.push('Supporting Document')
+    return missing
+  }
 
   const requestStatusBadge = (status: string) => {
     const normalized = (status || '').toLowerCase()
@@ -341,6 +380,42 @@ export default function DepositAssetPage() {
                 <CardDescription>Upload the receipt and proof used to verify the asset.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Document Requirement Status */}
+                <div className={`rounded-lg border p-3 ${areAllDocumentsSubmitted() ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+                  <div className="space-y-2">
+                    {[
+                      { label: 'Asset Receipt', key: 'receipt' },
+                      { label: 'Purity / Carat Certificate', key: 'purityCertificate' },
+                      { label: 'Supporting Document', key: 'supportingDocuments' }
+                    ].map(doc => {
+                      const isSubmitted = documents[doc.key as keyof DepositDocumentState]
+                      return (
+                        <div key={doc.key} className="flex items-center gap-2 text-sm">
+                          <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
+                            isSubmitted 
+                              ? 'bg-green-500 text-white' 
+                              : 'bg-gray-300 text-gray-600'
+                          }`}>
+                            {isSubmitted ? '✓' : '○'}
+                          </div>
+                          <span className={isSubmitted ? 'text-green-700 font-medium' : 'text-amber-700'}>
+                            {doc.label} {isSubmitted ? '(Submitted)' : '(Required)'}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <p className={`text-xs mt-3 ${
+                    areAllDocumentsSubmitted() 
+                      ? 'text-green-700' 
+                      : 'text-amber-700'
+                  }`}>
+                    {areAllDocumentsSubmitted() 
+                      ? '✓ All required documents submitted' 
+                      : `⚠ ${getMissingDocuments().length} document(s) still needed before submission`}
+                  </p>
+                </div>
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Asset receipt</label>
                   <Input
@@ -442,7 +517,8 @@ export default function DepositAssetPage() {
                 <Button
                   type="submit"
                   className="w-full flex items-center justify-center gap-2"
-                  disabled={loading || !assetType || !weight || selectedHospitalDisplay === 'Not Assigned' || !isKycApproved}
+                  disabled={loading || !assetType || !weight || selectedHospitalDisplay === 'Not Assigned' || !isKycApproved || !areAllDocumentsSubmitted()}
+                  title={!areAllDocumentsSubmitted() ? `Missing: ${getMissingDocuments().join(', ')}` : ''}
                 >
                   {loading ? 'Submitting…' : 'Submit Investment Request'}
                   {!loading && <ArrowRight className="w-4 h-4" />}
@@ -523,6 +599,58 @@ export default function DepositAssetPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Deposit Confirmation Modal */}
+      {showConfirm && pendingDepositData && (
+        <Modal open={showConfirm} onOpenChange={setShowConfirm}>
+          <ModalContent className="max-w-md">
+            <ModalHeader>
+              <ModalTitle className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-amber-600" />
+                Confirm Asset Deposit
+              </ModalTitle>
+            </ModalHeader>
+            <div className="space-y-4 px-6 py-4">
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">Please review the details before submitting:</p>
+                <div className="rounded-lg bg-slate-50 p-3 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">Asset Type:</span>
+                    <span className="text-sm">{pendingDepositData.assetType}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">Weight:</span>
+                    <span className="text-sm">{pendingDepositData.weight}g</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">Asset Value:</span>
+                    <span className="text-sm">Rs. {pendingDepositData.assetValue.toLocaleString()}</span>
+                  </div>
+                  <div className="border-t pt-2 flex justify-between font-semibold">
+                    <span className="text-sm">Estimated HT Tokens:</span>
+                    <span className="text-sm">{Math.floor(pendingDepositData.assetValue / TOKEN_RATIO)} HT</span>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                This request will be sent to your hospital for approval before processing.
+              </p>
+            </div>
+            <ModalFooter>
+              <Button variant="outline" onClick={() => setShowConfirm(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleConfirmDeposit} 
+                disabled={loading}
+                className="bg-primary"
+              >
+                {loading ? 'Submitting...' : 'Confirm Deposit'}
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+      )}
     </div>
   )
 }

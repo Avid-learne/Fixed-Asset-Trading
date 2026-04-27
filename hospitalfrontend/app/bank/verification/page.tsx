@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/Modal'
-import { Search, Eye, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
+import { Search, Eye, CheckCircle, XCircle, AlertCircle, Download, X } from 'lucide-react'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { profileService, type ProfileData } from '@/services/profileService'
 
@@ -30,6 +30,7 @@ interface PatientVerification {
 export default function PatientVerificationPage() {
   const [verifications, setVerifications] = useState<PatientVerification[]>([])
   const [selectedPatient, setSelectedPatient] = useState<PatientVerification | null>(null)
+  const [selectedDocument, setSelectedDocument] = useState<{ label: string; value: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -329,9 +330,20 @@ export default function PatientVerificationPage() {
                   {selectedPatient.documents.length === 0 ? (
                     <p className="text-sm text-gray-500">No documents attached</p>
                   ) : selectedPatient.documents.map((doc, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                      <span className="text-sm text-gray-900">{doc.label}: {doc.value}</span>
-                      <Button variant="ghost" size="sm">View</Button>
+                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded border border-gray-200 hover:bg-gray-100 transition">
+                      <div className="flex-1">
+                        <span className="text-sm font-medium text-gray-900">{doc.label}</span>
+                        <p className="text-xs text-gray-500 mt-1">{doc.value}</p>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => setSelectedDocument(doc)}
+                        className="ml-2"
+                      >
+                        <Eye className="w-4 h-4 mr-1" />
+                        View
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -342,6 +354,24 @@ export default function PatientVerificationPage() {
                   <p className="text-sm text-blue-800">
                     <CheckCircle className="w-4 h-4 inline mr-2" />
                     Review all documents carefully before making a decision. Only approved KYC submissions unlock deposit requests.
+                  </p>
+                </div>
+              )}
+
+              {selectedPatient.status === 'Verified' && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <p className="text-sm text-green-800">
+                    <CheckCircle className="w-4 h-4 inline mr-2" />
+                    This KYC submission has been verified and approved.
+                  </p>
+                </div>
+              )}
+
+              {selectedPatient.status === 'Rejected' && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <p className="text-sm text-red-800">
+                    <XCircle className="w-4 h-4 inline mr-2" />
+                    This KYC submission has been rejected.
                   </p>
                 </div>
               )}
@@ -362,7 +392,7 @@ export default function PatientVerificationPage() {
             <Button variant="outline" onClick={() => setSelectedPatient(null)}>
               Close
             </Button>
-            {selectedPatient?.status === 'Pending' && (
+            {selectedPatient?.status === 'Pending' ? (
               <>
                 <Button
                   variant="destructive"
@@ -379,10 +409,84 @@ export default function PatientVerificationPage() {
                   {processing ? 'Processing…' : 'Verify Patient'}
                 </Button>
               </>
+            ) : (
+              <Button
+                className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
+                disabled={selectedPatient?.documents.length === 0}
+              >
+                <Eye className="w-4 h-4" />
+                View Submission
+              </Button>
             )}
           </ModalFooter>
         </ModalContent>
       </Modal>
+
+      {/* Document Viewer Modal */}
+      {selectedDocument && (
+        <Modal open={!!selectedDocument} onOpenChange={() => setSelectedDocument(null)}>
+          <ModalContent className="max-w-2xl">
+            <ModalHeader>
+              <div className="flex items-center justify-between w-full">
+                <ModalTitle>View Document: {selectedDocument.label}</ModalTitle>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => setSelectedDocument(null)}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            </ModalHeader>
+            <div className="px-6 py-4 space-y-4">
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                {selectedDocument.value.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                  // Image display
+                  <div className="space-y-2 max-h-96 overflow-auto">
+                    <img 
+                      src={selectedDocument.value}
+                      alt={selectedDocument.label}
+                      className="w-full rounded border border-gray-300"
+                      onError={(e) => {
+                        e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22300%22%3E%3Crect fill=%22%23f0f0f0%22 width=%22400%22 height=%22300%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22Arial,%20sans-serif%22 font-size=%2218%22 fill=%22%23999%22%3EDocument image could not load%3C/text%3E%3C/svg%3E'
+                      }}
+                    />
+                  </div>
+                ) : selectedDocument.value.match(/\.pdf$/i) ? (
+                  // PDF display
+                  <div className="text-center py-8">
+                    <p className="text-gray-600 text-sm mb-4">PDF Document</p>
+                    <p className="text-gray-500 text-xs mb-4 break-all">{selectedDocument.value}</p>
+                    <Button
+                      onClick={() => window.open(selectedDocument.value, '_blank')}
+                      className="gap-2"
+                    >
+                      <Download className="w-4 h-4" />
+                      Open PDF in New Tab
+                    </Button>
+                  </div>
+                ) : (
+                  // Other file types
+                  <div className="text-center py-8">
+                    <p className="text-gray-600 text-sm mb-4">File: {selectedDocument.label}</p>
+                    <p className="text-gray-500 text-xs mb-4 break-all">{selectedDocument.value}</p>
+                    <Button
+                      onClick={() => window.open(selectedDocument.value, '_blank')}
+                      className="gap-2"
+                    >
+                      <Download className="w-4 h-4" />
+                      Open Document
+                    </Button>
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-gray-500">
+                Document: {selectedDocument.label}
+              </p>
+            </div>
+          </ModalContent>
+        </Modal>
+      )}
     </div>
   )
 }

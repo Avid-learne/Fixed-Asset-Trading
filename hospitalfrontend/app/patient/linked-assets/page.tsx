@@ -1,28 +1,17 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import React, { useEffect, useState, useCallback } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, AlertCircle, CheckCircle2, Clock, XCircle, Lock, Unlock } from 'lucide-react'
+import { AlertCircle, Clock, Lock, Unlock } from 'lucide-react'
 import { marketplaceService, PatientAssetToken } from '@/services/marketplaceService'
-import { assetService, type AssetDeposit } from '@/services/assetService'
+
 import { formatDate, formatNumber } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 
-const statusConfig = {
-  PENDING: { label: 'Pending', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
-  APPROVED: { label: 'Hospital Approved', color: 'bg-blue-100 text-blue-800', icon: CheckCircle2 },
-  REJECTED: { label: 'Rejected', color: 'bg-red-100 text-red-800', icon: XCircle },
-  MINTED: { label: 'Minted (Active)', color: 'bg-green-100 text-green-800', icon: CheckCircle2 }
-}
 
-const bankStatusConfig = {
-  PENDING: { label: 'Awaiting Bank Approval', color: 'bg-orange-100 text-orange-800' },
-  APPROVED: { label: 'Bank Approved', color: 'bg-green-100 text-green-800' },
-  REJECTED: { label: 'Bank Rejected', color: 'bg-red-100 text-red-800' }
-}
 
 const assetTypeConfig = {
   GOLD: { label: 'Gold', color: 'bg-amber-50' },
@@ -37,7 +26,7 @@ const availabilityConfig = {
 }
 
 interface LinkedAssetWithToken extends PatientAssetToken {
-  depositInfo?: { [key: string]: any }
+  depositInfo?: Record<string, unknown>
 }
 
 export default function LinkedAssetsPage() {
@@ -47,17 +36,7 @@ export default function LinkedAssetsPage() {
   const [error, setError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'combined' | 'tokens-only'>('combined')
 
-  useEffect(() => {
-    console.log('LinkedAssets: user=', user)
-    console.log('LinkedAssets: patientId=', user?.patientId)
-    if (user?.patientId) {
-      fetchAssetTokens()
-    } else {
-      setLoading(false)
-    }
-  }, [user?.patientId])
-
-  const fetchAssetTokens = async () => {
+  const fetchAssetTokens = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
@@ -74,7 +53,17 @@ export default function LinkedAssetsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user?.patientId])
+
+  useEffect(() => {
+    console.log('LinkedAssets: user=', user)
+    console.log('LinkedAssets: patientId=', user?.patientId)
+    if (user?.patientId) {
+      fetchAssetTokens()
+    } else {
+      setLoading(false)
+    }
+  }, [user, fetchAssetTokens])
 
   const getTotalAvailableAt = () => 
     assetTokens.reduce((sum, token) => sum + Number(token.availableAt || 0), 0)
@@ -217,7 +206,7 @@ export default function LinkedAssetsPage() {
             <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-600">No Asset Tokens Found</h3>
             <p className="text-gray-500 mt-2">
-              You haven't submitted any asset deposits yet or no tokens have been assigned.
+              You haven&apos;t submitted any asset deposits yet or no tokens have been assigned.
             </p>
           </CardContent>
         </Card>

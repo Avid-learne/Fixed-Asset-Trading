@@ -14,6 +14,8 @@ import {
   PatientSubscription,
   PaymentHistory 
 } from '@/services/subscriptionService'
+import { patientService } from '@/services/patientService'
+import Link from 'next/link'
 
 export default function SubscriptionPage() {
   const { user } = useAuth()
@@ -25,6 +27,10 @@ export default function SubscriptionPage() {
   const [error, setError] = useState<string | null>(null)
   const [subscribing, setSubscribing] = useState(false)
   const [cancelling, setCancelling] = useState(false)
+  const [kycStatus, setKycStatus] = useState<string>('pending')
+  const [kycChecking, setKycChecking] = useState(false)
+  const [showPaymentConfirm, setShowPaymentConfirm] = useState(false)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const loadingRef = useRef(false)
   
   const [paymentOpen, setPaymentOpen] = useState(false)
@@ -54,6 +60,7 @@ export default function SubscriptionPage() {
   const loadData = async () => {
     setLoading(true)
     setError(null)
+    setKycChecking(true)
     
     try {
       // Use timeout for each request
@@ -80,15 +87,34 @@ export default function SubscriptionPage() {
           })
         : Promise.resolve([])
 
-      const [plansData, subscriptionData, historyData] = await Promise.all([
+      // Fetch KYC status
+      const kycPromise = patientService.getKycStatus()
+        .then((kycData) => {
+          if (kycData) {
+            return kycData.status
+          }
+          // Fallback: try to get full patient profile
+          return userId
+            ? patientService.getPatientById(userId)
+                .then((patient) => patient?.kycStatus?.toLowerCase() || 'pending')
+                .catch(() => 'pending')
+            : Promise.resolve('pending')
+        })
+        .catch(() => 'pending')
+
+      const [plansData, subscriptionData, historyData, kycData] = await Promise.all([
         Promise.race([plansPromise, timeoutPromise]),
         Promise.race([subscriptionPromise, timeoutPromise]),
-        Promise.race([historyPromise, timeoutPromise])
-      ]) as [ApiSubscriptionPlan[], PatientSubscription | null, PaymentHistory[]]
+        Promise.race([historyPromise, timeoutPromise]),
+        kycPromise
+      ]) as [ApiSubscriptionPlan[], PatientSubscription | null, PaymentHistory[], string]
       
       setPlans(plansData || [])
       setCurrentSubscription(subscriptionData || null)
       setPaymentHistory(historyData || [])
+      setKycStatus(kycData || 'pending')
+      
+      console.log('[SubscriptionPage] KYC Status loaded:', kycData)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load subscription data'
       console.error('Error loading subscription data:', err)
@@ -98,8 +124,10 @@ export default function SubscriptionPage() {
       setPlans([])
       setCurrentSubscription(null)
       setPaymentHistory([])
+      setKycStatus('pending')
     } finally {
       setLoading(false)
+      setKycChecking(false)
       loadingRef.current = false
     }
   }
@@ -112,7 +140,13 @@ export default function SubscriptionPage() {
   }
 
   const handleCancelSubscription = async () => {
+    // Show confirmation dialog first
+    setShowCancelConfirm(true)
+  }
+
+  const handleConfirmCancel = async () => {
     if (!userId) return
+    setShowCancelConfirm(false)
     setCancelling(true)
     try {
       const response = await subscriptionService.cancelSubscription(userId)
@@ -130,8 +164,14 @@ export default function SubscriptionPage() {
   }
 
   const handlePayment = async () => {
+    // Show confirmation dialog first
+    setShowPaymentConfirm(true)
+  }
+
+  const handleConfirmPayment = async () => {
     if (!userId || !selectedPlan) return
     
+    setShowPaymentConfirm(false)
     setSubscribing(true)
     try {
       const response = paymentMode === 'change'
@@ -221,6 +261,27 @@ export default function SubscriptionPage() {
         </Card>
       )}
 
+      {/* KYC Incomplete Alert */}
+      {kycStatus !== 'approved' && (
+        <Card className="border-yellow-200 bg-yellow-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-yellow-700">
+              <AlertCircle className="w-5 h-5" />
+              KYC Verification Required
+            </CardTitle>
+            <CardDescription className="text-yellow-600">
+              Your KYC verification is {kycStatus === 'pending' ? 'pending' : kycStatus}. You must complete KYC verification before subscribing to a plan.{' '}
+              <Link 
+                href="/patient/profile/kyc" 
+                className="underline font-semibold hover:no-underline text-yellow-700"
+              >
+                Complete KYC Now →
+              </Link>
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
+
       {/* Subscription Status */}
       {!currentSubscription || currentSubscription.status !== 'ACTIVE' ? (
         <Card className="border-warning bg-warning/5">
@@ -295,7 +356,13 @@ export default function SubscriptionPage() {
                   Current Plan
                 </Button>
               ) : (
-                <Button size="sm" className="w-full" onClick={() => handleSubscribe(plan)}>
+                <Button 
+                  size="sm" 
+                  className="w-full" 
+                  onClick={() => handleSubscribe(plan)}
+                  disabled={kycStatus !== 'approved' || kycChecking}
+                  title={kycStatus !== 'approved' ? 'Complete KYC verification first' : ''}
+                >
                   {currentSubscription?.status === 'ACTIVE' ? 'Change Plan' : 'Subscribe Now'}
                 </Button>
               )}
@@ -438,6 +505,97 @@ export default function SubscriptionPage() {
           </ModalFooter>
         </ModalContent>
       </Modal>
+
+      {/* Payment Confirmation Modal */}
+      {showPaymentConfirm && selectedPlan && (
+        <Modal open={showPaymentConfirm} onOpenChange={setShowPaymentConfirm}>
+          <ModalContent className="max-w-md">
+            <ModalHeader>
+              <ModalTitle className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-blue-600" />
+                Confirm {paymentMode === 'change' ? 'Plan Change' : 'Subscription'}
+              </ModalTitle>
+            </ModalHeader>
+            <div className="space-y-4 px-6 py-4">
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">Please review the details:</p>
+                <div className="rounded-lg bg-slate-50 p-3 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">Plan:</span>
+                    <span className="text-sm">{selectedPlan.subscriptionName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">Monthly Cost:</span>
+                    <span className="text-sm">Rs. {selectedPlan.amountPerMonth.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">Monthly HT Tokens:</span>
+                    <span className="text-sm text-primary font-semibold">{selectedPlan.htTokens} HT</span>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {paymentMode === 'change' 
+                  ? 'Your current subscription will be replaced with this plan.'
+                  : 'Your subscription will start immediately upon payment.'}
+              </p>
+            </div>
+            <ModalFooter>
+              <Button variant="outline" onClick={() => setShowPaymentConfirm(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleConfirmPayment} 
+                disabled={subscribing}
+              >
+                {subscribing ? 'Processing...' : 'Confirm Payment'}
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+      )}
+
+      {/* Cancellation Confirmation Modal */}
+      {showCancelConfirm && currentSubscription && (
+        <Modal open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+          <ModalContent className="max-w-md">
+            <ModalHeader>
+              <ModalTitle className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-red-600" />
+                Cancel Subscription
+              </ModalTitle>
+            </ModalHeader>
+            <div className="space-y-4 px-6 py-4">
+              <div className="rounded-lg bg-red-50 border border-red-200 p-3">
+                <p className="text-sm text-red-800">
+                  Are you sure you want to cancel your <strong>{currentSubscription.subscriptionName}</strong> subscription?
+                </p>
+                <p className="text-xs text-red-700 mt-2">
+                  This action cannot be undone. You will lose access to subscription benefits immediately.
+                </p>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-lg space-y-1">
+                <p className="text-xs text-muted-foreground">Current Plan:</p>
+                <p className="text-sm font-semibold">{currentSubscription.subscriptionName}</p>
+                <p className="text-xs text-muted-foreground mt-2">Expires:</p>
+                <p className="text-sm">{new Date(currentSubscription.endDate).toLocaleDateString()}</p>
+              </div>
+            </div>
+            <ModalFooter>
+              <Button variant="outline" onClick={() => setShowCancelConfirm(false)}>
+                Keep Subscription
+              </Button>
+              <Button 
+                variant="destructive"
+                onClick={handleConfirmCancel} 
+                disabled={cancelling}
+              >
+                {cancelling ? 'Cancelling...' : 'Cancel Subscription'}
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+      )}
     </div>
   )
 }

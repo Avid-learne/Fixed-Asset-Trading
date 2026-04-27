@@ -119,6 +119,35 @@ class PatientService {
       throw error
     }
   }
+
+  /**
+   * Get current patient's KYC status
+   */
+  async getKycStatus(): Promise<{ status: string; isVerified: boolean } | null> {
+    try {
+      const response = await fetch(`${API_URL}/kyc-status`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        // If endpoint doesn't exist, fall back to fetching full profile
+        console.warn('KYC status endpoint not available, fetching full profile')
+        return null
+      }
+
+      const result = await response.json()
+      const kycStatus = result.data?.kycStatus?.toLowerCase() || 'pending'
+      
+      return {
+        status: kycStatus,
+        isVerified: kycStatus === 'approved',
+      }
+    } catch (error) {
+      console.error('Error fetching KYC status:', error)
+      return null
+    }
+  }
 }
 
 /**
