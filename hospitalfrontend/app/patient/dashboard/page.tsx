@@ -20,6 +20,14 @@ export default function PatientDashboardHome() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  const normalizeKycStatus = (status?: string): 'PENDING' | 'IN_PROGRESS' | 'APPROVED' | 'REJECTED' => {
+    const normalized = (status || 'PENDING').toUpperCase()
+    if (normalized === 'APPROVED') return 'APPROVED'
+    if (normalized === 'REJECTED') return 'REJECTED'
+    if (normalized === 'IN_PROGRESS' || normalized === 'UNDER_REVIEW' || normalized === 'UNDER-REVIEW') return 'IN_PROGRESS'
+    return 'PENDING'
+  }
+
   // Load dashboard summary
   const loadDashboardSummary = async () => {
     try {
@@ -75,7 +83,7 @@ export default function PatientDashboardHome() {
     }
     try {
       const kyc = await profileService.getKycStatus()
-      setKycStatus(kyc.status)
+      setKycStatus(normalizeKycStatus(kyc.status))
     } catch {
       setKycStatus('PENDING')
     }
@@ -83,7 +91,7 @@ export default function PatientDashboardHome() {
 
   useEffect(() => {
     profileService.getKycStatus()
-      .then(kyc => setKycStatus(kyc.status))
+      .then(kyc => setKycStatus(normalizeKycStatus(kyc.status)))
       .catch(() => setKycStatus('PENDING'))
   }, [])
 
@@ -96,6 +104,16 @@ export default function PatientDashboardHome() {
     const unavailable = getUnavailableAt()
     if (unavailable > 0) return 'In Trade'
     return 'Available'
+  }
+
+  const getKycAlertMessage = () => {
+    if (kycStatus === 'IN_PROGRESS') {
+      return 'Your KYC is under review. You can track status in your KYC page. Deposit requests will unlock once review is approved.'
+    }
+    if (kycStatus === 'REJECTED') {
+      return 'Your KYC was rejected. Please update your profile/KYC details and resubmit to continue with deposit requests.'
+    }
+    return 'KYC is pending. Complete your profile information and submit KYC to unlock deposit requests.'
   }
 
   if (loading) {
@@ -120,7 +138,7 @@ export default function PatientDashboardHome() {
 
       {kycStatus !== 'APPROVED' && (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          KYC is incomplete ({kycStatus}). Complete your profile information and submit KYC to unlock deposit requests.
+          KYC status: {kycStatus}. {getKycAlertMessage()}
           {' '}
           <Link href="/patient/profile/info" className="font-semibold underline underline-offset-2">Update Profile</Link>
           {' · '}

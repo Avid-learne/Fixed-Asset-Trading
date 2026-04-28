@@ -122,7 +122,6 @@ export const Header: React.FC = () => {
     if (role === 'hospitaladmin' || role === 'hospital_admin') return '/hospitaladmin/notifications'
     if (role === 'hospital_staff') return '/hospital/notifications'
     if (role === 'bank_officer' || role === 'bank_staff') return '/bank/notifications'
-    if (role === 'insurance_company' || role === 'insurance') return '/insurance/notifications'
     return '/patient/notifications'
   }
 

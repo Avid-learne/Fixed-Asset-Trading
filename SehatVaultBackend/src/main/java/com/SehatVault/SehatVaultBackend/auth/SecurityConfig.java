@@ -50,6 +50,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/notifications/**").permitAll()
                 .requestMatchers("/api/reports/**").permitAll()
                 .requestMatchers("/api/wallet/**").permitAll()
+                .requestMatchers("/api/dashboard/asset-prices").permitAll()
+                .requestMatchers("/api/dashboard/hospital/asset-prices").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
                 .requestMatchers("/actuator/health/**").permitAll()

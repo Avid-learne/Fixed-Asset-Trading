@@ -72,10 +72,10 @@ public class Hospital {
     private Double bankProfitPercent = 10.0;
 
     @Column(name = "gold_price_per_gram")
-    private Double goldPricePerGram = 15000.0;
+    private Double goldPricePerGram;
 
     @Column(name = "silver_price_per_gram")
-    private Double silverPricePerGram = 250.0;
+    private Double silverPricePerGram;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

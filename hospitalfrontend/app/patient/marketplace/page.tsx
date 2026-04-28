@@ -8,33 +8,56 @@ import { Badge } from '@/components/ui/badge'
 import { Search, TrendingDown, TrendingUp, Info } from 'lucide-react'
 import { authService } from '@/lib/authService'
 import { marketplaceService, type PatientMarketplaceTrade } from '@/services/marketplaceService'
+import { dashboardService, type AssetPrices } from '@/services/dashboardService'
 
-const AT_TO_PKR = 10
-const convertPKRtoAT = (pkr: number) => pkr / AT_TO_PKR
+const AT_TO_PKR = 100
 
 export default function PatientMarketplace() {
   const currentUser = authService.getUser()
   const hospitalId = currentUser?.hospitalId || ''
+  const connectedHospitalName = currentUser?.hospitalName?.trim() || 'Not Assigned'
 
   const [trades, setTrades] = useState<PatientMarketplaceTrade[]>([])
+  const [assetPrices, setAssetPrices] = useState<AssetPrices | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [ratesError, setRatesError] = useState('')
   const [query, setQuery] = useState('')
   const [assetTypeFilter, setAssetTypeFilter] = useState('ALL')
 
+  const tokenPricePerPkr = assetPrices?.tokenPricePerPkr && assetPrices.tokenPricePerPkr > 0
+    ? assetPrices.tokenPricePerPkr
+    : AT_TO_PKR
+
+  const convertPKRtoAT = (pkr: number) => pkr / tokenPricePerPkr
+
   useEffect(() => {
     const loadTrades = async () => {
-      if (!hospitalId) {
-        setError('Hospital information is missing for this account.')
-        setLoading(false)
-        return
-      }
-
       try {
         setLoading(true)
         setError('')
-        const data = await marketplaceService.getPatientViewTrades(hospitalId)
+        setRatesError('')
+
+        const pricesPromise = dashboardService.getAssetPrices().catch((err) => {
+          setRatesError(err instanceof Error ? err.message : 'Failed to load live rates')
+          return null
+        })
+
+        if (!hospitalId) {
+          const prices = await pricesPromise
+          setAssetPrices(prices)
+          setTrades([])
+          setError('Hospital information is missing for this account.')
+          return
+        }
+
+        const [data, prices] = await Promise.all([
+          marketplaceService.getPatientViewTrades(hospitalId),
+          pricesPromise,
+        ])
         setTrades(data)
+        setAssetPrices(prices)
+        console.log('Loaded prices:', prices)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load marketplace data')
       } finally {
@@ -77,6 +100,34 @@ export default function PatientMarketplace() {
       </div>
 
       {error && <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+      {ratesError && <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Live rates unavailable: {ratesError}</div>}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader><CardTitle className="text-sm">Connected Hospital</CardTitle></CardHeader>
+          <CardContent><p className="text-xl font-bold text-slate-900">{connectedHospitalName}</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-sm">Gold Rate (PKR / gram)</CardTitle></CardHeader>
+          <CardContent>
+            <p className="text-xl font-bold text-slate-900">
+              {assetPrices?.goldPricePerGram
+                ? Number(assetPrices.goldPricePerGram).toLocaleString(undefined, { maximumFractionDigits: 2 })
+                : 'N/A'}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-sm">Silver Rate (PKR / gram)</CardTitle></CardHeader>
+          <CardContent>
+            <p className="text-xl font-bold text-slate-900">
+              {assetPrices?.silverPricePerGram
+                ? Number(assetPrices.silverPricePerGram).toLocaleString(undefined, { maximumFractionDigits: 2 })
+                : 'N/A'}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card><CardHeader><CardTitle className="text-sm">Invested</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{convertPKRtoAT(totals.invested).toLocaleString(undefined, { maximumFractionDigits: 2 })} HT</p></CardContent></Card>

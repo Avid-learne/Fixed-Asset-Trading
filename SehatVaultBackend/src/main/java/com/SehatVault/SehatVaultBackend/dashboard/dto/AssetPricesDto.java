@@ -10,4 +10,5 @@ import lombok.NoArgsConstructor;
 public class AssetPricesDto {
     private double goldPricePerGram;
     private double silverPricePerGram;
+    private double tokenPricePerPkr;
 }

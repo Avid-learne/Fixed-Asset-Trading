@@ -54,6 +54,12 @@ export type HospitalDashboardSummary = {
   allocationHistory: Array<{ month: string; allocated: number }>
 }
 
+export type AssetPrices = {
+  goldPricePerGram: number
+  silverPricePerGram: number
+  tokenPricePerPkr: number
+}
+
 export type SuperAdminDashboardSummary = {
   totalHospitals: number
   activeHospitals: number
@@ -79,14 +85,41 @@ const getAuthHeaders = (): HeadersInit => {
 
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, { headers: getAuthHeaders() })
-  const payload: ApiResponse<T> = await res.json()
-  if (!res.ok) throw new Error(payload?.message || `Request failed (${res.status})`)
+  const bodyText = await res.text()
+  let payload: ApiResponse<T> | null = null
+
+  if (bodyText) {
+    try {
+      payload = JSON.parse(bodyText) as ApiResponse<T>
+    } catch {
+      // Some backend errors may not be JSON; keep payload as null and use status fallback.
+    }
+  }
+
+  if (!res.ok) {
+    throw new Error(payload?.message || `Request failed (${res.status})`)
+  }
+
+  if (!payload || typeof payload !== 'object') {
+    throw new Error('Invalid server response')
+  }
+
   return payload.data
+}
+
+async function getAssetPricesWithFallback(): Promise<AssetPrices> {
+  try {
+    return await getJson<AssetPrices>('/asset-prices')
+  } catch (error) {
+    // Fallback for environments where only the hospital-prefixed route is exposed.
+    return getJson<AssetPrices>('/hospital/asset-prices')
+  }
 }
 
 export const dashboardService = {
   getPatientSummary: () => getJson<PatientDashboardSummary>('/patient'),
   getBankSummary: () => getJson<BankDashboardSummary>('/bank'),
   getHospitalSummary: () => getJson<HospitalDashboardSummary>('/hospital'),
+  getAssetPrices: () => getAssetPricesWithFallback(),
   getSuperAdminSummary: () => getJson<SuperAdminDashboardSummary>('/super-admin'),
 }

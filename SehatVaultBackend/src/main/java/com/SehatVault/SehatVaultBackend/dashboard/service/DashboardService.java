@@ -5,6 +5,7 @@ import com.SehatVault.SehatVaultBackend.assetdeposit.entity.MintRecord;
 import com.SehatVault.SehatVaultBackend.assetdeposit.repository.AssetDepositRepository;
 import com.SehatVault.SehatVaultBackend.assetdeposit.repository.MintRecordRepository;
 import com.SehatVault.SehatVaultBackend.dashboard.dto.AssetPricesDto;
+import com.SehatVault.SehatVaultBackend.dashboard.service.AssetPricingService;
 import com.SehatVault.SehatVaultBackend.marketplace.entity.MarketplaceTrade;
 import com.SehatVault.SehatVaultBackend.marketplace.repository.MarketplaceTradeRepository;
 import com.SehatVault.SehatVaultBackend.auth.entity.User;
@@ -57,6 +58,7 @@ public class DashboardService {
     private final ProfitDistributionRepository profitDistributionRepository;
     private final MintRecordRepository mintRecordRepository;
     private final MarketplaceTradeRepository marketplaceTradeRepository;
+    private final AssetPricingService assetPricingService;
 
     public PatientDashboardSummaryDto getPatientSummary(String email) {
         User user = requireUser(email);
@@ -184,8 +186,9 @@ public class DashboardService {
         dto.setAllocationHistory(buildMonthlyAllocationData(distributions));
 
         // Asset prices
-        dto.setGoldPricePerGram(hospital.getGoldPricePerGram() != null ? hospital.getGoldPricePerGram() : 15000.0);
-        dto.setSilverPricePerGram(hospital.getSilverPricePerGram() != null ? hospital.getSilverPricePerGram() : 250.0);
+        AssetPricesDto livePrices = assetPricingService.getLiveAssetPrices();
+        dto.setGoldPricePerGram(livePrices.getGoldPricePerGram());
+        dto.setSilverPricePerGram(livePrices.getSilverPricePerGram());
 
         // Asset distribution by type with PKR value
         Map<String, long[]> assetStats = new LinkedHashMap<>();
@@ -211,13 +214,7 @@ public class DashboardService {
     }
 
     public AssetPricesDto getAssetPrices(String email) {
-        User user = requireUser(email);
-        Hospital hospital = hospitalRepository.findById(user.getHospitalId())
-                .orElseThrow(() -> new IllegalArgumentException("Hospital not found"));
-        return new AssetPricesDto(
-                hospital.getGoldPricePerGram() != null ? hospital.getGoldPricePerGram() : 15000.0,
-                hospital.getSilverPricePerGram() != null ? hospital.getSilverPricePerGram() : 250.0
-        );
+        return assetPricingService.getLiveAssetPrices();
     }
 
     public AssetPricesDto updateAssetPrices(String email, AssetPricesDto prices) {

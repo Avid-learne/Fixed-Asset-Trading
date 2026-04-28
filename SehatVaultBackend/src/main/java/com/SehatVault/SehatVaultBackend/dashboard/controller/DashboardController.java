@@ -4,6 +4,7 @@ import com.SehatVault.SehatVaultBackend.dashboard.dto.AssetPricesDto;
 import com.SehatVault.SehatVaultBackend.dashboard.dto.BankDashboardSummaryDto;
 import com.SehatVault.SehatVaultBackend.dashboard.dto.HospitalDashboardSummaryDto;
 import com.SehatVault.SehatVaultBackend.dashboard.dto.PatientDashboardSummaryDto;
+import com.SehatVault.SehatVaultBackend.dashboard.service.AssetPricingService;
 import com.SehatVault.SehatVaultBackend.dashboard.service.DashboardService;
 import com.SehatVault.SehatVaultBackend.subscription.dto.ApiResponse;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class DashboardController {
 
     private final DashboardService dashboardService;
+    private final AssetPricingService assetPricingService;
 
     @GetMapping("/patient")
     public ResponseEntity<ApiResponse<PatientDashboardSummaryDto>> getPatientDashboard(Authentication authentication) {
@@ -39,9 +41,9 @@ public class DashboardController {
         return ResponseEntity.ok(ApiResponse.success(dashboardService.getHospitalSummary(authentication.getName())));
     }
 
-    @GetMapping("/hospital/asset-prices")
+    @GetMapping({"/hospital/asset-prices", "/asset-prices"})
     public ResponseEntity<ApiResponse<AssetPricesDto>> getAssetPrices(Authentication authentication) {
-        return ResponseEntity.ok(ApiResponse.success(dashboardService.getAssetPrices(authentication.getName())));
+        return ResponseEntity.ok(ApiResponse.success(assetPricingService.getLiveAssetPrices()));
     }
 
     @PutMapping("/hospital/asset-prices")

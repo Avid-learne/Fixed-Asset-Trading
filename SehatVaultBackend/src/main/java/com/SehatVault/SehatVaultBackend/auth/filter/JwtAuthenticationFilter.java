@@ -32,6 +32,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
+        // Short-circuit: allow unauthenticated access to public asset prices endpoints
+        String path = request.getRequestURI();
+        if (path != null && (path.equals("/api/dashboard/asset-prices") || path.equals("/api/dashboard/hospital/asset-prices"))) {
+            filterChain.doFilter(request, response);
+            return;
+        }
         
         try {
             String authHeader = request.getHeader("Authorization");

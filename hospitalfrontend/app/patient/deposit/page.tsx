@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation'
 import { authService } from '@/lib/authService'
 import { depositRequestService, type AssetDepositItem } from '@/services/depositRequestService'
 import { profileService } from '@/services/profileService'
+import { dashboardService, type AssetPrices } from '@/services/dashboardService'
 
 type AssetType = 'gold' | 'silver' | ''
 
@@ -20,10 +21,6 @@ type DepositDocumentState = {
   purityCertificate: string
   supportingDocuments: string
 }
-
-const GOLD_RATE_PER_GRAM = 15000 // PKR per gram
-const SILVER_RATE_PER_GRAM = 250 // PKR per gram
-const TOKEN_RATIO = 100 // 1 HT token = 100 PKR worth of asset
 
 export default function DepositAssetPage() {
   const router = useRouter()
@@ -36,6 +33,8 @@ export default function DepositAssetPage() {
   const [loading, setLoading] = useState(false)
   const [requests, setRequests] = useState<AssetDepositItem[]>([])
   const [loadingRequests, setLoadingRequests] = useState(true)
+  const [assetPrices, setAssetPrices] = useState<AssetPrices | null>(null)
+  const [loadingPrices, setLoadingPrices] = useState(true)
   const [kycStatus, setKycStatus] = useState<string>('PENDING')
   const [documents, setDocuments] = useState<DepositDocumentState>({
     receipt: '',
@@ -54,10 +53,23 @@ export default function DepositAssetPage() {
       setLoadingRequests(true)
       const data = await depositRequestService.getMyRequests('all')
       setRequests(data)
-    } catch {
-      // Keep page usable if history fails to load.
+    } catch (error) {
+      console.warn('Your history could not be loaded right now.', error)
     } finally {
       setLoadingRequests(false)
+    }
+  }
+
+  const loadAssetPrices = async () => {
+    try {
+      setLoadingPrices(true)
+      const data = await dashboardService.getAssetPrices()
+      setAssetPrices(data)
+    } catch (priceError) {
+      setAssetPrices(null)
+      console.warn('Asset prices could not be loaded right now; continuing without price preview.', priceError)
+    } finally {
+      setLoadingPrices(false)
     }
   }
 
@@ -76,6 +88,7 @@ export default function DepositAssetPage() {
       }
 
       loadMyRequests()
+      loadAssetPrices()
     }
 
     init()
@@ -83,12 +96,14 @@ export default function DepositAssetPage() {
 
   const calculateWorth = () => {
     const weightNum = parseFloat(weight)
-    if (!weightNum || !assetType) return 0
-    return weightNum * (assetType === 'gold' ? GOLD_RATE_PER_GRAM : SILVER_RATE_PER_GRAM)
+    if (!weightNum || !assetType || !assetPrices) return 0
+    const ratePerGram = assetType === 'gold' ? assetPrices.goldPricePerGram : assetPrices.silverPricePerGram
+    return weightNum * ratePerGram
   }
 
   const calculateTokens = () => {
-    return Math.floor(calculateWorth() / TOKEN_RATIO)
+    if (!assetPrices?.tokenPricePerPkr) return 0
+    return Math.floor(calculateWorth() / assetPrices.tokenPricePerPkr)
   }
 
   const selectedHospitalDisplay = useMemo(
@@ -163,6 +178,7 @@ export default function DepositAssetPage() {
   )
 
   const isKycApproved = kycStatus === 'APPROVED'
+  const isPricingReady = Boolean(assetPrices?.goldPricePerGram && assetPrices?.silverPricePerGram && assetPrices?.tokenPricePerPkr)
 
   const areAllDocumentsSubmitted = () => {
     return documents.receipt && documents.purityCertificate && documents.supportingDocuments
@@ -205,7 +221,7 @@ export default function DepositAssetPage() {
     return (
       <div className="max-w-2xl mx-auto space-y-6">
         <Card className="text-center">
-          <CardContent className="pt-12 pb-12">
+              <CardContent className="pt-12 pb-12">
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <CheckCircle className="w-12 h-12 text-green-600" />
             </div>
@@ -230,11 +246,13 @@ export default function DepositAssetPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Asset Worth:</span>
-                  <span className="font-medium">PKR {calculateWorth().toLocaleString()}</span>
+                    <span className="font-medium">PKR {Number(submittedRequest?.assetValue ?? pendingDepositData?.assetValue ?? calculateWorth()).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Expected HT:</span>
-                  <span className="font-semibold text-lg text-primary">{calculateTokens()} HT</span>
+                    <span className="font-semibold text-lg text-primary">
+                      {Number(submittedRequest?.expectedTokens ?? (pendingDepositData?.assetValue && assetPrices?.tokenPricePerPkr ? Math.floor(pendingDepositData.assetValue / assetPrices.tokenPricePerPkr) : calculateTokens())).toLocaleString()} HT
+                    </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Hospital:</span>
@@ -282,6 +300,12 @@ export default function DepositAssetPage() {
         </p>
       </div>
 
+      {loadingPrices && (
+        <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          Loading live gold, silver, and HT pricing...
+        </div>
+      )}
+
       {error && (
         <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
@@ -326,7 +350,7 @@ export default function DepositAssetPage() {
                     <div className="text-4xl mb-2" aria-hidden="true">🥇</div>
                     <div className="font-semibold text-lg">Gold</div>
                     <div className="text-sm text-muted-foreground mt-1">
-                      PKR {GOLD_RATE_PER_GRAM.toLocaleString()}/gram
+                      {assetPrices ? `PKR ${assetPrices.goldPricePerGram.toLocaleString()}/gram` : 'Live rate unavailable'}
                     </div>
                   </button>
 
@@ -342,7 +366,7 @@ export default function DepositAssetPage() {
                     <div className="text-4xl mb-2" aria-hidden="true">🥈</div>
                     <div className="font-semibold text-lg">Silver</div>
                     <div className="text-sm text-muted-foreground mt-1">
-                      PKR {SILVER_RATE_PER_GRAM.toLocaleString()}/gram
+                      {assetPrices ? `PKR ${assetPrices.silverPricePerGram.toLocaleString()}/gram` : 'Live rate unavailable'}
                     </div>
                   </button>
                 </div>
@@ -369,7 +393,7 @@ export default function DepositAssetPage() {
                 </div>
 
                 <div className="rounded-lg border p-4 bg-muted/40 text-sm text-muted-foreground">
-                  Asset worth updates automatically using the latest configured rates for gold and silver.
+                  Asset worth updates automatically using live gold, silver, and HT token pricing from the backend.
                 </div>
               </CardContent>
             </Card>
@@ -510,14 +534,14 @@ export default function DepositAssetPage() {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span>Estimated HT</span>
-                    <span className="font-semibold text-primary">{calculateTokens()} HT</span>
+                    <span className="font-semibold text-primary">{calculateTokens().toLocaleString()} HT</span>
                   </div>
                 </div>
 
                 <Button
                   type="submit"
                   className="w-full flex items-center justify-center gap-2"
-                  disabled={loading || !assetType || !weight || selectedHospitalDisplay === 'Not Assigned' || !isKycApproved || !areAllDocumentsSubmitted()}
+                  disabled={loading || loadingPrices || !isPricingReady || !assetType || !weight || selectedHospitalDisplay === 'Not Assigned' || !isKycApproved || !areAllDocumentsSubmitted()}
                   title={!areAllDocumentsSubmitted() ? `Missing: ${getMissingDocuments().join(', ')}` : ''}
                 >
                   {loading ? 'Submitting…' : 'Submit Investment Request'}
@@ -628,7 +652,7 @@ export default function DepositAssetPage() {
                   </div>
                   <div className="border-t pt-2 flex justify-between font-semibold">
                     <span className="text-sm">Estimated HT Tokens:</span>
-                    <span className="text-sm">{Math.floor(pendingDepositData.assetValue / TOKEN_RATIO)} HT</span>
+                    <span className="text-sm">{assetPrices?.tokenPricePerPkr ? Math.floor(pendingDepositData.assetValue / assetPrices.tokenPricePerPkr).toLocaleString() : '—'} HT</span>
                   </div>
                 </div>
               </div>

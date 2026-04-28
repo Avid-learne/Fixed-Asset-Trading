@@ -40,8 +40,8 @@ export default function HospitalAdminHome() {
         setError(null)
         const data = await dashboardService.getHospitalSummary()
         setSummary(data)
-        setGoldPrice(String(data.goldPricePerGram || 15000))
-        setSilverPrice(String(data.silverPricePerGram || 250))
+        setGoldPrice(data.goldPricePerGram != null ? String(data.goldPricePerGram) : '')
+        setSilverPrice(data.silverPricePerGram != null ? String(data.silverPricePerGram) : '')
       } catch (err) {
         console.error('Failed to fetch dashboard data:', err)
         setError(err instanceof Error ? err.message : 'Failed to load dashboard data')
