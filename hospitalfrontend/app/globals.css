@@ -82,6 +82,145 @@
   }
 }
 
+/* Text animation - word highlight */
+@keyframes word-highlight {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes text-fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes text-pulse-emphasis {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes slide-in-up {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes counter-increment {
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Blob animations */
+@keyframes blob {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+}
+
+@keyframes blob-slow {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(50px, -30px) scale(1.05);
+  }
+}
+
+@keyframes slow-pan {
+  0% {
+    background-position: 50% 50%;
+  }
+  50% {
+    background-position: 48% 52%;
+  }
+  100% {
+    background-position: 50% 50%;
+  }
+}
+
+@layer components {
+  .animate-blob {
+    animation: blob 7s infinite;
+  }
+
+  .animation-delay-2000 {
+    animation-delay: 2s;
+  }
+
+  .animation-delay-4000 {
+    animation-delay: 4s;
+  }
+
+  .animate-slow-pan {
+    animation: slow-pan 12s ease-in-out infinite;
+  }
+
+  .text-animate-in {
+    animation: text-fade-in 0.8s ease-out;
+  }
+
+  .text-pulse-emphasis {
+    animation: text-pulse-emphasis 2s ease-in-out infinite;
+  }
+
+  .animate-slide-in-up {
+    animation: slide-in-up 0.6s ease-out;
+  }
+
+  .animate-counter {
+    animation: counter-increment 1s ease-out;
+  }
+
+  /* Gradient text animation */
+  .animate-gradient-text {
+    background: linear-gradient(
+      90deg,
+      #10b981,
+      #14b8a6,
+      #06b6d4,
+      #10b981
+    );
+    background-size: 300% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: word-highlight 4s ease infinite;
+  }
+}
+
 .dark {
   --background: 222.2 84% 4.9%;
   --foreground: 0 0% 100%;
