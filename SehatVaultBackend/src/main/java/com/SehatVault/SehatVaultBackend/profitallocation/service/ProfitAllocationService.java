@@ -95,8 +95,10 @@ public class ProfitAllocationService {
         response.setTotalProfit(totalProfit);
         response.setPatientSharePercent(patientPercent);
         response.setHospitalSharePercent(hospitalPercent);
+        response.setBankSharePercent(bankPercent);
         response.setPatientAmountPkr(patientAmountPkr);
         response.setHospitalAmountPkr(hospitalAmountPkr);
+        response.setBankAmountPkr(bankAmountPkr);
         response.setTokenMintPoolPkr(tokenMintPoolPkr);
         response.setHtConversionRate(tokenPriceService.getHtPricePkr());
         response.setTotalHtToDistribute(totalHt);
@@ -124,9 +126,11 @@ public class ProfitAllocationService {
         distribution.setHospitalId(hospitalId);
         distribution.setTotalProfit(preview.getTotalProfit());
         distribution.setPatientsPercentage(preview.getPatientSharePercent());
+        distribution.setHospitalPercentage(preview.getHospitalSharePercent());
+        distribution.setBankPercentage(preview.getBankSharePercent());
         distribution.setHospitalOperations(preview.getHospitalAmountPkr());
         distribution.setHospitalEarning(preview.getHospitalAmountPkr());
-        distribution.setBankLoanFunds(BigDecimal.ZERO);
+        distribution.setBankLoanFunds(nz(preview.getBankAmountPkr()));
         distribution.setCreatedAt(LocalDateTime.now());
         distribution = profitDistributionRepository.save(distribution);
 
@@ -182,6 +186,7 @@ public class ProfitAllocationService {
         response.setTotalHtDistributed(preview.getTotalHtToDistribute());
         response.setPatientAmountPkr(preview.getPatientAmountPkr());
         response.setHospitalAmountPkr(preview.getHospitalAmountPkr());
+        response.setBankAmountPkr(preview.getBankAmountPkr());
         response.setTokenMintPoolPkr(preview.getTokenMintPoolPkr());
         return response;
     }
@@ -219,6 +224,14 @@ public class ProfitAllocationService {
         User admin = findHospitalAdmin(email);
         UUID hospitalId = requireHospitalId(admin);
 
+        Hospital hospital = hospitalRepository.findById(hospitalId).orElse(null);
+        BigDecimal defaultHospitalPct = BigDecimal.valueOf(
+                hospital != null && hospital.getHospitalProfitPercent() != null
+                        ? hospital.getHospitalProfitPercent() : 50.0);
+        BigDecimal defaultBankPct = BigDecimal.valueOf(
+                hospital != null && hospital.getBankProfitPercent() != null
+                        ? hospital.getBankProfitPercent() : 10.0);
+
         return profitDistributionRepository.findByHospitalIdOrderByCreatedAtDesc(hospitalId)
                 .stream()
                 .map(distribution -> {
@@ -228,15 +241,28 @@ public class ProfitAllocationService {
                             .map(ProfitAllocation::getAllocatedAmountHt)
                             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+                    BigDecimal totalProfit = nz(distribution.getTotalProfit());
+                    BigDecimal patientPct = nz(distribution.getPatientsPercentage());
+                    BigDecimal hospitalPct = distribution.getHospitalPercentage() != null
+                            ? distribution.getHospitalPercentage() : defaultHospitalPct;
+                    BigDecimal bankPct = distribution.getBankPercentage() != null
+                            ? distribution.getBankPercentage() : defaultBankPct;
+
                     ProfitDistributionHistoryItemDto dto = new ProfitDistributionHistoryItemDto();
                     dto.setDistributionId(distribution.getProfitDistributionId());
                     dto.setTimestamp(distribution.getCreatedAt());
-                    dto.setTotalProfit(distribution.getTotalProfit());
-                    dto.setPatientSharePercent(distribution.getPatientsPercentage());
-                    dto.setPatientAmountPkr(distribution.getTotalProfit()
-                            .multiply(distribution.getPatientsPercentage())
+                    dto.setTotalProfit(totalProfit);
+                    dto.setPatientSharePercent(patientPct);
+                    dto.setHospitalSharePercent(hospitalPct);
+                    dto.setBankSharePercent(bankPct);
+                    dto.setPatientAmountPkr(totalProfit.multiply(patientPct)
                             .divide(ONE_HUNDRED, 6, RoundingMode.HALF_UP));
-                    dto.setHospitalAmountPkr(distribution.getHospitalEarning());
+                    dto.setHospitalAmountPkr(nz(distribution.getHospitalEarning()).compareTo(BigDecimal.ZERO) > 0
+                            ? distribution.getHospitalEarning()
+                            : totalProfit.multiply(hospitalPct).divide(ONE_HUNDRED, 6, RoundingMode.HALF_UP));
+                    dto.setBankAmountPkr(nz(distribution.getBankLoanFunds()).compareTo(BigDecimal.ZERO) > 0
+                            ? distribution.getBankLoanFunds()
+                            : totalProfit.multiply(bankPct).divide(ONE_HUNDRED, 6, RoundingMode.HALF_UP));
                     dto.setTotalHtDistributed(totalHt);
                     dto.setRecipients(allocations.size());
                     return dto;

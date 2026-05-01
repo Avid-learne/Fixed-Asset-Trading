@@ -12,5 +12,6 @@ public class ExecuteProfitAllocationResponse {
     private BigDecimal totalHtDistributed;
     private BigDecimal patientAmountPkr;
     private BigDecimal hospitalAmountPkr;
+    private BigDecimal bankAmountPkr;
     private BigDecimal tokenMintPoolPkr;
 }

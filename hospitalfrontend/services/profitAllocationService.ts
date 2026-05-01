@@ -24,8 +24,10 @@ export interface ProfitAllocationPreview {
   totalProfit: number
   patientSharePercent: number
   hospitalSharePercent: number
+  bankSharePercent: number
   patientAmountPkr: number
   hospitalAmountPkr: number
+  bankAmountPkr: number
   tokenMintPoolPkr: number
   htConversionRate: number
   totalHtToDistribute: number
@@ -39,8 +41,11 @@ export interface ProfitAllocationHistoryItem {
   timestamp: string
   totalProfit: number
   patientSharePercent: number
+  hospitalSharePercent: number
+  bankSharePercent: number
   patientAmountPkr: number
   hospitalAmountPkr: number
+  bankAmountPkr: number
   totalHtDistributed: number
   recipients: number
 }
@@ -51,6 +56,7 @@ export interface ExecuteProfitAllocationResponse {
   totalHtDistributed: number
   patientAmountPkr: number
   hospitalAmountPkr: number
+  bankAmountPkr: number
   tokenMintPoolPkr: number
 }
 

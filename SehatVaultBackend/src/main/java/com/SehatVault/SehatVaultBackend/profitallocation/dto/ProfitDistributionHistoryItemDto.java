@@ -12,8 +12,11 @@ public class ProfitDistributionHistoryItemDto {
     private LocalDateTime timestamp;
     private BigDecimal totalProfit;
     private BigDecimal patientSharePercent;
+    private BigDecimal hospitalSharePercent;
+    private BigDecimal bankSharePercent;
     private BigDecimal patientAmountPkr;
     private BigDecimal hospitalAmountPkr;
+    private BigDecimal bankAmountPkr;
     private BigDecimal totalHtDistributed;
     private Integer recipients;
 }

@@ -30,6 +30,12 @@ public class ProfitDistribution {
     @Column(name = "patients_percentage", nullable = false)
     private BigDecimal patientsPercentage;
 
+    @Column(name = "hospital_percentage")
+    private BigDecimal hospitalPercentage;
+
+    @Column(name = "bank_percentage")
+    private BigDecimal bankPercentage;
+
     @Column(name = "hospital_operations", nullable = false)
     private BigDecimal hospitalOperations;
 

@@ -25,6 +25,12 @@ export default function ProfitAllocationPage() {
   const totalHT = preview?.totalHtToDistribute ?? 0
   const recipients = preview?.totalRecipients ?? 0
   const htConversionRate = preview?.htConversionRate ?? 10
+  const patientSharePct = preview?.patientSharePercent ?? 40
+  const hospitalSharePct = preview?.hospitalSharePercent ?? 50
+  const bankSharePct = preview?.bankSharePercent ?? 10
+  const patientAmountPkr = preview?.patientAmountPkr ?? 0
+  const hospitalAmountPkr = preview?.hospitalAmountPkr ?? 0
+  const bankAmountPkr = preview?.bankAmountPkr ?? 0
 
   const loadHistory = async () => {
     const items = await profitAllocationService.getHistory()
@@ -135,6 +141,42 @@ export default function ProfitAllocationPage() {
         </Card>
       </div>
 
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <Card className="shadow-sm border-emerald-200 bg-emerald-50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs uppercase tracking-wide text-emerald-700">
+              Patients ({Number(patientSharePct).toFixed(0)}%)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xl font-semibold text-emerald-800">PKR {Number(patientAmountPkr).toLocaleString()}</p>
+            <p className="text-xs text-emerald-700 mt-1">Bonus HT to all patients in pool</p>
+          </CardContent>
+        </Card>
+        <Card className="shadow-sm border-blue-200 bg-blue-50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs uppercase tracking-wide text-blue-700">
+              Hospital ({Number(hospitalSharePct).toFixed(0)}%)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xl font-semibold text-blue-800">PKR {Number(hospitalAmountPkr).toLocaleString()}</p>
+            <p className="text-xs text-blue-700 mt-1">Retained to fund next trading cycle</p>
+          </CardContent>
+        </Card>
+        <Card className="shadow-sm border-amber-200 bg-amber-50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs uppercase tracking-wide text-amber-700">
+              Bank ({Number(bankSharePct).toFixed(0)}%)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xl font-semibold text-amber-800">PKR {Number(bankAmountPkr).toLocaleString()}</p>
+            <p className="text-xs text-amber-700 mt-1">Custodian fee for safeguarding the asset</p>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2 shadow-sm">
           <CardHeader>
@@ -191,19 +233,32 @@ export default function ProfitAllocationPage() {
           <CardContent>
             <div className="space-y-4">
               {history.slice(0, 6).map((item) => (
-                <div key={item.distributionId} className="flex items-center justify-between p-3 border-b last:border-0">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                      <History className="w-4 h-4 text-green-600" />
+                <div key={item.distributionId} className="p-3 border-b last:border-0">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                        <History className="w-4 h-4 text-green-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">Distribution #{item.distributionId.slice(0, 8)}</p>
+                        <p className="text-xs text-muted-foreground">{new Date(item.timestamp).toLocaleString()}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">Distribution #{item.distributionId.slice(0, 8)}</p>
-                      <p className="text-xs text-muted-foreground">{new Date(item.timestamp).toLocaleString()}</p>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-green-600">{item.totalHtDistributed.toFixed(2)} HT</p>
+                      <p className="text-xs text-muted-foreground">from PKR {item.totalProfit.toLocaleString()}</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-green-600">{item.totalHtDistributed.toFixed(2)} HT</p>
-                    <p className="text-xs text-muted-foreground">from PKR {item.totalProfit.toLocaleString()}</p>
+                  <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                    <div className="rounded bg-emerald-50 px-2 py-1 text-emerald-700">
+                      Patient: PKR {Number(item.patientAmountPkr ?? 0).toLocaleString()}
+                    </div>
+                    <div className="rounded bg-blue-50 px-2 py-1 text-blue-700">
+                      Hospital: PKR {Number(item.hospitalAmountPkr ?? 0).toLocaleString()}
+                    </div>
+                    <div className="rounded bg-amber-50 px-2 py-1 text-amber-700">
+                      Bank: PKR {Number(item.bankAmountPkr ?? 0).toLocaleString()}
+                    </div>
                   </div>
                 </div>
               ))}
