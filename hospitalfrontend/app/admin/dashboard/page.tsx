@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { 
   Building2, Users, Banknote, Coins, TrendingUp, AlertCircle, 
   CheckCircle, Server, Activity, Clock, ArrowUpRight, RefreshCw, Loader
@@ -13,6 +14,13 @@ import { ChartCard } from '../components/ChartCard'
 import { StatusBadge } from '../components/StatusBadge'
 import { KeyValueCard } from '../components/KeyValueCard'
 import { dashboardService, type SuperAdminDashboardSummary } from '@/services/dashboardService'
+
+const mapVerificationStatus = (status?: string): 'active' | 'pending' | 'suspended' => {
+  const normalized = (status || '').toUpperCase()
+  if (normalized === 'VERIFIED' || normalized === 'APPROVED' || normalized === 'ACTIVE') return 'active'
+  if (normalized === 'REJECTED' || normalized === 'CANCELLED' || normalized === 'DISABLED') return 'suspended'
+  return 'pending'
+}
 
 export default function SuperadminDashboard() {
   const [refreshing, setRefreshing] = useState(false)
@@ -24,6 +32,9 @@ export default function SuperadminDashboard() {
   const [tokenData, setTokenData] = useState<any[]>([])
   const [pendingRequests, setPendingRequests] = useState<any[]>([])
   const [systemAlerts, setSystemAlerts] = useState<any[]>([])
+  const hospitals = summary?.hospitals || []
+  const banks = summary?.banks || []
+  const trades = summary?.marketplaceTrades || []
 
   const fetchData = async () => {
     try {
@@ -119,8 +130,8 @@ export default function SuperadminDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">System Control Center</h1>
-          <p className="text-gray-600 mt-1">Complete oversight and management of the entire platform</p>
+          <h1 className="text-3xl font-bold text-gray-900">Super Admin Control Center</h1>
+          <p className="text-gray-600 mt-1">Complete oversight of hospitals, banks, integrations, and marketplace trading</p>
         </div>
         <Button onClick={handleRefresh} variant="outline" className="gap-2">
           <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
@@ -247,6 +258,14 @@ export default function SuperadminDashboard() {
               <StatusBadge status="success" text="Synced" size="sm" />
             </div>
             <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">Disabled Hospitals</span>
+              <Badge className="bg-red-100 text-red-800">{summary?.disabledHospitals || 0}</Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">Disabled Banks</span>
+              <Badge className="bg-red-100 text-red-800">{summary?.disabledBanks || 0}</Badge>
+            </div>
+            <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">Uptime</span>
               <span className="text-sm font-semibold text-green-600">{summary?.systemUptime?.toFixed(2) || '99.99'}%</span>
             </div>
@@ -343,6 +362,150 @@ export default function SuperadminDashboard() {
         />
       </div>
 
+      {/* Global Registries */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-cyan-600" />
+                Hospital Registry
+              </CardTitle>
+              <Link href="/admin/hospitals">
+                <Button variant="link" size="sm" className="text-cyan-600">Manage hospitals</Button>
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {hospitals.length === 0 ? (
+              <p className="text-sm text-gray-500">No hospital records available.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Hospital</TableHead>
+                    <TableHead>Patients</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {hospitals.map((hospital) => (
+                    <TableRow key={hospital.hospitalId}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium text-gray-900">{hospital.hospitalName}</p>
+                          <p className="text-xs text-gray-500">Registered {hospital.createdAt ? new Date(hospital.createdAt).toLocaleDateString() : 'recently'}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-gray-900">{hospital.patientCount}</TableCell>
+                      <TableCell>
+                        <StatusBadge status={mapVerificationStatus(hospital.verificationStatus)} text={hospital.verificationStatus} size="sm" />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Banknote className="h-5 w-5 text-blue-600" />
+                Bank Registry
+              </CardTitle>
+              <Link href="/admin/banks">
+                <Button variant="link" size="sm" className="text-cyan-600">Manage banks</Button>
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {banks.length === 0 ? (
+              <p className="text-sm text-gray-500">No bank records available.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Bank</TableHead>
+                    <TableHead>Integrations</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {banks.map((bank) => (
+                    <TableRow key={bank.bankId}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium text-gray-900">{bank.bankName}</p>
+                          <p className="text-xs text-gray-500">Registered {bank.createdAt ? new Date(bank.createdAt).toLocaleDateString() : 'recently'}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-gray-900">{bank.activePartnerships}</TableCell>
+                      <TableCell>
+                        <StatusBadge status={mapVerificationStatus(bank.verificationStatus)} text={bank.verificationStatus} size="sm" />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Activity className="h-5 w-5 text-purple-600" />
+              Marketplace Oversight
+            </CardTitle>
+            <Link href="/admin/marketplace">
+              <Button variant="link" size="sm" className="text-cyan-600">Inspect marketplace</Button>
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {trades.length === 0 ? (
+            <p className="text-sm text-gray-500">No trade records available.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Trade</TableHead>
+                  <TableHead>Hospital</TableHead>
+                  <TableHead>Amount Invested</TableHead>
+                  <TableHead>P/L</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {trades.map((trade) => (
+                  <TableRow key={trade.tradeId}>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium text-gray-900">{trade.tradeTitle}</p>
+                        <p className="text-xs text-gray-500">{trade.tradeType}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-gray-900">{trade.hospitalName || trade.hospitalId}</TableCell>
+                    <TableCell className="text-gray-900">PKR {Number(trade.amountInvested || 0).toLocaleString()}</TableCell>
+                    <TableCell className={Number(trade.profitLoss || 0) >= 0 ? 'text-green-600' : 'text-red-600'}>
+                      {Number(trade.profitLoss || 0) >= 0 ? '+' : ''}PKR {Number(trade.profitLoss || 0).toLocaleString()}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={mapVerificationStatus(trade.status)} text={trade.status} size="sm" />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Pending Requests and Alerts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
@@ -419,13 +582,19 @@ export default function SuperadminDashboard() {
                 Onboard Hospital
               </Button>
             </Link>
+            <Link href="/admin/users">
+              <Button variant="outline" className="w-full justify-start gap-2">
+                <Users className="h-4 w-4" />
+                Register Admin
+              </Button>
+            </Link>
             <Link href="/admin/banks/create">
               <Button variant="outline" className="w-full justify-start gap-2">
                 <Banknote className="h-4 w-4" />
                 Add Bank Partner
               </Button>
             </Link>
-            <Link href="/admin/system-config">
+            <Link href="/admin/settings">
               <Button variant="outline" className="w-full justify-start gap-2">
                 <Server className="h-4 w-4" />
                 System Config

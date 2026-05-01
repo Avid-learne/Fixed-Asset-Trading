@@ -1,6 +1,8 @@
 package com.SehatVault.SehatVaultBackend.assetdeposit.controller;
 
 import com.SehatVault.SehatVaultBackend.assetdeposit.dto.AssetDepositDto;
+import com.SehatVault.SehatVaultBackend.assetdeposit.dto.BankCustodyVerificationDto;
+import com.SehatVault.SehatVaultBackend.assetdeposit.dto.ConfirmCustodyRequest;
 import com.SehatVault.SehatVaultBackend.assetdeposit.dto.HospitalOptionDto;
 import com.SehatVault.SehatVaultBackend.assetdeposit.dto.RejectAssetDepositRequest;
 import com.SehatVault.SehatVaultBackend.assetdeposit.dto.SubmitAssetDepositRequest;
@@ -198,13 +200,13 @@ public class AssetDepositController {
      * This is the point where AT is minted and baseline HT starts.
      */
     @PostMapping("/{assetId}/custody-confirm")
-    public ResponseEntity<?> confirmCustody(Authentication authentication, @PathVariable UUID assetId) {
+    public ResponseEntity<?> confirmCustody(Authentication authentication, @PathVariable UUID assetId, @RequestBody ConfirmCustodyRequest request) {
         try {
             if (authentication == null || authentication.getName() == null) {
                 return ResponseEntity.status(401).body(error("Unauthorized"));
             }
-            AssetDepositDto data = assetDepositService.confirmCustodyAndMint(authentication.getName(), assetId);
-            return ResponseEntity.ok(success("Custody confirmed", data));
+            BankCustodyVerificationDto data = assetDepositService.confirmCustody(authentication.getName(), assetId, request);
+            return ResponseEntity.ok(success("Asset custody confirmed and verified", data));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(error(e.getMessage()));
         } catch (Exception e) {

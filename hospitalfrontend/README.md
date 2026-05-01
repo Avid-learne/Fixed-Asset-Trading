@@ -12,7 +12,7 @@ The platform allows patients to deposit physical assets which are then tokenized
 - **Hospital_Staff**: Review and approve asset deposits
 - **Hospital_Admin**: Approve deposits, mint tokens, run trading simulations
 - **Bank_Officer**: Monitor policies, assets, and financial reports
-- **Super_Admin**: Manage users, roles, and system settings
+- **Super_Admin**: Manage users, roles, hospitals, banks, marketplace oversight, and system settings
 
 ## Tech Stack
 
@@ -98,10 +98,11 @@ NEXT_PUBLIC_API_URL=http://localhost:8000/api
 - Risk assessment reports
 
 ### Super Admin Portal
-- User management
-- Role-based access control
-- System configuration
-- Global audit logs
+- Global hospital and bank registry
+- User and role management
+- Marketplace and integration oversight
+- Disable or restore institutions
+- System configuration and global audit logs
 
 ## Key Components
 

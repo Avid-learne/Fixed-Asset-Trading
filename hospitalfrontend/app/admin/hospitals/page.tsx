@@ -150,7 +150,7 @@ export default function HospitalsManagementPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Hospital Management</h1>
-        <p className="text-gray-500 mt-1">Manage registered hospitals and register new ones</p>
+        <p className="text-gray-500 mt-1">Manage registered hospitals, register new ones, and disable access when required</p>
       </div>
 
       {error && (
@@ -332,7 +332,7 @@ export default function HospitalsManagementPage() {
                           size="sm"
                           onClick={() => handleToggleStatus(hospital)}
                         >
-                          {hospital.status === 'active' ? 'Suspend' : 'Activate'}
+                          {hospital.status === 'active' ? 'Disable' : 'Restore'}
                         </Button>
                       </div>
                     </TableCell>

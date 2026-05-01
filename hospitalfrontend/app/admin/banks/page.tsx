@@ -88,6 +88,12 @@ export default function BanksManagementPage() {
     }
   }
 
+  const handleToggleStatus = (bank: Bank) => {
+    const nextStatus = bank.status === 'Active' ? 'Suspended' : 'Active'
+    setBanks(banks.map(item => item.id === bank.id ? { ...item, status: nextStatus } : item))
+    alert(`Bank ${nextStatus === 'Active' ? 'restored' : 'disabled'} successfully!`)
+  }
+
   const filteredBanks = banks.filter(b => {
     const matchesSearch = b.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          b.swiftCode.toLowerCase().includes(searchTerm.toLowerCase())
@@ -117,7 +123,7 @@ export default function BanksManagementPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Bank Management</h1>
-        <p className="text-gray-500 mt-1">Manage partner banks and register new ones</p>
+        <p className="text-gray-500 mt-1">Manage partner banks, register new ones, and disable access when needed</p>
       </div>
 
       <Tabs defaultValue="list" className="w-full">
@@ -277,6 +283,9 @@ export default function BanksManagementPage() {
                     <TableCell>
                       <Button variant="ghost" size="sm" onClick={() => setSelectedBank(bank)}>
                         View Details
+                      </Button>
+                      <Button variant="outline" size="sm" className="ml-2" onClick={() => handleToggleStatus(bank)}>
+                        {bank.status === 'Active' ? 'Disable' : 'Restore'}
                       </Button>
                     </TableCell>
                   </TableRow>

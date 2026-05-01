@@ -3,10 +3,14 @@ package com.SehatVault.SehatVaultBackend.assetdeposit.service;
 import com.SehatVault.SehatVaultBackend.assetdeposit.dto.AssetDepositDto;
 import com.SehatVault.SehatVaultBackend.assetdeposit.dto.HospitalOptionDto;
 import com.SehatVault.SehatVaultBackend.assetdeposit.dto.SubmitAssetDepositRequest;
+import com.SehatVault.SehatVaultBackend.assetdeposit.dto.BankCustodyVerificationDto;
+import com.SehatVault.SehatVaultBackend.assetdeposit.dto.ConfirmCustodyRequest;
 import com.SehatVault.SehatVaultBackend.assetdeposit.entity.AssetDeposit;
+import com.SehatVault.SehatVaultBackend.assetdeposit.entity.BankCustodyVerification;
 import com.SehatVault.SehatVaultBackend.assetdeposit.entity.MintRecord;
 import com.SehatVault.SehatVaultBackend.assetdeposit.repository.AssetDepositRepository;
 import com.SehatVault.SehatVaultBackend.assetdeposit.repository.MintRecordRepository;
+import com.SehatVault.SehatVaultBackend.assetdeposit.repository.BankCustodyVerificationRepository;
 import com.SehatVault.SehatVaultBackend.auth.entity.Role;
 import com.SehatVault.SehatVaultBackend.auth.entity.User;
 import com.SehatVault.SehatVaultBackend.auth.repository.UserRepository;
@@ -65,6 +69,7 @@ public class AssetDepositService {
     private final PartnershipRepository partnershipRepository;
     private final MintRecordRepository mintRecordRepository;
     private final HospitalAtPoolService hospitalAtPoolService;
+    private final BankCustodyVerificationRepository bankCustodyVerificationRepository;
     private final PatientWalletAllocatorService patientWalletAllocatorService;
     private final AtTradingService atTradingService;
     private final NotificationService notificationService;
@@ -277,15 +282,84 @@ public class AssetDepositService {
                 "Your " + saved.getAssetType() + " deposit worth PKR " + saved.getAssetValue()
                         + " has been approved by " + hospital.getHospitalName() + ". Awaiting bank approval.");
 
-        // Notify bank staff about new deposit for approval
+        // Notify bank staff about new deposit for approval (include hospital and asset details)
         notifyBankStaff(saved.getBankId(), admin.getUserId(),
-                "New Deposit for Bank Approval",
-                "A " + saved.getAssetType() + " deposit worth PKR " + saved.getAssetValue()
-                        + " from patient " + patientUser.getName() + " needs bank approval.");
+            "New Deposit for Bank Approval",
+            "Hospital: " + hospital.getHospitalName()
+                + " | Asset: " + saved.getAssetType() + " (PKR " + saved.getAssetValue() + ")"
+                + " | Patient: " + patientUser.getName() + " (" + patientUser.getEmail() + ") - needs bank approval.");
 
         return toDto(saved, patient, patientUser, hospital);
     }
 
+       @Transactional
+       public BankCustodyVerificationDto confirmCustody(String email, UUID assetId, ConfirmCustodyRequest request) {
+           // Validation
+           if (!request.isValid()) {
+               throw new IllegalArgumentException("Invalid custody request: " + request.getValidationError());
+           }
+
+           User bankUser = requireUser(email);
+           requireRole(bankUser, Role.RoleType.bank_staff, "Only bank staff can confirm custody");
+
+           Bank bank = bankRepository.findByEmail(bankUser.getEmail())
+                   .orElseThrow(() -> new IllegalArgumentException("No bank profile found for this account"));
+
+           AssetDeposit deposit = assetDepositRepository.findById(assetId)
+                   .orElseThrow(() -> new IllegalArgumentException("Deposit request not found"));
+
+           assertSameBank(bank, deposit);
+           if (!"approved".equalsIgnoreCase(nz(deposit.getBankApprovalStatus()))) {
+               throw new IllegalArgumentException("Request must be bank-approved before confirming custody");
+           }
+
+           // Create custody verification record
+           BankCustodyVerification verification = new BankCustodyVerification(
+               deposit,
+               request.getVerifiedPurityPercent(),
+               request.getVerifiedWeightGrams(),
+               request.getAssetCondition(),
+               request.getSerialNumber(),
+               request.getLoanAmountApprovedPkr(),
+               request.getLoanInterestRatePercent(),
+               bankUser.getUserId().toString()
+           );
+           verification.setVerificationNotes(request.getVerificationNotes());
+           verification.setCustodyReceivedAt(LocalDateTime.now());
+
+           BankCustodyVerification savedVerification = bankCustodyVerificationRepository.save(verification);
+
+           // Update deposit status
+           deposit.setCustodyStatus("confirmed");
+           deposit.setCustodyConfirmedAt(LocalDateTime.now());
+           deposit.setCustodyConfirmedBy(bankUser.getUserId());
+           assetDepositRepository.save(deposit);
+
+           // Get patient and hospital info for notifications
+           Patient patient = patientRepository.findById(deposit.getPatientId())
+                   .orElseThrow(() -> new IllegalArgumentException("Patient not found"));
+           User patientUser = userRepository.findById(patient.getUserId())
+                   .orElseThrow(() -> new IllegalArgumentException("Patient user not found"));
+           UUID hospitalId = patient.getHospitalId() != null ? patient.getHospitalId() : patientUser.getHospitalId();
+
+           // Notify patient that custody is confirmed and tokens will be minted
+           sendNotification(bankUser.getUserId(), patientUser.getUserId(),
+               "Asset Custody Confirmed",
+               "Your " + deposit.getAssetType() + " has been received, verified, and taken under bank custody. "
+                   + "Purity verified at " + request.getVerifiedPurityPercent() + "%. "
+                   + "Bank will provide financing of PKR " + request.getLoanAmountApprovedPkr() + ". "
+                   + "AT tokens will now be minted for trading.");
+
+           // Notify hospital that custody is confirmed and money is available
+           notifyHospitalAdmins(hospitalId, bankUser.getUserId(),
+               "Asset Custody Confirmed - Ready for Trading",
+               "Patient " + patientUser.getName() + "'s " + deposit.getAssetType() + " has been verified and taken under bank custody. "
+                   + "Verified purity: " + request.getVerifiedPurityPercent() + "% | "
+                   + "Loan approved: PKR " + request.getLoanAmountApprovedPkr() + " at " + request.getLoanInterestRatePercent() + "% interest. "
+                   + "Asset is now ready for trading.");
+
+           return toCustodyDto(savedVerification, deposit);
+       }
     @Transactional
     public AssetDepositDto rejectRequest(String email, UUID assetId, String reason) {
         User admin = requireUser(email);
@@ -639,6 +713,22 @@ public class AssetDepositService {
         return dto;
     }
 
+       private BankCustodyVerificationDto toCustodyDto(BankCustodyVerification verification, AssetDeposit deposit) {
+           BankCustodyVerificationDto dto = new BankCustodyVerificationDto();
+           dto.setVerificationId(verification.getVerificationId());
+           dto.setDepositId(deposit.getAssetId().toString());
+           dto.setVerifiedPurityPercent(verification.getVerifiedPurityPercent());
+           dto.setVerifiedWeightGrams(verification.getVerifiedWeightGrams());
+           dto.setAssetCondition(verification.getAssetCondition());
+           dto.setSerialNumber(verification.getSerialNumber());
+           dto.setLoanAmountApprovedPkr(verification.getLoanAmountApprovedPkr());
+           dto.setLoanInterestRatePercent(verification.getLoanInterestRatePercent());
+           dto.setBankStaffId(verification.getBankStaffId());
+           dto.setVerificationNotes(verification.getVerificationNotes());
+           dto.setVerifiedAt(verification.getVerifiedAt());
+           dto.setCustodyReceivedAt(verification.getCustodyReceivedAt());
+           return dto;
+       }
     private BigDecimal getHospitalBaselineHt(Hospital hospital) {
         // Minimal policy: default 50 HT/month unless overridden via DB column.
         try {

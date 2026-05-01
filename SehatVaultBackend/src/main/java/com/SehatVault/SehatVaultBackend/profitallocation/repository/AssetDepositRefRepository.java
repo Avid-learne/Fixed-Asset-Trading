@@ -17,6 +17,7 @@ public interface AssetDepositRefRepository extends JpaRepository<AssetDepositRef
                         FROM asset_deposits ad
                         WHERE ad.patient_id = :patientId
                             AND lower(ad.status) = 'approved'
+                            AND lower(ad.custody_status) = 'confirmed'
                         """, nativeQuery = true)
         BigDecimal sumApprovedAssetValueByPatientId(@Param("patientId") UUID patientId);
 
@@ -25,6 +26,7 @@ public interface AssetDepositRefRepository extends JpaRepository<AssetDepositRef
                         FROM asset_deposits ad
                         WHERE ad.patient_id = :patientId
                             AND lower(ad.status) = 'approved'
+                            AND lower(ad.custody_status) = 'confirmed'
                         ORDER BY ad.submitted_at DESC
                         LIMIT 1
                         """, nativeQuery = true)

@@ -188,7 +188,7 @@ export default function PatientsPage() {
   const [reviewingKycId, setReviewingKycId] = useState<string | null>(null)
   const [kycRejectReasons, setKycRejectReasons] = useState<Record<string, string>>({})
 
-  const fetchPatients = useCallback(async () => {
+  const fetchPatients = useCallback(async (): Promise<Patient[]> => {
     try {
       setIsLoading(true)
       setError(null)
@@ -220,9 +220,11 @@ export default function PatientsPage() {
         phone: profile.phoneNum || '',
       }))
       setPatients(transformedPatients)
+      return transformedPatients
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load patients')
       setPatients([])
+      return []
     } finally {
       setIsLoading(false)
     }
@@ -276,7 +278,9 @@ export default function PatientsPage() {
         reason: approved ? undefined : reason?.trim(),
       })
       setKycRejectReasons((prev) => ({ ...prev, [patient.userId]: '' }))
-      await fetchPatients()
+      const updatedPatients = await fetchPatients()
+      const updated = updatedPatients.find((p) => p.userId === patient.userId)
+      if (updated) setSelectedPatient(updated)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update KYC review')
     } finally {
@@ -887,9 +891,47 @@ export default function PatientsPage() {
                     <div className="rounded-lg border bg-white p-4">
                       <p className="text-sm font-medium text-slate-900">Submitted documents</p>
                       <div className="mt-3 space-y-2 text-sm text-slate-600">
-                        <p>ID front: {selectedPatient.kycDocumentFront || 'Not attached'}</p>
-                        <p>ID back: {selectedPatient.kycDocumentBack || 'Not attached'}</p>
-                        <p>Selfie / live photo: {selectedPatient.kycSelfie || 'Not attached'}</p>
+                        <div className="flex items-center justify-between">
+                          <div>ID front: {selectedPatient.kycDocumentFront || 'Not attached'}</div>
+                          {selectedPatient.kycDocumentFront && (
+                            <a
+                              href={selectedPatient.kycDocumentFront}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-primary hover:underline"
+                            >
+                              View
+                            </a>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <div>ID back: {selectedPatient.kycDocumentBack || 'Not attached'}</div>
+                          {selectedPatient.kycDocumentBack && (
+                            <a
+                              href={selectedPatient.kycDocumentBack}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-primary hover:underline"
+                            >
+                              View
+                            </a>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <div>Selfie / live photo: {selectedPatient.kycSelfie || 'Not attached'}</div>
+                          {selectedPatient.kycSelfie && (
+                            <a
+                              href={selectedPatient.kycSelfie}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-primary hover:underline"
+                            >
+                              View
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -911,22 +953,24 @@ export default function PatientsPage() {
                       />
                     </div>
 
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => reviewKyc(selectedPatient, false, kycRejectReasons[selectedPatient.userId])}
-                        disabled={reviewingKycId === selectedPatient.userId}
-                      >
-                        Reject KYC
-                      </Button>
-                      <Button
-                        onClick={() => reviewKyc(selectedPatient, true)}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                        disabled={reviewingKycId === selectedPatient.userId}
-                      >
-                        Verify KYC
-                      </Button>
-                    </div>
+                    {!['APPROVED', 'REJECTED'].includes(selectedPatient.kycStatus?.toUpperCase()) && (
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => reviewKyc(selectedPatient, false, kycRejectReasons[selectedPatient.userId])}
+                          disabled={reviewingKycId === selectedPatient.userId}
+                        >
+                          Reject KYC
+                        </Button>
+                        <Button
+                          onClick={() => reviewKyc(selectedPatient, true)}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                          disabled={reviewingKycId === selectedPatient.userId}
+                        >
+                          Verify KYC
+                        </Button>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>

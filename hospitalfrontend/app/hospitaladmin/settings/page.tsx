@@ -7,12 +7,14 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
-import { Loader2, Save, Building2, Shield, UserCog, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { Loader2, Save, Building2, Shield, UserCog, CheckCircle2, AlertTriangle, PieChart } from 'lucide-react'
 import {
   hospitalAdminSettingsService,
   HospitalAdminSettings,
   UpdateHospitalAdminSettingsRequest,
 } from '@/services/hospitalAdminSettingsService'
+import { hospitalSettingsService, type ProfitSettings } from '@/services/hospitalSettingsService'
+import { Slider } from '@/components/ui/slider'
 
 type FormState = UpdateHospitalAdminSettingsRequest
 
@@ -44,6 +46,14 @@ export default function HospitalAdminSettingsPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  
+  const [profitSettings, setProfitSettings] = useState<ProfitSettings>({
+    patientProfitPercent: 40,
+    hospitalProfitPercent: 50,
+    bankProfitPercent: 10,
+  })
+  const [isProfitLoading, setIsProfitLoading] = useState(false)
+  const [isProfitSaving, setIsProfitSaving] = useState(false)
 
   const loadSettings = async () => {
     setIsLoading(true)
@@ -59,8 +69,21 @@ export default function HospitalAdminSettingsPage() {
     }
   }
 
+  const loadProfitSettings = async () => {
+    setIsProfitLoading(true)
+    try {
+      const data = await hospitalSettingsService.getProfitSettings()
+      setProfitSettings(data)
+    } catch (err) {
+      console.error('Failed to load profit settings:', err)
+    } finally {
+      setIsProfitLoading(false)
+    }
+  }
+
   useEffect(() => {
     loadSettings()
+    loadProfitSettings()
   }, [])
 
   const handleSave = async () => {
@@ -81,6 +104,32 @@ export default function HospitalAdminSettingsPage() {
       setIsSaving(false)
     }
   }
+
+  const handleSaveProfitSettings = async () => {
+    setIsProfitSaving(true)
+    try {
+      await hospitalSettingsService.updateProfitSettings(profitSettings)
+      setSuccess('Profit settings updated successfully')
+      setTimeout(() => setSuccess(''), 3000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update profit settings')
+    } finally {
+      setIsProfitSaving(false)
+    }
+  }
+
+  const handleProfitChange = (field: keyof ProfitSettings, value: number) => {
+    setProfitSettings((prev) => ({
+      ...prev,
+      [field]: value,
+    }))
+  }
+
+  const profitTotal =
+    profitSettings.patientProfitPercent +
+    profitSettings.hospitalProfitPercent +
+    profitSettings.bankProfitPercent
+  const isProfitValid = Math.abs(profitTotal - 100) < 0.01
 
   if (isLoading) {
     return (
@@ -294,6 +343,127 @@ export default function HospitalAdminSettingsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <PieChart className="h-5 w-5" />
+            Profit Allocation Policy
+          </CardTitle>
+          <CardDescription>
+            Configure how profits from asset trading are distributed between patients, your hospital, and banks
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {isProfitLoading ? (
+            <div className="flex items-center gap-2 text-slate-600">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading profit settings...
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="rounded-lg border p-4 text-center">
+                  <p className="text-sm font-medium text-slate-600">Patient Share</p>
+                  <p className="text-2xl font-bold text-blue-600 mt-2">{profitSettings.patientProfitPercent}%</p>
+                </div>
+                <div className="rounded-lg border p-4 text-center">
+                  <p className="text-sm font-medium text-slate-600">Hospital Share</p>
+                  <p className="text-2xl font-bold text-green-600 mt-2">{profitSettings.hospitalProfitPercent}%</p>
+                </div>
+                <div className="rounded-lg border p-4 text-center">
+                  <p className="text-sm font-medium text-slate-600">Bank Share</p>
+                  <p className="text-2xl font-bold text-purple-600 mt-2">{profitSettings.bankProfitPercent}%</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <Label>Patient Profit (%)</Label>
+                    <span className="text-sm text-slate-600">{profitSettings.patientProfitPercent}%</span>
+                  </div>
+                  <Slider
+                    value={[profitSettings.patientProfitPercent]}
+                    onValueChange={(value) => handleProfitChange('patientProfitPercent', value[0])}
+                    min={0}
+                    max={100}
+                    step={1}
+                    className="w-full"
+                  />
+                  <p className="text-xs text-slate-500">Patients will receive this percentage of trading profits</p>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <Label>Hospital Profit (%)</Label>
+                    <span className="text-sm text-slate-600">{profitSettings.hospitalProfitPercent}%</span>
+                  </div>
+                  <Slider
+                    value={[profitSettings.hospitalProfitPercent]}
+                    onValueChange={(value) => handleProfitChange('hospitalProfitPercent', value[0])}
+                    min={0}
+                    max={100}
+                    step={1}
+                    className="w-full"
+                  />
+                  <p className="text-xs text-slate-500">Your hospital will retain this percentage of trading profits</p>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <Label>Bank Profit (%)</Label>
+                    <span className="text-sm text-slate-600">{profitSettings.bankProfitPercent}%</span>
+                  </div>
+                  <Slider
+                    value={[profitSettings.bankProfitPercent]}
+                    onValueChange={(value) => handleProfitChange('bankProfitPercent', value[0])}
+                    min={0}
+                    max={100}
+                    step={1}
+                    className="w-full"
+                  />
+                  <p className="text-xs text-slate-500">Banks will receive this percentage of trading profits</p>
+                </div>
+              </div>
+
+              <div className={`rounded-lg p-4 flex items-center justify-between border ${
+                isProfitValid ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'
+              }`}>
+                <div>
+                  <p className={`font-medium ${
+                    isProfitValid ? 'text-green-900' : 'text-red-900'
+                  }`}>Total Allocation</p>
+                  <p className={`text-sm ${
+                    isProfitValid ? 'text-green-700' : 'text-red-700'
+                  }`}>{profitTotal.toFixed(2)}%</p>
+                </div>
+                <span className={`text-lg font-bold ${
+                  isProfitValid ? 'text-green-600' : 'text-red-600'
+                }`}>{isProfitValid ? '✓' : '✗'}</span>
+              </div>
+
+              <Button
+                onClick={handleSaveProfitSettings}
+                disabled={isProfitSaving || !isProfitValid}
+                className="w-full bg-emerald-600 hover:bg-emerald-700"
+              >
+                {isProfitSaving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving Profit Settings...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Profit Settings
+                  </>
+                )}
+              </Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

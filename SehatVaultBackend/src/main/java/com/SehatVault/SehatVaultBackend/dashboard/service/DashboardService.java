@@ -5,6 +5,7 @@ import com.SehatVault.SehatVaultBackend.assetdeposit.entity.MintRecord;
 import com.SehatVault.SehatVaultBackend.assetdeposit.repository.AssetDepositRepository;
 import com.SehatVault.SehatVaultBackend.assetdeposit.repository.MintRecordRepository;
 import com.SehatVault.SehatVaultBackend.dashboard.dto.AssetPricesDto;
+import com.SehatVault.SehatVaultBackend.dashboard.dto.SuperAdminDashboardSummaryDto;
 import com.SehatVault.SehatVaultBackend.dashboard.service.AssetPricingService;
 import com.SehatVault.SehatVaultBackend.marketplace.entity.MarketplaceTrade;
 import com.SehatVault.SehatVaultBackend.marketplace.repository.MarketplaceTradeRepository;
@@ -40,6 +41,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -227,6 +229,111 @@ public class DashboardService {
         hospitalRepository.save(hospital);
         return prices;
     }
+
+        public SuperAdminDashboardSummaryDto getSuperAdminSummary(String email) {
+        User user = requireUser(email);
+        if (user.getRole() == null || user.getRole().getRoleName() != com.SehatVault.SehatVaultBackend.auth.entity.Role.RoleType.admin) {
+            throw new IllegalArgumentException("Only super admins can access the system summary");
+        }
+
+        List<Hospital> hospitals = hospitalRepository.findAll();
+        List<Bank> banks = bankRepository.findAll();
+        List<Patient> patients = patientRepository.findAll();
+        List<MarketplaceTrade> trades = marketplaceTradeRepository.findAll();
+        List<ProfitDistribution> distributions = profitDistributionRepository.findAll();
+        List<MintRecord> mintRecords = mintRecordRepository.findAll();
+
+        Map<UUID, Long> patientCountsByHospital = patients.stream()
+            .filter(patient -> patient.getHospitalId() != null)
+            .collect(Collectors.groupingBy(Patient::getHospitalId, Collectors.counting()));
+
+        Map<UUID, Long> partnershipCountsByBank = partnershipRepository.findAll().stream()
+            .filter(partnership -> partnership.getBankId() != null)
+            .filter(partnership -> partnership.getIntegrationStatus() == Partnership.IntegrationStatus.APPROVED)
+            .collect(Collectors.groupingBy(Partnership::getBankId, Collectors.counting()));
+
+        Map<UUID, Hospital> hospitalById = hospitals.stream()
+            .filter(hospital -> hospital.getHospitalId() != null)
+            .collect(Collectors.toMap(Hospital::getHospitalId, Function.identity(), (left, right) -> left, LinkedHashMap::new));
+
+        SuperAdminDashboardSummaryDto dto = new SuperAdminDashboardSummaryDto();
+        dto.setTotalHospitals(hospitals.size());
+        dto.setActiveHospitals(hospitals.stream().filter(h -> h.getVerificationStatus() == Hospital.VerificationStatus.VERIFIED).count());
+        dto.setPendingHospitals(hospitals.stream().filter(h -> h.getVerificationStatus() == Hospital.VerificationStatus.PENDING).count());
+        dto.setDisabledHospitals(hospitals.stream().filter(h -> h.getVerificationStatus() == Hospital.VerificationStatus.REJECTED).count());
+
+        dto.setTotalBanks(banks.size());
+        dto.setActiveBanks(banks.stream().filter(b -> b.getVerificationStatus() == Bank.VerificationStatus.VERIFIED).count());
+        dto.setPendingBanks(banks.stream().filter(b -> b.getVerificationStatus() == Bank.VerificationStatus.PENDING).count());
+        dto.setDisabledBanks(banks.stream().filter(b -> b.getVerificationStatus() == Bank.VerificationStatus.REJECTED).count());
+
+        dto.setTotalPatients(patients.size());
+        dto.setActivePatients(patients.size());
+
+        dto.setTotalATMinted(mintRecords.stream()
+            .filter(record -> record.getTokensMinted() != null)
+            .filter(record -> record.getStatus() == null || !"FAILED".equalsIgnoreCase(record.getStatus()))
+            .map(MintRecord::getTokensMinted)
+            .reduce(BigDecimal.ZERO, BigDecimal::add));
+
+        dto.setTotalHTIssued(patientTokenBalanceRepository.findAll().stream()
+            .map(balance -> balance.getTotalHt() != null ? balance.getTotalHt() : BigDecimal.ZERO)
+            .reduce(BigDecimal.ZERO, BigDecimal::add));
+
+        dto.setTotalRevenue(distributions.stream()
+            .map(ProfitDistribution::getTotalProfit)
+            .filter(value -> value != null)
+            .reduce(BigDecimal.ZERO, BigDecimal::add));
+
+        dto.setTotalTransactionVolume(trades.stream()
+            .map(MarketplaceTrade::getAmountInvested)
+            .filter(value -> value != null)
+            .reduce(BigDecimal.ZERO, BigDecimal::add));
+
+        for (Hospital hospital : hospitals) {
+            SuperAdminDashboardSummaryDto.HospitalOverview row = new SuperAdminDashboardSummaryDto.HospitalOverview();
+            row.setHospitalId(hospital.getHospitalId());
+            row.setHospitalName(hospital.getHospitalName());
+            row.setPatientCount(patientCountsByHospital.getOrDefault(hospital.getHospitalId(), 0L));
+            row.setVerificationStatus(hospital.getVerificationStatus() != null ? hospital.getVerificationStatus().name() : "PENDING");
+            row.setTotalAssets(hospital.getTotalAssets() != null ? BigDecimal.valueOf(hospital.getTotalAssets()) : BigDecimal.ZERO);
+            row.setTotalAT(hospital.getTotalAT() != null ? BigDecimal.valueOf(hospital.getTotalAT()) : BigDecimal.ZERO);
+            row.setCreatedAt(hospital.getCreatedAt());
+            dto.getHospitals().add(row);
+        }
+
+        for (Bank bank : banks) {
+            SuperAdminDashboardSummaryDto.BankOverview row = new SuperAdminDashboardSummaryDto.BankOverview();
+            row.setBankId(bank.getBankId());
+            row.setBankName(bank.getBankName());
+            row.setActivePartnerships(partnershipCountsByBank.getOrDefault(bank.getBankId(), 0L));
+            row.setVerificationStatus(bank.getVerificationStatus() != null ? bank.getVerificationStatus().name() : "PENDING");
+            row.setTotalDeposits(partnershipRepository.findByBankIdOrderByCreatedAtDesc(bank.getBankId()).stream()
+                .filter(partnership -> partnership.getIntegrationStatus() == Partnership.IntegrationStatus.APPROVED)
+                .map(Partnership::getTotalDeposits)
+                .filter(value -> value != null)
+                .reduce(BigDecimal.ZERO, BigDecimal::add));
+            row.setCreatedAt(bank.getCreatedAt());
+            dto.getBanks().add(row);
+        }
+
+        for (MarketplaceTrade trade : trades) {
+            SuperAdminDashboardSummaryDto.MarketplaceTradeOverview row = new SuperAdminDashboardSummaryDto.MarketplaceTradeOverview();
+            row.setTradeId(trade.getTradeId());
+            row.setHospitalId(trade.getHospitalId());
+            row.setHospitalName(hospitalById.getOrDefault(trade.getHospitalId(), new Hospital()).getHospitalName());
+            row.setTradeTitle(trade.getTradeTitle());
+            row.setTradeType(trade.getTradeType() != null ? trade.getTradeType().name() : null);
+            row.setStatus(trade.getStatus() != null ? trade.getStatus().name() : "ACTIVE");
+            row.setAmountInvested(trade.getAmountInvested() != null ? trade.getAmountInvested() : BigDecimal.ZERO);
+            row.setProfitLoss(trade.getProfitLoss() != null ? trade.getProfitLoss() : BigDecimal.ZERO);
+            row.setStartTime(trade.getStartTime());
+            row.setEndTime(trade.getEndTime());
+            dto.getMarketplaceTrades().add(row);
+        }
+
+        return dto;
+        }
 
     private List<HospitalDashboardSummaryDto.MonthlyMintData> buildMonthlyMintData(List<MintRecord> records) {
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MMM yyyy");

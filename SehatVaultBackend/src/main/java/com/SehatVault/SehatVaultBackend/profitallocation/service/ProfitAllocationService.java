@@ -34,9 +34,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.UUID;
 
 @Service
@@ -201,7 +203,10 @@ public class ProfitAllocationService {
                     HealthCard created = new HealthCard();
                     created.setPatientId(patientId);
                     created.setCardId(card.getCardId());
+                    created.setCardNum(generateCardNum());
                     created.setHtBalance(BigDecimal.ZERO);
+                    created.setExpiryDate(LocalDate.now().plusYears(3));
+                    created.setCvv(String.format("%03d", new Random().nextInt(1000)));
                     return healthCardRepository.save(created);
                 });
 
@@ -383,6 +388,11 @@ public class ProfitAllocationService {
 
     private BigDecimal nz(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
+    }
+
+    private String generateCardNum() {
+        String num = String.format("%016d", System.currentTimeMillis() % 10000000000000000L);
+        return healthCardRepository.existsByCardNum(num) ? generateCardNum() : num;
     }
 
     private record PatientHolding(

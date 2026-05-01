@@ -76,9 +76,9 @@ export default function LinkedAssetsPage() {
   const renderAvailabilityBadge = (status: 'AVAILABLE' | 'UNAVAILABLE' | 'PENDING_BANK_APPROVAL' | string) => {
     if (status === 'PENDING_BANK_APPROVAL') {
       return (
-        <Badge className="bg-yellow-100 text-yellow-800">
+        <Badge className="bg-blue-100 text-blue-800 border border-blue-300">
           <Clock className="w-3 h-3 mr-1" />
-          Awaiting Bank Approval
+          Hospital Approved → Bank Review
         </Badge>
       )
     }

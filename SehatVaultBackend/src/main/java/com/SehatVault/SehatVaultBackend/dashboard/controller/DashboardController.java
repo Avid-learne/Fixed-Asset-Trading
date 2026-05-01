@@ -3,6 +3,7 @@ package com.SehatVault.SehatVaultBackend.dashboard.controller;
 import com.SehatVault.SehatVaultBackend.dashboard.dto.AssetPricesDto;
 import com.SehatVault.SehatVaultBackend.dashboard.dto.BankDashboardSummaryDto;
 import com.SehatVault.SehatVaultBackend.dashboard.dto.HospitalDashboardSummaryDto;
+import com.SehatVault.SehatVaultBackend.dashboard.dto.SuperAdminDashboardSummaryDto;
 import com.SehatVault.SehatVaultBackend.dashboard.dto.PatientDashboardSummaryDto;
 import com.SehatVault.SehatVaultBackend.dashboard.service.AssetPricingService;
 import com.SehatVault.SehatVaultBackend.dashboard.service.DashboardService;
@@ -39,6 +40,11 @@ public class DashboardController {
     @GetMapping("/hospital")
     public ResponseEntity<ApiResponse<HospitalDashboardSummaryDto>> getHospitalDashboard(Authentication authentication) {
         return ResponseEntity.ok(ApiResponse.success(dashboardService.getHospitalSummary(authentication.getName())));
+    }
+
+    @GetMapping("/super-admin")
+    public ResponseEntity<ApiResponse<SuperAdminDashboardSummaryDto>> getSuperAdminDashboard(Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.success(dashboardService.getSuperAdminSummary(authentication.getName())));
     }
 
     @GetMapping({"/hospital/asset-prices", "/asset-prices"})

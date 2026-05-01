@@ -64,8 +64,11 @@ export type SuperAdminDashboardSummary = {
   totalHospitals: number
   activeHospitals: number
   pendingHospitals: number
+  disabledHospitals: number
   totalBanks: number
   activeBanks: number
+  pendingBanks: number
+  disabledBanks: number
   totalPatients: number
   activePatients: number
   totalATMinted: number
@@ -73,6 +76,35 @@ export type SuperAdminDashboardSummary = {
   totalRevenue: number
   totalTransactionVolume: number
   systemUptime: number
+  hospitals?: Array<{
+    hospitalId: string
+    hospitalName: string
+    patientCount: number
+    verificationStatus: 'PENDING' | 'VERIFIED' | 'REJECTED'
+    totalAssets: number
+    totalAT: number
+    createdAt?: string
+  }>
+  banks?: Array<{
+    bankId: string
+    bankName: string
+    activePartnerships: number
+    verificationStatus: 'PENDING' | 'VERIFIED' | 'REJECTED'
+    totalDeposits: number
+    createdAt?: string
+  }>
+  marketplaceTrades?: Array<{
+    tradeId: string
+    hospitalId: string
+    hospitalName?: string
+    tradeTitle: string
+    tradeType: 'BUY' | 'SELL'
+    status: 'ACTIVE' | 'CLOSED' | 'CANCELLED'
+    amountInvested: number
+    profitLoss: number
+    startTime?: string
+    endTime?: string
+  }>
 }
 
 const getAuthHeaders = (): HeadersInit => {

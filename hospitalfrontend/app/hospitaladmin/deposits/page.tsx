@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { CheckCircle2, XCircle, Loader2, RefreshCw, Search } from 'lucide-react'
 import { depositRequestService, type AssetDepositItem } from '@/services/depositRequestService'
+import { DocumentViewer } from '@/components/DocumentViewer'
 
 const toNumber = (value: number | string | undefined | null) => Number(value || 0)
 
@@ -31,6 +32,22 @@ export default function DepositsPage() {
   const [bankSelectTarget, setBankSelectTarget] = useState<AssetDepositItem | null>(null)
   const [integratedBanks, setIntegratedBanks] = useState<{ bankId: string; bankName: string }[]>([])
   const [selectedBankId, setSelectedBankId] = useState<string>('')
+
+  const [isDocumentViewerOpen, setIsDocumentViewerOpen] = useState(false)
+  const [selectedDocument, setSelectedDocument] = useState<string | null>(null)
+  const [selectedDocumentName, setSelectedDocumentName] = useState<string>('Document')
+
+  const openDocument = (url: string, name: string) => {
+    setSelectedDocument(url)
+    setSelectedDocumentName(name)
+    setIsDocumentViewerOpen(true)
+  }
+
+  const closeDocument = () => {
+    setIsDocumentViewerOpen(false)
+    setSelectedDocument(null)
+    setSelectedDocumentName('Document')
+  }
 
   const loadRequests = async (status: string = statusFilter) => {
     try {
@@ -240,9 +257,27 @@ export default function DepositsPage() {
                         <TableCell className="text-right font-semibold text-emerald-700">{toNumber(row.expectedTokens).toLocaleString()} AT</TableCell>
                         <TableCell>
                           <div className="space-y-1 text-xs text-slate-600">
-                            {row.assetReceipt && <p>Receipt: {row.assetReceipt}</p>}
-                            {row.purityCertificate && <p>Purity: {row.purityCertificate}</p>}
-                            {row.supportingDocuments && <p>Support: {row.supportingDocuments}</p>}
+                            {row.assetReceipt ? (
+                              <div className="flex items-center justify-between">
+                                <div>Receipt: {row.assetReceipt.split('/').pop()?.slice(0, 20)}</div>
+                                <button onClick={() => openDocument(row.assetReceipt, 'Asset Receipt')} className="text-sm text-primary hover:underline cursor-pointer">View</button>
+                              </div>
+                            ) : null}
+
+                            {row.purityCertificate ? (
+                              <div className="flex items-center justify-between">
+                                <div>Purity: {row.purityCertificate.split('/').pop()?.slice(0, 20)}</div>
+                                <button onClick={() => openDocument(row.purityCertificate, 'Purity Certificate')} className="text-sm text-primary hover:underline cursor-pointer">View</button>
+                              </div>
+                            ) : null}
+
+                            {row.supportingDocuments ? (
+                              <div className="flex items-center justify-between">
+                                <div>Support: {row.supportingDocuments.split('/').pop()?.slice(0, 20)}</div>
+                                <button onClick={() => openDocument(row.supportingDocuments, 'Supporting Document')} className="text-sm text-primary hover:underline cursor-pointer">View</button>
+                              </div>
+                            ) : null}
+
                             {!row.assetReceipt && !row.purityCertificate && !row.supportingDocuments && <p>No documents</p>}
                           </div>
                         </TableCell>
@@ -330,6 +365,8 @@ export default function DepositsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DocumentViewer isOpen={isDocumentViewerOpen} onClose={closeDocument} documentUrl={selectedDocument} documentName={selectedDocumentName} />
     </div>
   )
 }
