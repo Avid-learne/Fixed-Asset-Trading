@@ -1,8 +1,8 @@
 package com.SehatVault.SehatVaultBackend.auth.service;
 
-import com.SehatVault.SehatVaultBackend.auth.entity.User;
-import com.SehatVault.SehatVaultBackend.auth.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
+import java.util.HashSet;
+import java.util.Set;
+
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -10,8 +10,10 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.util.HashSet;
-import java.util.Set;
+import com.SehatVault.SehatVaultBackend.auth.entity.User;
+import com.SehatVault.SehatVaultBackend.auth.repository.UserRepository;
+
+import lombok.RequiredArgsConstructor;
 
 /**
  * Custom UserDetailsService
@@ -28,8 +30,19 @@ public class CustomUserDetailsService implements UserDetailsService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
 
-        // Create authorities from user role
+        // Create authorities from user role with null safety
         Set<GrantedAuthority> authorities = new HashSet<>();
+        
+        // Check if role is null
+        if (user.getRole() == null) {
+            throw new UsernameNotFoundException("User has no role assigned: " + email);
+        }
+        
+        // Check if role name is null
+        if (user.getRole().getRoleName() == null) {
+            throw new UsernameNotFoundException("User role has no name assigned: " + email);
+        }
+        
         authorities.add(new SimpleGrantedAuthority("ROLE_" + user.getRole().getRoleName().toString().toUpperCase()));
 
         return org.springframework.security.core.userdetails.User

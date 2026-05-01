@@ -57,9 +57,42 @@ export type RejectEmergencyRedemptionRequest = {
 
 const getAuthHeaders = (): HeadersInit => {
   const token = authService.getToken()
+  const hasToken = !!token
+  console.log('[emergencyRedemptionService] Auth headers - token present:', hasToken)
   return {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  }
+}
+
+const safeParseJson = async (res: Response): Promise<any> => {
+  if (!res.ok && res.status === 204) {
+    return null
+  }
+  
+  const text = await res.text()
+  if (!text) {
+    // Better error message for empty responses
+    if (res.status === 403) {
+      const token = authService.getToken()
+      throw new Error(
+        `Authentication failed (403 Forbidden). ${
+          !token 
+            ? 'No JWT token found - please log in first.' 
+            : 'Token may be invalid or expired - please log in again.'
+        }`
+      )
+    }
+    if (res.status === 401) {
+      throw new Error('Unauthorized (401) - Invalid or missing authentication token. Please log in.')
+    }
+    throw new Error(`Empty response from server (${res.status})`)
+  }
+  
+  try {
+    return JSON.parse(text)
+  } catch (e) {
+    throw new Error(`Invalid JSON response: ${text.substring(0, 100)}`)
   }
 }
 
@@ -79,7 +112,7 @@ export const emergencyRedemptionService = {
       body: JSON.stringify(payload),
     })
 
-    const json: ApiResponse<EmergencyRedemptionDto> = await res.json()
+    const json: ApiResponse<EmergencyRedemptionDto> = await safeParseJson(res)
     if (!res.ok || !json.success) {
       throw new Error(json.message || `Submit failed (${res.status})`)
     }
@@ -92,7 +125,7 @@ export const emergencyRedemptionService = {
       headers: getAuthHeaders(),
     })
 
-    const json: ApiResponse<EmergencyRedemptionDto[]> = await res.json()
+    const json: ApiResponse<EmergencyRedemptionDto[]> = await safeParseJson(res)
     if (!res.ok || !json.success) {
       throw new Error(json.message || `Fetch failed (${res.status})`)
     }
@@ -105,7 +138,7 @@ export const emergencyRedemptionService = {
       headers: getAuthHeaders(),
     })
 
-    const json: ApiResponse<EmergencyRedemptionDto[]> = await res.json()
+    const json: ApiResponse<EmergencyRedemptionDto[]> = await safeParseJson(res)
     if (!res.ok || !json.success) {
       throw new Error(json.message || `Fetch failed (${res.status})`)
     }
@@ -119,7 +152,7 @@ export const emergencyRedemptionService = {
       body: JSON.stringify(payload),
     })
 
-    const json: ApiResponse<EmergencyRedemptionDto> = await res.json()
+    const json: ApiResponse<EmergencyRedemptionDto> = await safeParseJson(res)
     if (!res.ok || !json.success) {
       throw new Error(json.message || `Approve failed (${res.status})`)
     }
@@ -133,7 +166,7 @@ export const emergencyRedemptionService = {
       body: JSON.stringify(payload),
     })
 
-    const json: ApiResponse<EmergencyRedemptionDto> = await res.json()
+    const json: ApiResponse<EmergencyRedemptionDto> = await safeParseJson(res)
     if (!res.ok || !json.success) {
       throw new Error(json.message || `Reject failed (${res.status})`)
     }
