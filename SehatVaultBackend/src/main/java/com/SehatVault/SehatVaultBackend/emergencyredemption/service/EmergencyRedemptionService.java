@@ -80,10 +80,27 @@ public class EmergencyRedemptionService {
             throw new IllegalArgumentException("Patient hospital is not set");
         }
 
+        // Asset selection — must be a Pool 1 (WITH_PATIENT) assignment with enough AT.
+        UUID assetId = request.getAssetId();
+        if (assetId == null) {
+            throw new IllegalArgumentException("Please select the asset (in Pool 1) to redeem against");
+        }
+        PatientAtAssignment assignment = patientAtAssignmentRepository
+                .findByPatientIdAndAssetId(patient.getId(), assetId)
+                .orElseThrow(() -> new IllegalArgumentException("AT assignment not found for the selected asset"));
+        if (assignment.getAvailabilityStatus() != PatientAtAssignment.AvailabilityStatus.WITH_PATIENT) {
+            throw new IllegalArgumentException("This asset is not in Pool 1 — only Pool 1 (Available) AT can be redeemed");
+        }
+        if (nz(assignment.getAvailableAt()).compareTo(requestedAt) < 0) {
+            throw new IllegalArgumentException(
+                    "Requested AT exceeds the available AT (" + assignment.getAvailableAt() + ") on the selected asset");
+        }
+
         EmergencyRedemptionRequest entity = new EmergencyRedemptionRequest();
         entity.setPatientId(patient.getId());
         entity.setPatientUserId(patient.getUserId());
         entity.setHospitalId(patient.getHospitalId());
+        entity.setAssetId(assetId);
         entity.setStatus(EmergencyRedemptionRequest.Status.PENDING);
         entity.setRequestedAtAmount(requestedAt);
         entity.setPatientReason(request.getPatientReason());
@@ -187,8 +204,8 @@ public class EmergencyRedemptionService {
             throw new IllegalArgumentException("Insufficient AT balance");
         }
 
-        // Deduct AT from available AT assignments (reduces trading participation)
-        deductAtFromAssignments(patient.getId(), entity.getHospitalId(), atToConvert);
+        // Deduct AT from the specific Pool 1 asset selected on the request.
+        deductAtFromSpecificAsset(patient.getId(), entity.getAssetId(), atToConvert);
 
         balance.setTotalAt(currentAt.subtract(atToConvert));
 
@@ -325,6 +342,35 @@ public class EmergencyRedemptionService {
         return toDto(saved);
     }
 
+    /**
+     * Deduct AT from one specific Pool 1 asset (chosen by the patient at submit time).
+     * Reduces both `available_at` and `total_at_assigned` on that single
+     * `patient_at_assignments` row, so the asset's remaining AT shrinks in both the
+     * patient portal and the hospital Pool Management view.
+     */
+    private void deductAtFromSpecificAsset(UUID patientId, UUID assetId, BigDecimal atToConvert) {
+        if (assetId == null) {
+            throw new IllegalArgumentException("Asset to redeem against is missing on the request");
+        }
+        PatientAtAssignment a = patientAtAssignmentRepository
+                .findByPatientIdAndAssetId(patientId, assetId)
+                .orElseThrow(() -> new IllegalArgumentException("AT assignment not found for the selected asset"));
+
+        if (a.getAvailabilityStatus() != PatientAtAssignment.AvailabilityStatus.WITH_PATIENT) {
+            throw new IllegalArgumentException("Selected asset is no longer in Pool 1 — cannot redeem");
+        }
+
+        BigDecimal available = nz(a.getAvailableAt());
+        if (available.compareTo(atToConvert) < 0) {
+            throw new IllegalArgumentException(
+                    "Selected asset has only " + available + " AT in Pool 1; requested " + atToConvert);
+        }
+
+        a.setAvailableAt(available.subtract(atToConvert));
+        a.setTotalAtAssigned(nz(a.getTotalAtAssigned()).subtract(atToConvert));
+        patientAtAssignmentRepository.save(a);
+    }
+
     private void deductAtFromAssignments(UUID patientId, UUID hospitalId, BigDecimal atToConvert) {
         BigDecimal remaining = atToConvert;
 
@@ -400,6 +446,7 @@ public class EmergencyRedemptionService {
                 .patientId(e.getPatientId())
                 .patientUserId(e.getPatientUserId())
                 .hospitalId(e.getHospitalId())
+                .assetId(e.getAssetId())
                 .status(e.getStatus())
                 .requestedAtAmount(e.getRequestedAtAmount())
                 .patientReason(e.getPatientReason())

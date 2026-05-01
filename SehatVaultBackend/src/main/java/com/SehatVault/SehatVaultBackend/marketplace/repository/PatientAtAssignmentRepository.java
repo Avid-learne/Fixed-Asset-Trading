@@ -34,7 +34,10 @@ public interface PatientAtAssignmentRepository extends JpaRepository<PatientAtAs
     @Query("SELECT p FROM PatientAtAssignment p WHERE p.patientId = :patientId AND p.availabilityStatus = 'AVAILABLE'")
     List<PatientAtAssignment> findAvailableAtByPatientId(@Param("patientId") UUID patientId);
 
-        @Query("SELECT p FROM PatientAtAssignment p WHERE p.patientId = :patientId AND p.hospitalId = :hospitalId AND p.availabilityStatus = 'AVAILABLE' ORDER BY p.createdAt ASC")
+        // Used by Use Case 3 emergency redemption — only Pool 1 (WITH_PATIENT) AT
+        // is eligible. AT in Pool 2 (AVAILABLE / UNAVAILABLE) is locked for trading
+        // and cannot be redeemed.
+        @Query("SELECT p FROM PatientAtAssignment p WHERE p.patientId = :patientId AND p.hospitalId = :hospitalId AND p.availabilityStatus = 'WITH_PATIENT' ORDER BY p.createdAt ASC")
         List<PatientAtAssignment> findAvailableAtByPatientIdAndHospitalIdOldestFirst(
             @Param("patientId") UUID patientId,
             @Param("hospitalId") UUID hospitalId

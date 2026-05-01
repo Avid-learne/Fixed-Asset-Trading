@@ -57,7 +57,8 @@ public class AtTradingService {
         private AssetDepositRepository assetDepositRepository;
 
         /**
-         * Initialize AT assignment when patient deposits assets
+         * Initialize AT assignment when patient deposits assets — DEFAULT into Pool 2.
+         * Prefer initializeAtAssignmentWithPatient for the dual-pool flow.
          */
         @Transactional
         public PatientAtAssignment initializeAtAssignment(UUID patientId, UUID assetId, UUID hospitalId,
@@ -75,6 +76,50 @@ public class AtTradingService {
                                 .availabilityStatus(PatientAtAssignment.AvailabilityStatus.AVAILABLE)
                                 .build();
 
+                return patientAtAssignmentRepository.save(assignment);
+        }
+
+        /**
+         * Initialize AT assignment in Pool 1 (Available Pool, with patient).
+         * AT is minted but NOT yet released to the hospital trading pool. Patient
+         * may use Use Case 3 emergency redemption against this AT until the hospital
+         * admin moves it into Pool 2 (Trading).
+         */
+        @Transactional
+        public PatientAtAssignment initializeAtAssignmentWithPatient(UUID patientId, UUID assetId, UUID hospitalId,
+                        BigDecimal atAmount) {
+                log.info("Initializing Pool 1 AT assignment for patient {} asset {} amount {}", patientId, assetId,
+                                atAmount);
+
+                PatientAtAssignment assignment = PatientAtAssignment.builder()
+                                .patientId(patientId)
+                                .assetId(assetId)
+                                .hospitalId(hospitalId)
+                                .totalAtAssigned(atAmount)
+                                .availableAt(atAmount)
+                                .unavailableAt(BigDecimal.ZERO)
+                                .availabilityStatus(PatientAtAssignment.AvailabilityStatus.WITH_PATIENT)
+                                .build();
+
+                return patientAtAssignmentRepository.save(assignment);
+        }
+
+        /**
+         * Hospital admin releases an assignment from Pool 1 into Pool 2 (Trading).
+         * Flips status WITH_PATIENT → AVAILABLE. Caller is responsible for adding
+         * the AT to the hospital trading pool entry and starting baseline HT.
+         */
+        @Transactional
+        public PatientAtAssignment releaseForTrading(UUID patientId, UUID assetId) {
+                PatientAtAssignment assignment = patientAtAssignmentRepository
+                                .findByPatientIdAndAssetId(patientId, assetId)
+                                .orElseThrow(() -> new RuntimeException("AT assignment not found for this asset"));
+
+                if (assignment.getAvailabilityStatus() != PatientAtAssignment.AvailabilityStatus.WITH_PATIENT) {
+                        throw new RuntimeException("AT is already in the Trading Pool or in an active trade");
+                }
+
+                assignment.setAvailabilityStatus(PatientAtAssignment.AvailabilityStatus.AVAILABLE);
                 return patientAtAssignmentRepository.save(assignment);
         }
 

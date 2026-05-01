@@ -64,7 +64,7 @@ export interface PatientAssetToken {
   totalAtAssigned: number
   availableAt: number
   unavailableAt: number
-  availabilityStatus: 'AVAILABLE' | 'UNAVAILABLE'
+  availabilityStatus: 'WITH_PATIENT' | 'AVAILABLE' | 'UNAVAILABLE' | 'PENDING_BANK_APPROVAL'
   monetaryValuePkr: number
   availableMonetaryValuePkr: number
   unavailableMonetaryValuePkr: number
@@ -416,7 +416,7 @@ export const marketplaceService = {
       totalAtAssigned: Number(token.totalAtAssigned || 0),
       availableAt: Number(token.availableAt || 0),
       unavailableAt: Number(token.unavailableAt || 0),
-      availabilityStatus: token.availabilityStatus as 'AVAILABLE' | 'UNAVAILABLE',
+      availabilityStatus: token.availabilityStatus as 'WITH_PATIENT' | 'AVAILABLE' | 'UNAVAILABLE' | 'PENDING_BANK_APPROVAL',
       monetaryValuePkr: Number(token.monetaryValuePkr || 0),
       availableMonetaryValuePkr: Number(token.availableMonetaryValuePkr || 0),
       unavailableMonetaryValuePkr: Number(token.unavailableMonetaryValuePkr || 0),

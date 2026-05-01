@@ -26,8 +26,9 @@ import java.util.UUID;
 public class PatientAtAssignment {
 
     public enum AvailabilityStatus {
-        AVAILABLE, // AT not used in any trade
-        UNAVAILABLE // AT actively used in a trade
+        WITH_PATIENT, // Pool 1: AT minted but not yet released into hospital trading pool; redeemable
+        AVAILABLE,    // Pool 2: AT released into trading pool, not currently used in a live trade
+        UNAVAILABLE   // Pool 2: AT actively used in a live trade
     }
 
     @Id

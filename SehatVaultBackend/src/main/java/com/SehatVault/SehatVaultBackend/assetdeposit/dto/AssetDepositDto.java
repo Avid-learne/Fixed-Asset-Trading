@@ -21,6 +21,10 @@ public class AssetDepositDto {
     private BigDecimal weight;
     private BigDecimal assetValue;
     private BigDecimal expectedTokens;
+    /** Current AT in the Pool 1 (WITH_PATIENT) assignment for this asset, after any redemptions. */
+    private BigDecimal currentPool1At;
+    /** Current PKR backing value of the AT remaining in Pool 1 = currentPool1At * AT price. */
+    private BigDecimal currentPool1ValuePkr;
     private String status;
     private String bankApprovalStatus;
     private LocalDateTime submittedAt;

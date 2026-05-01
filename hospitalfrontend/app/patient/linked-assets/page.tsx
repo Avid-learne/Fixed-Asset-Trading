@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle, Clock, Lock, Unlock } from 'lucide-react'
+import { AlertCircle, Clock, Lock, Unlock, Coins } from 'lucide-react'
 import { marketplaceService, PatientAssetToken } from '@/services/marketplaceService'
 
 import { formatDate, formatNumber } from '@/lib/utils'
@@ -21,7 +21,8 @@ const assetTypeConfig = {
 }
 
 const availabilityConfig = {
-  AVAILABLE: { label: 'Available', color: 'bg-green-100 text-green-800', icon: Unlock },
+  WITH_PATIENT: { label: 'Pool 1 — Available (Redeemable)', color: 'bg-amber-100 text-amber-800', icon: Coins },
+  AVAILABLE: { label: 'Pool 2 — In Trading Pool', color: 'bg-green-100 text-green-800', icon: Unlock },
   UNAVAILABLE: { label: 'In Trade', color: 'bg-orange-100 text-orange-800', icon: Lock }
 }
 
@@ -73,7 +74,7 @@ export default function LinkedAssetsPage() {
   const getTotalAt = () => 
     assetTokens.reduce((sum, token) => sum + Number(token.totalAtAssigned || 0), 0)
 
-  const renderAvailabilityBadge = (status: 'AVAILABLE' | 'UNAVAILABLE' | 'PENDING_BANK_APPROVAL' | string) => {
+  const renderAvailabilityBadge = (status: 'WITH_PATIENT' | 'AVAILABLE' | 'UNAVAILABLE' | 'PENDING_BANK_APPROVAL' | string) => {
     if (status === 'PENDING_BANK_APPROVAL') {
       return (
         <Badge className="bg-blue-100 text-blue-800 border border-blue-300">
@@ -265,11 +266,10 @@ export default function LinkedAssetsPage() {
                       <div>
                         <p className="text-xs text-gray-500 uppercase font-semibold">Status</p>
                         <p className="text-sm font-bold">
-                          {token.availabilityStatus === 'AVAILABLE' ? (
-                            <span className="text-green-600">Available</span>
-                          ) : (
-                            <span className="text-orange-600">In Trade</span>
-                          )}
+                          {String(token.availabilityStatus) === 'WITH_PATIENT' && <span className="text-amber-600">Pool 1 (Redeemable)</span>}
+                          {String(token.availabilityStatus) === 'AVAILABLE' && <span className="text-green-600">Pool 2 (Trading)</span>}
+                          {String(token.availabilityStatus) === 'UNAVAILABLE' && <span className="text-orange-600">In Trade</span>}
+                          {String(token.availabilityStatus) === 'PENDING_BANK_APPROVAL' && <span className="text-blue-600">Pending Bank</span>}
                         </p>
                       </div>
                     </div>
@@ -351,6 +351,30 @@ export default function LinkedAssetsPage() {
                       <AlertCircle className="h-4 w-4 text-orange-600" />
                       <AlertDescription className="text-orange-800">
                         <strong>{formatNumber(Number(token.totalAtAssigned || 0) - Number(token.availableAt || 0))} AT</strong> are currently locked in active trades and cannot be used until the trades are settled.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {/* Pool 1 — AT minted but still with patient */}
+                  {String(token.availabilityStatus) === 'WITH_PATIENT' && (
+                    <Alert className="bg-amber-50 border-amber-200">
+                      <Coins className="h-4 w-4 text-amber-600" />
+                      <AlertDescription className="text-amber-800">
+                        <strong>{formatNumber(token.totalAtAssigned)} AT</strong> are sitting in Pool 1 (Available Pool). They are
+                        idle and fully redeemable through Emergency Redemption. Monthly baseline HT and profit share
+                        will start once the hospital admin moves them into the Trading Pool.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {/* Pool 2 — AT in trading pool */}
+                  {String(token.availabilityStatus) === 'AVAILABLE' && (
+                    <Alert className="bg-green-50 border-green-200">
+                      <Unlock className="h-4 w-4 text-green-600" />
+                      <AlertDescription className="text-green-800">
+                        <strong>{formatNumber(token.availableAt)} AT</strong> are in Pool 2 (Trading Pool). They are locked for
+                        the trading cycle and earn monthly baseline HT plus a profit share at cycle end. Emergency
+                        Redemption is no longer available against this AT.
                       </AlertDescription>
                     </Alert>
                   )}

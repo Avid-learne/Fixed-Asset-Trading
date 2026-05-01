@@ -214,6 +214,38 @@ public class AssetDepositController {
         }
     }
 
+    /** Hospital admin moves AT from Pool 1 (Available) to Pool 2 (Trading). */
+    @PostMapping("/{assetId}/move-to-trading-pool")
+    public ResponseEntity<?> moveToTradingPool(Authentication authentication, @PathVariable UUID assetId) {
+        try {
+            if (authentication == null || authentication.getName() == null) {
+                return ResponseEntity.status(401).body(error("Unauthorized"));
+            }
+            AssetDepositDto data = assetDepositService.moveToTradingPool(authentication.getName(), assetId);
+            return ResponseEntity.ok(success("AT moved to Trading Pool", data));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(error(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(error("Error moving AT: " + e.getMessage()));
+        }
+    }
+
+    /** Hospital admin lists all deposits sitting in Pool 1 (eligible to move to Pool 2). */
+    @GetMapping("/hospital/pool1")
+    public ResponseEntity<?> getHospitalPool1(Authentication authentication) {
+        try {
+            if (authentication == null || authentication.getName() == null) {
+                return ResponseEntity.status(401).body(error("Unauthorized"));
+            }
+            List<AssetDepositDto> data = assetDepositService.getHospitalPool1(authentication.getName());
+            return ResponseEntity.ok(success("Pool 1 loaded", data));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(error(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(error("Error loading Pool 1: " + e.getMessage()));
+        }
+    }
+
     @PostMapping("/{assetId}/bank-reject")
     public ResponseEntity<?> rejectRequestByBank(
             Authentication authentication,

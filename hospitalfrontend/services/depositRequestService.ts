@@ -23,6 +23,16 @@ export type AssetDepositRequest = {
   supportingDocuments: string
 }
 
+export type ConfirmCustodyPayload = {
+  verifiedPurityPercent: number
+  verifiedWeightGrams: number
+  assetCondition: string
+  serialNumber?: string
+  loanAmountApprovedPkr: number
+  loanInterestRatePercent: number
+  verificationNotes?: string
+}
+
 export type AssetDepositItem = {
   assetId: string
   patientId: string
@@ -51,6 +61,11 @@ export type AssetDepositItem = {
   custodyConfirmedAt?: string
   baselineHtPerMonth?: number
   lastBaselineHtAt?: string
+
+  /** Current AT remaining in Pool 1 for this asset (post-redemption). */
+  currentPool1At?: number
+  /** Current PKR backing value of remaining Pool 1 AT (= currentPool1At * AT price). */
+  currentPool1ValuePkr?: number
 }
 
 const getAuthHeaders = (): HeadersInit => {
@@ -151,11 +166,31 @@ export const depositRequestService = {
     return parseResponse<AssetDepositItem>(response, 'Failed to reject request by bank')
   },
 
-  async confirmCustody(assetId: string): Promise<AssetDepositItem> {
+  async confirmCustody(
+    assetId: string,
+    payload: ConfirmCustodyPayload,
+  ): Promise<AssetDepositItem> {
     const response = await fetch(`${API_BASE}/asset-deposits/${assetId}/custody-confirm`, {
       method: 'POST',
       headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
     })
     return parseResponse<AssetDepositItem>(response, 'Failed to confirm custody')
+  },
+
+  async getHospitalPool1(): Promise<AssetDepositItem[]> {
+    const response = await fetch(`${API_BASE}/asset-deposits/hospital/pool1`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    })
+    return parseResponse<AssetDepositItem[]>(response, 'Failed to load Pool 1')
+  },
+
+  async moveToTradingPool(assetId: string): Promise<AssetDepositItem> {
+    const response = await fetch(`${API_BASE}/asset-deposits/${assetId}/move-to-trading-pool`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    })
+    return parseResponse<AssetDepositItem>(response, 'Failed to move AT to Trading Pool')
   },
 }

@@ -16,6 +16,7 @@ export type EmergencyRedemptionDto = {
   patientId: string
   patientUserId: string
   hospitalId: string
+  assetId?: string
   status: EmergencyRedemptionStatus
 
   requestedAtAmount: number
@@ -38,6 +39,7 @@ export type EmergencyRedemptionDto = {
 }
 
 export type CreateEmergencyRedemptionRequest = {
+  assetId: string
   requestedAtAmount: number
   patientReason?: string
   supportingDocuments?: string

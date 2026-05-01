@@ -51,6 +51,10 @@ public class EmergencyRedemptionRequest {
     @Column(name = "hospital_id", nullable = false)
     private UUID hospitalId;
 
+    /** The Pool 1 asset (assetId / depositId) this redemption targets. */
+    @Column(name = "asset_id")
+    private UUID assetId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private Status status = Status.PENDING;

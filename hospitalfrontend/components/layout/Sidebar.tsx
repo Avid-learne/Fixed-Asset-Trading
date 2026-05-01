@@ -84,6 +84,7 @@ const hospitalAdminNavItems: NavItem[] = [
   { name: 'Marketplace', href: '/hospitaladmin/marketplace', icon: ShoppingCart, roles: [UserRole.HOSPITAL_ADMIN] },
   { name: 'Approve Deposits', href: '/hospitaladmin/deposits', icon: CheckSquare, roles: [UserRole.HOSPITAL_ADMIN] },
   { name: 'Token Minting', href: '/hospitaladmin/minting', icon: Coins, roles: [UserRole.HOSPITAL_ADMIN] },
+  { name: 'Pool Management', href: '/hospitaladmin/pool', icon: TrendingUp, roles: [UserRole.HOSPITAL_ADMIN] },
   { name: 'Profit Allocation', href: '/hospitaladmin/allocation', icon: Gift, roles: [UserRole.HOSPITAL_ADMIN] },
   { name: 'Subscription Plans', href: '/hospitaladmin/subscriptions', icon: Package, roles: [UserRole.HOSPITAL_ADMIN] },
   { name: 'Patient Profiles', href: '/hospitaladmin/patients', icon: Users, roles: [UserRole.HOSPITAL_ADMIN] },

@@ -26,6 +26,7 @@ import com.SehatVault.SehatVaultBackend.healthcard.repository.CardRepository;
 import com.SehatVault.SehatVaultBackend.healthcard.repository.HealthCardRepository;
 import com.SehatVault.SehatVaultBackend.hospital.entity.Hospital;
 import com.SehatVault.SehatVaultBackend.hospital.repository.HospitalRepository;
+import com.SehatVault.SehatVaultBackend.marketplace.repository.PatientAtAssignmentRepository;
 import com.SehatVault.SehatVaultBackend.marketplace.service.AtTradingService;
 import com.SehatVault.SehatVaultBackend.marketplace.service.HospitalAtPoolService;
 import com.SehatVault.SehatVaultBackend.patient.entity.Patient;
@@ -69,6 +70,7 @@ public class AssetDepositService {
     private final PartnershipRepository partnershipRepository;
     private final MintRecordRepository mintRecordRepository;
     private final HospitalAtPoolService hospitalAtPoolService;
+    private final PatientAtAssignmentRepository patientAtAssignmentRepository;
     private final BankCustodyVerificationRepository bankCustodyVerificationRepository;
     private final PatientWalletAllocatorService patientWalletAllocatorService;
     private final AtTradingService atTradingService;
@@ -329,34 +331,64 @@ public class AssetDepositService {
 
            BankCustodyVerification savedVerification = bankCustodyVerificationRepository.save(verification);
 
-           // Update deposit status
+           // Update deposit status — mark as fully custody-confirmed
            deposit.setCustodyStatus("confirmed");
            deposit.setCustodyConfirmedAt(LocalDateTime.now());
            deposit.setCustodyConfirmedBy(bankUser.getUserId());
-           assetDepositRepository.save(deposit);
+           deposit.setStatus("custody_confirmed");
 
-           // Get patient and hospital info for notifications
+           // Get patient and hospital info
            Patient patient = patientRepository.findById(deposit.getPatientId())
                    .orElseThrow(() -> new IllegalArgumentException("Patient not found"));
            User patientUser = userRepository.findById(patient.getUserId())
                    .orElseThrow(() -> new IllegalArgumentException("Patient user not found"));
            UUID hospitalId = patient.getHospitalId() != null ? patient.getHospitalId() : patientUser.getHospitalId();
 
-           // Notify patient that custody is confirmed and tokens will be minted
-           sendNotification(bankUser.getUserId(), patientUser.getUserId(),
-               "Asset Custody Confirmed",
-               "Your " + deposit.getAssetType() + " has been received, verified, and taken under bank custody. "
-                   + "Purity verified at " + request.getVerifiedPurityPercent() + "%. "
-                   + "Bank will provide financing of PKR " + request.getLoanAmountApprovedPkr() + ". "
-                   + "AT tokens will now be minted for trading.");
+           // ---- Mint AT into Pool 1 (Available Pool) ----
+           // AT lands in patient's wallet AND a WITH_PATIENT assignment row is created.
+           // It is NOT added to the hospital trading pool yet — hospital admin must
+           // explicitly move it via /asset-deposits/{id}/move-to-trading-pool.
+           BigDecimal atTokens = nzNum(deposit.getAssetValue())
+                   .divide(tokenPriceService.getAtPricePkr(), 2, RoundingMode.DOWN);
+           validateMintCap(deposit, atTokens);
 
-           // Notify hospital that custody is confirmed and money is available
+           patientWalletAllocatorService.assignWalletToPatient(patient);
+
+           PatientTokenBalance balance = patientTokenBalanceRepository
+                   .findByPatientId(patient.getId())
+                   .orElseGet(() -> {
+                       PatientTokenBalance b = new PatientTokenBalance();
+                       b.setPatientId(patient.getId());
+                       b.setTotalAt(BigDecimal.ZERO);
+                       b.setTotalHt(BigDecimal.ZERO);
+                       b.setLastUpdated(LocalDateTime.now());
+                       return b;
+                   });
+           balance.setTotalAt(nzNum(balance.getTotalAt()).add(atTokens));
+           balance.setLastUpdated(LocalDateTime.now());
+           patientTokenBalanceRepository.save(balance);
+
+           recordMint(deposit, patient.getId(), bankUser.getUserId(), atTokens, null);
+           atTradingService.initializeAtAssignmentWithPatient(
+                   patient.getId(), deposit.getAssetId(), hospitalId, atTokens);
+
+           // No baseline HT yet — starts when admin moves AT into Pool 2.
+           deposit.setBaselineHtPerMonth(BigDecimal.ZERO);
+           deposit.setLastBaselineHtAt(null);
+
+           assetDepositRepository.save(deposit);
+
+           // Notify patient (keep under 255 chars — notifications.notification_text is varchar(255))
+           sendNotification(bankUser.getUserId(), patientUser.getUserId(),
+               "Custody Confirmed — AT in Pool 1",
+               atTokens.toPlainString() + " AT minted to your Pool 1 (Available). "
+                   + "Idle and redeemable now. Trading HT starts when hospital moves to Pool 2.");
+
+           // Notify hospital admin
            notifyHospitalAdmins(hospitalId, bankUser.getUserId(),
-               "Asset Custody Confirmed - Ready for Trading",
-               "Patient " + patientUser.getName() + "'s " + deposit.getAssetType() + " has been verified and taken under bank custody. "
-                   + "Verified purity: " + request.getVerifiedPurityPercent() + "% | "
-                   + "Loan approved: PKR " + request.getLoanAmountApprovedPkr() + " at " + request.getLoanInterestRatePercent() + "% interest. "
-                   + "Asset is now ready for trading.");
+               "Custody Confirmed — AT in Pool 1",
+               patientUser.getName() + ": " + atTokens.toPlainString()
+                   + " AT in Pool 1. Use Pool Management to move to Pool 2.");
 
            return toCustodyDto(savedVerification, deposit);
        }
@@ -548,35 +580,139 @@ public class AssetDepositService {
         patientTokenBalanceRepository.save(balance);
 
         recordMint(deposit, patient.getId(), bankUser.getUserId(), atTokens, null);
-        hospitalAtPoolService.addToPool(hospitalId, patient.getId(), deposit.getAssetId(), atTokens);
-        atTradingService.initializeAtAssignment(patient.getId(), deposit.getAssetId(), hospitalId, atTokens);
-
-        // Baseline HT/month starts after custody is confirmed.
-        BigDecimal baseline = getHospitalBaselineHt(hospital);
-        deposit.setBaselineHtPerMonth(baseline);
-        // Credit first month immediately on confirmation.
-        if (baseline.compareTo(BigDecimal.ZERO) > 0) {
-            creditAssetBaselineHt(patient, baseline, "ASSET_BASELINE_INITIAL", deposit.getAssetId());
-            deposit.setLastBaselineHtAt(LocalDateTime.now());
-        }
+        // Dual-pool model:
+        //   AT lands in Pool 1 (Available Pool) — assignment status WITH_PATIENT,
+        //   NOT added to the hospital trading pool yet.
+        //   Hospital admin must explicitly move AT into Pool 2 (Trading Pool)
+        //   via /api/asset-deposits/{id}/move-to-trading-pool.
+        //   Until then the AT is idle, redeemable via Use Case 3, and earns no monthly HT.
+        atTradingService.initializeAtAssignmentWithPatient(patient.getId(), deposit.getAssetId(), hospitalId, atTokens);
+        // Baseline HT/month does NOT start yet — it begins when AT enters Pool 2.
+        deposit.setBaselineHtPerMonth(BigDecimal.ZERO);
+        deposit.setLastBaselineHtAt(null);
 
         AssetDeposit saved = assetDepositRepository.save(deposit);
 
         sendNotification(bankUser.getUserId(), patientUser.getUserId(),
-            "Asset Custody Confirmed",
+            "Asset Custody Confirmed — Tokens Minted",
             "The bank confirmed physical custody of your " + saved.getAssetType() + " deposit. "
-                + atTokens + " AT tokens have been minted."
-                + (baseline.compareTo(BigDecimal.ZERO) > 0
-                ? (" Monthly baseline benefit: " + baseline.toPlainString() + " HT.")
-                : ""));
+                + atTokens + " AT tokens have been minted into your Available Pool (Pool 1). "
+                + "They are idle and can be redeemed via Emergency Redemption. "
+                + "Monthly baseline HT and profit share will start once the hospital moves them into the Trading Pool.");
 
         notifyHospitalAdmins(hospitalId, bankUser.getUserId(),
-            "Custody Confirmed & Tokens Minted",
-            "Bank confirmed custody for patient " + patientUser.getName() + ". "
-                + atTokens + " AT minted.");
+            "Tokens Minted into Pool 1 (Available)",
+            atTokens + " AT minted for patient " + patientUser.getName()
+                + " and placed in Pool 1 (Available). "
+                + "Move them to Pool 2 (Trading) from the Pool Management page when ready.");
 
         return toDto(saved, patient, patientUser, hospital);
         }
+
+    /**
+     * Hospital admin moves AT from Pool 1 (Available, with patient) to Pool 2 (Trading Pool).
+     * Once moved:
+     *   - Assignment status flips WITH_PATIENT → AVAILABLE
+     *   - AT enters the hospital trading pool entry (HospitalAtPoolEntry)
+     *   - Monthly baseline HT starts; first month credited immediately
+     *   - AT is now LOCKED — no more emergency redemption against it
+     */
+    @Transactional
+    public AssetDepositDto moveToTradingPool(String email, UUID assetId) {
+        User admin = requireUser(email);
+        requireRole(admin, Role.RoleType.hospital_admin, "Only hospital admins can move AT to the Trading Pool");
+
+        AssetDeposit deposit = assetDepositRepository.findById(assetId)
+                .orElseThrow(() -> new IllegalArgumentException("Deposit not found"));
+
+        Patient patient = patientRepository.findById(deposit.getPatientId())
+                .orElseThrow(() -> new IllegalArgumentException("Patient not found"));
+        assertSameHospital(admin, patient);
+
+        if (!"custody_confirmed".equalsIgnoreCase(nz(deposit.getStatus()))) {
+            throw new IllegalArgumentException("Custody must be confirmed before moving AT to the Trading Pool");
+        }
+
+        UUID hospitalId = admin.getHospitalId();
+        Hospital hospital = hospitalRepository.findById(hospitalId)
+                .orElseThrow(() -> new IllegalArgumentException("Hospital not found"));
+        User patientUser = userRepository.findById(patient.getUserId())
+                .orElseThrow(() -> new IllegalArgumentException("Patient user not found"));
+
+        // Flip the assignment WITH_PATIENT → AVAILABLE
+        atTradingService.releaseForTrading(patient.getId(), assetId);
+
+        // Add to the hospital trading pool entry
+        BigDecimal mintedAt = nzNum(mintRecordRepository.sumTokensMintedByAssetId(assetId));
+        if (mintedAt.compareTo(BigDecimal.ZERO) > 0) {
+            hospitalAtPoolService.addToPool(hospitalId, patient.getId(), assetId, mintedAt);
+        }
+
+        // Start baseline HT
+        BigDecimal baseline = getHospitalBaselineHt(hospital);
+        deposit.setBaselineHtPerMonth(baseline);
+        if (baseline.compareTo(BigDecimal.ZERO) > 0) {
+            creditAssetBaselineHt(patient, baseline, "ASSET_BASELINE_INITIAL", assetId);
+        }
+        deposit.setLastBaselineHtAt(LocalDateTime.now());
+        AssetDeposit saved = assetDepositRepository.save(deposit);
+
+        sendNotification(admin.getUserId(), patientUser.getUserId(),
+                "AT Moved to Trading Pool",
+                mintedAt.toPlainString() + " of your AT have been moved to the Trading Pool by the hospital. "
+                        + "They are now locked for the trading cycle and will earn monthly baseline HT plus a profit share. "
+                        + "Emergency Redemption is no longer available for these AT.");
+
+        notifyHospitalAdmins(hospitalId, admin.getUserId(),
+                "AT Moved to Pool 2 (Trading)",
+                "Patient " + patientUser.getName() + ": "
+                        + mintedAt.toPlainString() + " AT moved into Pool 2 (Trading).");
+
+        return toDto(saved, patient, patientUser, hospital);
+    }
+
+    /**
+     * Hospital admin view of all deposits currently sitting in Pool 1 (Available Pool).
+     * Returned rows are eligible for moveToTradingPool.
+     */
+    @Transactional(readOnly = true)
+    public List<AssetDepositDto> getHospitalPool1(String email) {
+        User admin = requireUser(email);
+        requireRole(admin, Role.RoleType.hospital_admin, "Only hospital admins can view Pool 1");
+
+        UUID hospitalId = admin.getHospitalId();
+        if (hospitalId == null) {
+            throw new IllegalArgumentException("Hospital is not linked to this admin account");
+        }
+
+        Hospital hospital = hospitalRepository.findById(hospitalId)
+                .orElseThrow(() -> new IllegalArgumentException("Hospital not found"));
+
+        return assetDepositRepository.findAllByHospitalId(hospitalId).stream()
+                .filter(d -> "custody_confirmed".equalsIgnoreCase(nz(d.getStatus())))
+                .filter(d -> {
+                    Patient p = patientRepository.findById(d.getPatientId()).orElse(null);
+                    if (p == null) return false;
+                    return patientAtAssignmentRepository
+                            .findByPatientIdAndAssetId(p.getId(), d.getAssetId())
+                            .map(a -> a.getAvailabilityStatus() == com.SehatVault.SehatVaultBackend.marketplace.entity.PatientAtAssignment.AvailabilityStatus.WITH_PATIENT)
+                            .orElse(Boolean.FALSE);
+                })
+                .map(d -> {
+                    Patient p = patientRepository.findById(d.getPatientId()).orElseThrow();
+                    User pu = userRepository.findById(p.getUserId()).orElseThrow();
+                    AssetDepositDto dto = toDto(d, p, pu, hospital);
+                    // Override expected/current with the live assignment counters so the UI reflects redemptions.
+                    BigDecimal currentAt = patientAtAssignmentRepository
+                            .findByPatientIdAndAssetId(p.getId(), d.getAssetId())
+                            .map(a -> nzNum(a.getTotalAtAssigned()))
+                            .orElse(BigDecimal.ZERO);
+                    dto.setCurrentPool1At(currentAt);
+                    dto.setCurrentPool1ValuePkr(currentAt.multiply(tokenPriceService.getAtPricePkr()));
+                    return dto;
+                })
+                .toList();
+    }
 
     @Transactional
     public AssetDepositDto rejectRequestByBank(String email, UUID assetId, String reason) {

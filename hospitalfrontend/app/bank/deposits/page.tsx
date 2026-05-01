@@ -9,8 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { CheckCircle2, XCircle, Loader2, RefreshCw, Search } from 'lucide-react'
-import { depositRequestService, type AssetDepositItem } from '@/services/depositRequestService'
+import { CheckCircle2, XCircle, Loader2, RefreshCw, Search, ShieldCheck } from 'lucide-react'
+import { depositRequestService, type AssetDepositItem, type ConfirmCustodyPayload } from '@/services/depositRequestService'
 
 const toNumber = (value: number | string | undefined | null) => Number(value || 0)
 
@@ -27,6 +27,18 @@ export default function BankDepositsPage() {
   const [rejectTarget, setRejectTarget] = useState<AssetDepositItem | null>(null)
   const [rejectReason, setRejectReason] = useState('')
 
+  const [custodyOpen, setCustodyOpen] = useState(false)
+  const [custodyTarget, setCustodyTarget] = useState<AssetDepositItem | null>(null)
+  const [custodyForm, setCustodyForm] = useState<ConfirmCustodyPayload>({
+    verifiedPurityPercent: 99.9,
+    verifiedWeightGrams: 0,
+    assetCondition: 'EXCELLENT',
+    serialNumber: '',
+    loanAmountApprovedPkr: 0,
+    loanInterestRatePercent: 5,
+    verificationNotes: '',
+  })
+
   const loadRequests = async (bankStatus: string = bankStatusFilter) => {
     try {
       setLoading(true)
@@ -40,12 +52,41 @@ export default function BankDepositsPage() {
     }
   }
 
-  const handleConfirmCustody = async (assetId: string) => {
+  const openCustodyDialog = (row: AssetDepositItem) => {
+    setCustodyTarget(row)
+    setCustodyForm({
+      verifiedPurityPercent: 99.9,
+      verifiedWeightGrams: toNumber(row.weight),
+      assetCondition: 'EXCELLENT',
+      serialNumber: '',
+      loanAmountApprovedPkr: toNumber(row.assetValue),
+      loanInterestRatePercent: 5,
+      verificationNotes: '',
+    })
+    setCustodyOpen(true)
+  }
+
+  const submitCustody = async () => {
+    if (!custodyTarget) return
+    if (!custodyForm.verifiedWeightGrams || custodyForm.verifiedWeightGrams <= 0) {
+      setError('Verified weight must be greater than 0')
+      return
+    }
+    if (!custodyForm.loanAmountApprovedPkr || custodyForm.loanAmountApprovedPkr <= 0) {
+      setError('Loan amount must be greater than 0')
+      return
+    }
     try {
-      await depositRequestService.confirmCustody(assetId)
+      setActionLoadingId(custodyTarget.assetId)
+      setError('')
+      await depositRequestService.confirmCustody(custodyTarget.assetId, custodyForm)
+      setCustodyOpen(false)
+      setCustodyTarget(null)
       await loadRequests(bankStatusFilter)
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to confirm custody')
+      setError(err instanceof Error ? err.message : 'Failed to confirm custody')
+    } finally {
+      setActionLoadingId(null)
     }
   }
 
@@ -181,7 +222,11 @@ export default function BankDepositsPage() {
                   </TableRow>
                 ) : (
                   filtered.map((row) => {
-                    const bankPending = (row.bankApprovalStatus || '').toLowerCase() === 'pending'
+                    const bankStatus = (row.bankApprovalStatus || '').toLowerCase()
+                    const custodyStatus = (row.custodyStatus || '').toLowerCase()
+                    const isPending = bankStatus === 'pending'
+                    const isApprovedAwaitingCustody = bankStatus === 'approved' && custodyStatus !== 'confirmed'
+                    const isRejected = bankStatus === 'rejected'
                     return (
                       <TableRow key={row.assetId}>
                         <TableCell className="font-mono text-xs">{row.assetId.slice(0, 8)}</TableCell>
@@ -195,13 +240,8 @@ export default function BankDepositsPage() {
                         <TableCell>{bankStatusBadge(row.bankApprovalStatus)}</TableCell>
                         <TableCell>{row.approvedAt ? new Date(row.approvedAt).toLocaleDateString() : '-'}</TableCell>
                         <TableCell className="text-right">
-                          {bankPending ? (
+                          {isPending && (
                             <div className="flex justify-end gap-2">
-                              {(row.bankApprovalStatus || '').toLowerCase() === 'approved' && (row.custodyStatus || '').toLowerCase() !== 'confirmed' ? (
-                                <Button size="sm" variant="outline" onClick={() => handleConfirmCustody(row.assetId)}>
-                                  Confirm Physical Deposit
-                                </Button>
-                              ) : null}
                               <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" disabled={actionLoadingId === row.assetId} onClick={() => approve(row)}>
                                 {actionLoadingId === row.assetId ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                                 Approve
@@ -220,11 +260,29 @@ export default function BankDepositsPage() {
                                 Reject
                               </Button>
                             </div>
-                          ) : (
+                          )}
+                          {isApprovedAwaitingCustody && (
+                            <div className="flex justify-end">
+                              <Button
+                                size="sm"
+                                className="bg-indigo-600 hover:bg-indigo-700"
+                                disabled={actionLoadingId === row.assetId}
+                                onClick={() => openCustodyDialog(row)}
+                              >
+                                {actionLoadingId === row.assetId ? (
+                                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                ) : (
+                                  <ShieldCheck className="h-4 w-4 mr-1" />
+                                )}
+                                Confirm Physical Deposit
+                              </Button>
+                            </div>
+                          )}
+                          {!isPending && !isApprovedAwaitingCustody && (
                             <span className="text-xs text-slate-500">
-                              {(row.bankApprovalStatus || '').toLowerCase() === 'rejected'
+                              {isRejected
                                 ? (row.bankRejectionReason || row.rejectionReason || 'Rejected by bank')
-                                : 'Completed'}
+                                : 'Completed (custody confirmed)'}
                             </span>
                           )}
                         </TableCell>
@@ -251,6 +309,106 @@ export default function BankDepositsPage() {
             <Button variant="outline" onClick={() => setRejectOpen(false)}>Cancel</Button>
             <Button variant="destructive" disabled={!rejectReason.trim() || (rejectTarget ? actionLoadingId === rejectTarget.assetId : false)} onClick={reject}>
               {rejectTarget && actionLoadingId === rejectTarget.assetId ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Reject'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={custodyOpen} onOpenChange={setCustodyOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Confirm Physical Deposit</DialogTitle>
+            <DialogDescription>
+              Verify the asset received from {custodyTarget?.patientName}. On submit, AT will be minted into the patient&apos;s Pool 1 (Available Pool).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-slate-600">Verified Purity (%)</label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  value={custodyForm.verifiedPurityPercent}
+                  onChange={(e) => setCustodyForm({ ...custodyForm, verifiedPurityPercent: Number(e.target.value) })}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-600">Verified Weight (g)</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={custodyForm.verifiedWeightGrams}
+                  onChange={(e) => setCustodyForm({ ...custodyForm, verifiedWeightGrams: Number(e.target.value) })}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-slate-600">Asset Condition</label>
+                <Select
+                  value={custodyForm.assetCondition}
+                  onValueChange={(v) => setCustodyForm({ ...custodyForm, assetCondition: v })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="EXCELLENT">Excellent</SelectItem>
+                    <SelectItem value="GOOD">Good</SelectItem>
+                    <SelectItem value="ACCEPTABLE">Acceptable</SelectItem>
+                    <SelectItem value="POOR">Poor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-600">Serial Number (optional)</label>
+                <Input
+                  value={custodyForm.serialNumber || ''}
+                  onChange={(e) => setCustodyForm({ ...custodyForm, serialNumber: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-slate-600">Loan Amount (PKR)</label>
+                <Input
+                  type="number"
+                  value={custodyForm.loanAmountApprovedPkr}
+                  onChange={(e) => setCustodyForm({ ...custodyForm, loanAmountApprovedPkr: Number(e.target.value) })}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-600">Interest Rate (%)</label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  value={custodyForm.loanInterestRatePercent}
+                  onChange={(e) => setCustodyForm({ ...custodyForm, loanInterestRatePercent: Number(e.target.value) })}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-600">Notes (optional)</label>
+              <Textarea
+                value={custodyForm.verificationNotes || ''}
+                onChange={(e) => setCustodyForm({ ...custodyForm, verificationNotes: e.target.value })}
+                placeholder="Any verification notes..."
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCustodyOpen(false)}>Cancel</Button>
+            <Button
+              className="bg-indigo-600 hover:bg-indigo-700"
+              disabled={!!custodyTarget && actionLoadingId === custodyTarget.assetId}
+              onClick={submitCustody}
+            >
+              {custodyTarget && actionLoadingId === custodyTarget.assetId ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <ShieldCheck className="h-4 w-4 mr-1" />
+              )}
+              Confirm & Mint AT
             </Button>
           </DialogFooter>
         </DialogContent>

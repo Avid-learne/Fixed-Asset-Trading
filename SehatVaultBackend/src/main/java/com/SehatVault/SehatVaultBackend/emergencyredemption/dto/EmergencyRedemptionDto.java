@@ -15,6 +15,7 @@ public class EmergencyRedemptionDto {
     private UUID patientId;
     private UUID patientUserId;
     private UUID hospitalId;
+    private UUID assetId;
 
     private EmergencyRedemptionRequest.Status status;
 

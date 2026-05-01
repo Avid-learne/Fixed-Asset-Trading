@@ -6,6 +6,8 @@ import java.math.BigDecimal;
 
 @Data
 public class CreateEmergencyRedemptionRequest {
+    /** Pool 1 asset (assetId / depositId) to redeem against. */
+    private java.util.UUID assetId;
     private BigDecimal requestedAtAmount;
     private String patientReason;
     private String supportingDocuments;
