@@ -7,13 +7,19 @@ import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
-import { Users, History, AlertCircle, ArrowRight, Loader2, RefreshCw, Coins } from 'lucide-react'
+import { Users, History, AlertCircle, ArrowRight, Loader2, RefreshCw, Coins, CheckCircle2 } from 'lucide-react'
 import { profitAllocationService, ProfitAllocationHistoryItem, ProfitAllocationPreview } from '@/services/profitAllocationService'
 
 export default function ProfitAllocationPage() {
   const [profit, setProfit] = useState(0)
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [allocating, setAllocating] = useState(false)
+  const [showSuccess, setShowSuccess] = useState(false)
+  const [successDetails, setSuccessDetails] = useState<{
+    recipients: number
+    totalHt: number
+    profit: number
+  } | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
@@ -90,8 +96,15 @@ export default function ProfitAllocationPage() {
     try {
       setAllocating(true)
       setError('')
-      await profitAllocationService.distribute(profit)
+      const result = await profitAllocationService.distribute(profit)
+      // Close the confirmation dialog, then open the success dialog.
       setShowConfirmation(false)
+      setSuccessDetails({
+        recipients: Number(result?.recipients ?? recipients),
+        totalHt: Number(result?.totalHtDistributed ?? totalHT),
+        profit,
+      })
+      setShowSuccess(true)
       await Promise.all([loadPreview(profit), loadHistory()])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Distribution failed')
@@ -378,6 +391,48 @@ export default function ProfitAllocationPage() {
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showSuccess} onOpenChange={setShowSuccess}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-700">
+              <CheckCircle2 className="h-5 w-5" />
+              Profit Distributed
+            </DialogTitle>
+            <DialogDescription>
+              The HT mint has been recorded and credited to all eligible patient wallets.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-green-700">HT Distributed</p>
+              <p className="text-3xl font-bold text-green-700">
+                {(successDetails?.totalHt ?? 0).toFixed(2)} HT
+              </p>
+              <p className="text-xs text-green-700 mt-1">
+                from PKR {(successDetails?.profit ?? 0).toLocaleString()} profit
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="rounded-lg bg-muted p-3">
+                <p className="text-xs text-muted-foreground">Recipients</p>
+                <p className="text-lg font-semibold">{successDetails?.recipients ?? 0}</p>
+              </div>
+              <div className="rounded-lg bg-muted p-3">
+                <p className="text-xs text-muted-foreground">Status</p>
+                <p className="text-lg font-semibold text-green-700">Completed</p>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button className="bg-green-600 hover:bg-green-700" onClick={() => setShowSuccess(false)}>
+              OK
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Building2, Home, Landmark, Factory, Store, TrendingUp, TrendingDown, Search, ArrowLeft, BarChart3, MapPin, Clock, Info, Eye, Activity, type LucideIcon } from 'lucide-react'
 import { ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { dashboardService, type AssetPrices } from '@/services/dashboardService'
 
 // Investment types available for trading
 type InvestmentType = {
@@ -213,14 +214,25 @@ const generateOrderBook = (basePrice: number) => {
   return { bids, asks }
 }
 
-// Conversion rate: 1 AT = 10 PKR
-const AT_TO_PKR = 10
-const convertPKRtoAT = (pkr: number) => pkr / AT_TO_PKR
+// Backend default (TokenPriceService) is 100 PKR per AT — used as fallback only.
+const AT_TO_PKR_FALLBACK = 100
 
 export default function PatientMarketplace() {
   const [selectedInvestment, setSelectedInvestment] = useState<InvestmentType | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>('All')
+  const [assetPrices, setAssetPrices] = useState<AssetPrices | null>(null)
+
+  useEffect(() => {
+    dashboardService.getAssetPrices().then(setAssetPrices).catch(() => setAssetPrices(null))
+  }, [])
+
+  // Live AT/PKR rate from the DB-backed token price service. Falls back to the
+  // backend's own default (100) when the live rate can't be fetched.
+  const tokenPricePerPkr = assetPrices?.tokenPricePerPkr && assetPrices.tokenPricePerPkr > 0
+    ? assetPrices.tokenPricePerPkr
+    : AT_TO_PKR_FALLBACK
+  const convertPKRtoAT = (pkr: number) => pkr / tokenPricePerPkr
 
   // Filter investments
   const filteredInvestments = INVESTMENT_TYPES.filter(inv => {
@@ -471,7 +483,7 @@ function ReadOnlyTradingDashboard({ investment, onBack }: { investment: Investme
                     {priceChangePercent.toFixed(2)}%
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 mt-1">1 AT = {AT_TO_PKR} PKR</p>
+                <p className="text-xs text-slate-500 mt-1">1 AT = {tokenPricePerPkr} PKR</p>
               </div>
               <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center">
                 <TrendingUp className="h-6 w-6 text-emerald-600" />
@@ -488,7 +500,7 @@ function ReadOnlyTradingDashboard({ investment, onBack }: { investment: Investme
                 <p className="text-2xl font-bold text-slate-900">
                   {(totalVolume / 1000000).toFixed(2)}M
                 </p>
-                <p className="text-xs text-slate-500 mt-1">{trades.length} trades | 1 AT = {AT_TO_PKR} PKR</p>
+                <p className="text-xs text-slate-500 mt-1">{trades.length} trades | 1 AT = {tokenPricePerPkr} PKR</p>
               </div>
               <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
                 <BarChart3 className="h-6 w-6 text-blue-600" />
@@ -505,7 +517,7 @@ function ReadOnlyTradingDashboard({ investment, onBack }: { investment: Investme
                 <p className="text-2xl font-bold text-slate-900">
                   {convertPKRtoAT(avgLiquidity / 1000000).toFixed(2)}M AT
                 </p>
-                <p className="text-xs text-slate-500 mt-1">1 AT = {AT_TO_PKR} PKR</p>
+                <p className="text-xs text-slate-500 mt-1">1 AT = {tokenPricePerPkr} PKR</p>
               </div>
               <div className="h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center">
                 <BarChart3 className="h-6 w-6 text-purple-600" />
@@ -522,7 +534,7 @@ function ReadOnlyTradingDashboard({ investment, onBack }: { investment: Investme
                 <p className={`text-2xl font-bold ${totalProfitLoss >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                   {totalProfitLoss >= 0 ? '+' : ''}{convertPKRtoAT(totalProfitLoss / 1000).toFixed(0)}K AT
                 </p>
-                <p className="text-xs text-slate-500 mt-1">{openTrades} open | 1 AT = {AT_TO_PKR} PKR</p>
+                <p className="text-xs text-slate-500 mt-1">{openTrades} open | 1 AT = {tokenPricePerPkr} PKR</p>
               </div>
               <div className={`h-12 w-12 rounded-full flex items-center justify-center ${totalProfitLoss >= 0 ? 'bg-emerald-100' : 'bg-red-100'}`}>
                 <Activity className={`h-6 w-6 ${totalProfitLoss >= 0 ? 'text-emerald-600' : 'text-red-600'}`} />
@@ -618,7 +630,7 @@ function ReadOnlyTradingDashboard({ investment, onBack }: { investment: Investme
                 stroke="#cbd5e1"
                 style={{ fontSize: '12px' }}
               />
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip content={(props: any) => <CustomTooltip {...props} convertPKRtoAT={convertPKRtoAT} />} />
               <Legend wrapperStyle={{ fontSize: '12px' }} />
               <Bar 
                 yAxisId="volume"
@@ -785,7 +797,15 @@ function ReadOnlyTradingDashboard({ investment, onBack }: { investment: Investme
 }
 
 // Custom Tooltip Component
-const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: { fullData: Trade } }> }) => {
+const CustomTooltip = ({
+  active,
+  payload,
+  convertPKRtoAT,
+}: {
+  active?: boolean
+  payload?: Array<{ payload: { fullData: Trade } }>
+  convertPKRtoAT: (pkr: number) => number
+}) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload.fullData as Trade
     return (

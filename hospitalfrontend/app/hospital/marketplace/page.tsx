@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Building2, Home, Landmark, Factory, Store, TrendingUp, TrendingDown, Search, ArrowLeft, BarChart3, MapPin, Clock, Info, Eye, Activity, ShieldCheck, Edit2, Users, type LucideIcon } from 'lucide-react'
 import { ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { dashboardService, type AssetPrices } from '@/services/dashboardService'
 
 // Investment types available for monitoring
 type InvestmentType = {
@@ -254,15 +255,26 @@ const generateOrderBook = (basePrice: number) => {
   return { bids, asks }
 }
 
-// Conversion rate: 1 AT = 10 PKR
-const AT_TO_PKR = 10
-const convertPKRtoAT = (pkr: number) => pkr / AT_TO_PKR
+// Backend default (TokenPriceService) is 100 PKR per AT — used as fallback only.
+const AT_TO_PKR_FALLBACK = 100
 
 export default function HospitalMarketplace() {
   const [selectedInvestment, setSelectedInvestment] = useState<InvestmentType | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>('All')
   const [statusFilter, setStatusFilter] = useState<string>('All')
+  const [assetPrices, setAssetPrices] = useState<AssetPrices | null>(null)
+
+  useEffect(() => {
+    dashboardService.getAssetPrices().then(setAssetPrices).catch(() => setAssetPrices(null))
+  }, [])
+
+  // Live AT/PKR rate from the DB-backed token price service. Falls back to the
+  // backend's own default (100) when the live rate can't be fetched.
+  const tokenPricePerPkr = assetPrices?.tokenPricePerPkr && assetPrices.tokenPricePerPkr > 0
+    ? assetPrices.tokenPricePerPkr
+    : AT_TO_PKR_FALLBACK
+  const convertPKRtoAT = (pkr: number) => pkr / tokenPricePerPkr
 
   // Filter investments
   const filteredInvestments = INVESTMENT_TYPES.filter(inv => {
@@ -627,7 +639,7 @@ function MonitoringDashboard({ investment, onBack }: { investment: InvestmentTyp
                     {priceChangePercent.toFixed(2)}%
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 mt-1">1 AT = {AT_TO_PKR} PKR</p>
+                <p className="text-xs text-slate-500 mt-1">1 AT = {tokenPricePerPkr} PKR</p>
               </div>
               <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center">
                 <TrendingUp className="h-6 w-6 text-emerald-600" />
@@ -773,7 +785,7 @@ function MonitoringDashboard({ investment, onBack }: { investment: InvestmentTyp
                 stroke="#cbd5e1"
                 style={{ fontSize: '12px' }}
               />
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip content={(props: any) => <CustomTooltip {...props} convertPKRtoAT={convertPKRtoAT} />} />
               <Legend wrapperStyle={{ fontSize: '12px' }} />
               <Bar 
                 yAxisId="volume"
@@ -943,7 +955,15 @@ function MonitoringDashboard({ investment, onBack }: { investment: InvestmentTyp
 }
 
 // Custom Tooltip Component
-const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: { fullData: Trade } }> }) => {
+const CustomTooltip = ({
+  active,
+  payload,
+  convertPKRtoAT,
+}: {
+  active?: boolean
+  payload?: Array<{ payload: { fullData: Trade } }>
+  convertPKRtoAT: (pkr: number) => number
+}) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload.fullData as Trade
     return (

@@ -13,6 +13,7 @@ const toNumber = (value: number | string | undefined | null) => Number(value || 
 
 export default function HospitalPoolManagementPage() {
   const [pool1, setPool1] = useState<AssetDepositItem[]>([])
+  const [pool2, setPool2] = useState<AssetDepositItem[]>([])
   const [loading, setLoading] = useState(true)
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
   const [error, setError] = useState('')
@@ -22,10 +23,14 @@ export default function HospitalPoolManagementPage() {
     try {
       setLoading(true)
       setError('')
-      const data = await depositRequestService.getHospitalPool1()
-      setPool1(data)
+      const [p1, p2] = await Promise.all([
+        depositRequestService.getHospitalPool1(),
+        depositRequestService.getHospitalPool2(),
+      ])
+      setPool1(p1)
+      setPool2(p2)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load Pool 1')
+      setError(err instanceof Error ? err.message : 'Failed to load pools')
     } finally {
       setLoading(false)
     }
@@ -55,6 +60,8 @@ export default function HospitalPoolManagementPage() {
 
   const totalAtPool1 = pool1.reduce((sum, r) => sum + currentAt(r), 0)
   const totalValuePool1 = pool1.reduce((sum, r) => sum + currentValue(r), 0)
+  const totalAtPool2 = pool2.reduce((sum, r) => sum + currentAt(r), 0)
+  const totalValuePool2 = pool2.reduce((sum, r) => sum + currentValue(r), 0)
 
   const moveToPool2 = async (row: AssetDepositItem) => {
     const ok = window.confirm(
@@ -112,10 +119,10 @@ export default function HospitalPoolManagementPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-xs uppercase tracking-wide text-green-800">Pool 2 — Trading</CardTitle>
           </CardHeader>
-          <CardContent className="flex items-center gap-3">
-            <TrendingUp className="h-6 w-6 text-green-700" />
-            <p className="text-sm text-green-800">
-              Move AT here to start trading and unlock monthly + profit HT for patients.
+          <CardContent>
+            <p className="text-2xl font-semibold text-green-700">{totalAtPool2.toLocaleString()} AT</p>
+            <p className="text-xs text-green-700 mt-1">
+              {pool2.length} asset(s) released for trading · PKR {totalValuePool2.toLocaleString()}
             </p>
           </CardContent>
         </Card>
@@ -216,6 +223,65 @@ export default function HospitalPoolManagementPage() {
                           )}
                           Move to Trading Pool
                         </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-sm border-green-200">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-green-700" />
+            Pool 2 — Trading Pool
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex items-center gap-2 text-sm text-slate-600">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading Pool 2...
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Asset</TableHead>
+                  <TableHead>Patient</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead className="text-right">AT in Pool 2</TableHead>
+                  <TableHead className="text-right">Value (PKR)</TableHead>
+                  <TableHead>Trading Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pool2.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-10 text-center text-sm text-slate-500">
+                      Pool 2 is empty. AT will appear here after you move it from Pool 1 (above).
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  pool2.map((row) => (
+                    <TableRow key={row.assetId}>
+                      <TableCell className="font-mono text-xs">{row.assetId.slice(0, 8)}</TableCell>
+                      <TableCell>
+                        <p className="font-medium text-slate-900">{row.patientName}</p>
+                        <p className="text-xs text-slate-500">{row.patientEmail}</p>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{row.assetType}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-semibold text-green-700">
+                        {currentAt(row).toLocaleString()} AT
+                      </TableCell>
+                      <TableCell className="text-right">PKR {currentValue(row).toLocaleString()}</TableCell>
+                      <TableCell>
+                        <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Released — In Pool 2</Badge>
                       </TableCell>
                     </TableRow>
                   ))

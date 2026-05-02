@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Loader2, Heart, Clock, CheckCircle2, CreditCard, ArrowUpRight, Coins, Lock, Unlock } from 'lucide-react'
 import { dashboardService, type PatientDashboardSummary } from '@/services/dashboardService'
 import { marketplaceService, type PatientAssetToken } from '@/services/marketplaceService'
+import { depositRequestService } from '@/services/depositRequestService'
 import { profileService } from '@/services/profileService'
 import { useAuth } from '@/hooks/useAuth'
 import { formatNumber } from '@/lib/utils'
@@ -44,16 +45,58 @@ export default function PatientDashboardHome() {
     }
   }
 
-  // Load asset tokens
-  const loadAssetTokens = async (patientId: string) => {
+  // Load asset tokens. Tries the new /me endpoint first, then falls back to deriving
+  // a card list from the patient's own deposits (uses /api/asset-deposits/mine which
+  // resolves the patient from the JWT — works regardless of localStorage state).
+  const loadAssetTokens = async () => {
+    // Attempt 1 — new endpoint
     try {
-      console.log('Loading asset tokens for patientId:', patientId)
-      const tokens = await marketplaceService.getPatientAssetTokens(patientId)
-      setAssetTokens(tokens)
-      console.log('Asset tokens loaded:', tokens)
-      console.log('Total AT:', tokens.reduce((sum, token) => sum + Number(token.totalAtAssigned || 0), 0))
+      const tokens = await marketplaceService.getMyAssetTokens()
+      if (tokens && tokens.length > 0) {
+        setAssetTokens(tokens)
+        return
+      }
     } catch (err) {
-      console.error('Error loading asset tokens:', err)
+      console.warn('[dashboard] /me/asset-tokens failed, falling back to /asset-deposits/mine:', err)
+    }
+
+    // Attempt 2 — derive cards from the patient's deposits (always works)
+    try {
+      const deposits = await depositRequestService.getMyRequests('all')
+      const cards: PatientAssetToken[] = (deposits || []).map((d) => {
+        const expected = Number(d.expectedTokens ?? 0)
+        const status = String(d.custodyStatus || '').toLowerCase() === 'confirmed'
+          ? 'WITH_PATIENT'
+          : 'PENDING_BANK_APPROVAL'
+        return {
+          assetId: d.assetId,
+          assignmentId: d.assetId,
+          patientId: d.patientId,
+          patientName: d.patientName,
+          patientEmail: d.patientEmail,
+          hospitalId: d.hospitalId,
+          hospitalName: d.hospitalName,
+          assetType: d.assetType,
+          assetValue: Number(d.assetValue ?? 0),
+          weight: d.weight,
+          totalAtAssigned: expected,
+          availableAt: status === 'WITH_PATIENT' ? expected : 0,
+          unavailableAt: 0,
+          availabilityStatus: status,
+          tradingOptOut: false,
+          monetaryValuePkr: Number(d.assetValue ?? 0),
+          availableMonetaryValuePkr: status === 'WITH_PATIENT' ? Number(d.assetValue ?? 0) : 0,
+          unavailableMonetaryValuePkr: 0,
+          depositStatus: d.status,
+          submittedAt: d.submittedAt,
+          approvedAt: d.approvedAt,
+          assignedAt: d.custodyConfirmedAt,
+        } as unknown as PatientAssetToken
+      }).filter((c) => Number(c.totalAtAssigned) > 0)
+      setAssetTokens(cards)
+    } catch (err) {
+      console.error('[dashboard] both asset-token endpoints failed:', err)
+      setAssetTokens([])
     }
   }
 
@@ -62,25 +105,17 @@ export default function PatientDashboardHome() {
     loadDashboardSummary()
   }, [])
 
-  // Load asset tokens when user.patientId changes
+  // Load asset tokens once auth is ready (uses JWT, not localStorage patientId)
   useEffect(() => {
-    console.log('User changed:', user)
-    console.log('PatientId:', user?.patientId)
-    
-    if (user?.patientId) {
-      loadAssetTokens(user.patientId)
-    } else {
-      console.log('PatientId not available yet')
-      setAssetTokens([])
+    if (user) {
+      loadAssetTokens()
     }
-  }, [user?.patientId])
+  }, [user?.id])
 
   // Combined load function for refresh button
   const load = async () => {
     await loadDashboardSummary()
-    if (user?.patientId) {
-      await loadAssetTokens(user.patientId)
-    }
+    await loadAssetTokens()
     try {
       const kyc = await profileService.getKycStatus()
       setKycStatus(normalizeKycStatus(kyc.status))

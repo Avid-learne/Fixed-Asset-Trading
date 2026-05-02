@@ -6,6 +6,7 @@ import com.SehatVault.SehatVaultBackend.marketplace.dto.HospitalAtPoolDto;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.OrderBookDto;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.PatientTradeDto;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.TradeDto;
+import com.SehatVault.SehatVaultBackend.marketplace.dto.TradeParticipantDetailDto;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.UpdateTradeRequest;
 import com.SehatVault.SehatVaultBackend.marketplace.service.MarketplaceService;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +34,17 @@ public class MarketplaceController {
     public ResponseEntity<ApiResponse<List<PatientTradeDto>>> getPatientViewTrades(@PathVariable UUID hospitalId) {
         List<PatientTradeDto> trades = marketplaceService.getPatientViewTrades(hospitalId);
         return ResponseEntity.ok(ApiResponse.success(trades));
+    }
+
+    @GetMapping("/trades/{tradeId}/participants")
+    public ResponseEntity<ApiResponse<List<TradeParticipantDetailDto>>> getTradeParticipants(
+            @PathVariable UUID tradeId) {
+        try {
+            List<TradeParticipantDetailDto> participants = marketplaceService.getTradeParticipants(tradeId);
+            return ResponseEntity.ok(ApiResponse.success(participants));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
     }
 
     @GetMapping("/pools/hospital/{hospitalId}/at")

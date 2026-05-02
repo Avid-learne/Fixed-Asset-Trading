@@ -714,6 +714,51 @@ public class AssetDepositService {
                 .toList();
     }
 
+    /**
+     * Hospital admin view of all assets currently in Pool 2 (Trading Pool).
+     * Includes assignments that are released and idle (AVAILABLE) AND those locked in
+     * an active trade (UNAVAILABLE). The DTO carries the live AT counts so the UI shows
+     * what's currently in the pool, broken down into "released" vs "in trade".
+     */
+    @Transactional(readOnly = true)
+    public List<AssetDepositDto> getHospitalPool2(String email) {
+        User admin = requireUser(email);
+        requireRole(admin, Role.RoleType.hospital_admin, "Only hospital admins can view Pool 2");
+
+        UUID hospitalId = admin.getHospitalId();
+        if (hospitalId == null) {
+            throw new IllegalArgumentException("Hospital is not linked to this admin account");
+        }
+
+        Hospital hospital = hospitalRepository.findById(hospitalId)
+                .orElseThrow(() -> new IllegalArgumentException("Hospital not found"));
+
+        return assetDepositRepository.findAllByHospitalId(hospitalId).stream()
+                .filter(d -> "custody_confirmed".equalsIgnoreCase(nz(d.getStatus())))
+                .map(d -> {
+                    Patient p = patientRepository.findById(d.getPatientId()).orElse(null);
+                    if (p == null) return null;
+                    var assignmentOpt = patientAtAssignmentRepository
+                            .findByPatientIdAndAssetId(p.getId(), d.getAssetId());
+                    if (assignmentOpt.isEmpty()) return null;
+                    var assignment = assignmentOpt.get();
+                    var status = assignment.getAvailabilityStatus();
+                    if (status != com.SehatVault.SehatVaultBackend.marketplace.entity.PatientAtAssignment.AvailabilityStatus.AVAILABLE
+                            && status != com.SehatVault.SehatVaultBackend.marketplace.entity.PatientAtAssignment.AvailabilityStatus.UNAVAILABLE) {
+                        return null;
+                    }
+                    User pu = userRepository.findById(p.getUserId()).orElse(null);
+                    if (pu == null) return null;
+                    AssetDepositDto dto = toDto(d, p, pu, hospital);
+                    BigDecimal currentAt = nzNum(assignment.getTotalAtAssigned());
+                    dto.setCurrentPool1At(currentAt); // reuse the field as "current AT in pool"
+                    dto.setCurrentPool1ValuePkr(currentAt.multiply(tokenPriceService.getAtPricePkr()));
+                    return dto;
+                })
+                .filter(java.util.Objects::nonNull)
+                .toList();
+    }
+
     @Transactional
     public AssetDepositDto rejectRequestByBank(String email, UUID assetId, String reason) {
         User bankUser = requireUser(email);

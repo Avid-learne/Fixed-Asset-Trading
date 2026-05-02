@@ -62,6 +62,14 @@ public class PatientAtAssignment {
     @lombok.Builder.Default
     private AvailabilityStatus availabilityStatus = AvailabilityStatus.AVAILABLE;
 
+    /**
+     * Patient has opted this asset out of any future trading. While true, the hospital
+     * admin cannot move this AT into Pool 2, even if it is currently in Pool 1.
+     */
+    @Column(name = "trading_opt_out", nullable = false)
+    @lombok.Builder.Default
+    private Boolean tradingOptOut = false;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

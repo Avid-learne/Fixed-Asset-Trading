@@ -26,4 +26,18 @@ public class CreateTradeRequest {
     private BigDecimal low;
     private BigDecimal closingPrice;
     private String notes;
+
+    /**
+     * Per-patient AT contributions for this trade. Each entry locks the chosen amount of
+     * AT from a Pool 2 (AVAILABLE) assignment and creates a TradeParticipation. When the
+     * trade settles, profit/loss is shared only among these participants.
+     */
+    private java.util.List<ParticipantSelection> selections;
+
+    @Data
+    public static class ParticipantSelection {
+        private UUID patientId;
+        private UUID assetId;
+        private BigDecimal atAmount;
+    }
 }

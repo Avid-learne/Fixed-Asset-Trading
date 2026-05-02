@@ -1,14 +1,21 @@
 package com.SehatVault.SehatVaultBackend.marketplace.service;
 
+import com.SehatVault.SehatVaultBackend.assetdeposit.entity.AssetDeposit;
+import com.SehatVault.SehatVaultBackend.assetdeposit.repository.AssetDepositRepository;
+import com.SehatVault.SehatVaultBackend.auth.entity.User;
+import com.SehatVault.SehatVaultBackend.auth.repository.UserRepository;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.CreateTradeRequest;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.HospitalAtPoolDto;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.OrderBookDto;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.OrderBookLevelDto;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.PatientTradeDto;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.TradeDto;
+import com.SehatVault.SehatVaultBackend.marketplace.dto.TradeParticipantDetailDto;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.UpdateTradeRequest;
 import com.SehatVault.SehatVaultBackend.marketplace.entity.MarketplaceTrade;
+import com.SehatVault.SehatVaultBackend.marketplace.entity.TradeParticipation;
 import com.SehatVault.SehatVaultBackend.marketplace.repository.MarketplaceTradeRepository;
+import com.SehatVault.SehatVaultBackend.marketplace.repository.TradeParticipationRepository;
 import com.SehatVault.SehatVaultBackend.wallet.service.TokenPriceService;
 import com.SehatVault.SehatVaultBackend.patient.entity.Patient;
 import com.SehatVault.SehatVaultBackend.patient.repository.PatientRepository;
@@ -40,6 +47,11 @@ public class MarketplaceService {
     private final PatientRepository patientRepository;
     private final HospitalAtPoolService hospitalAtPoolService;
     private final TokenPriceService tokenPriceService;
+    private final com.SehatVault.SehatVaultBackend.marketplace.repository.PatientAtAssignmentRepository patientAtAssignmentRepository;
+    private final AtTradingService atTradingService;
+    private final TradeParticipationRepository tradeParticipationRepository;
+    private final UserRepository userRepository;
+    private final AssetDepositRepository assetDepositRepository;
 
     public List<TradeDto> getTradesByHospital(UUID hospitalId) {
         return marketplaceTradeRepository.findByHospitalIdOrderByStartTimeDesc(hospitalId)
@@ -53,6 +65,60 @@ public class MarketplaceService {
                 .stream()
                 .map(this::toPatientDto)
                 .collect(Collectors.toList());
+    }
+
+    public List<TradeParticipantDetailDto> getTradeParticipants(UUID tradeId) {
+        if (!marketplaceTradeRepository.existsById(tradeId)) {
+            throw new IllegalArgumentException("Trade not found");
+        }
+
+        List<TradeParticipation> participations = tradeParticipationRepository.findByTradeId(tradeId);
+        if (participations.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+
+        Set<UUID> patientIds = participations.stream()
+                .map(TradeParticipation::getPatientId)
+                .collect(Collectors.toSet());
+        Set<UUID> assetIds = participations.stream()
+                .map(TradeParticipation::getAssetId)
+                .collect(Collectors.toSet());
+
+        Map<UUID, Patient> patientsById = patientRepository.findAllById(patientIds).stream()
+                .collect(Collectors.toMap(Patient::getId, p -> p));
+        Set<UUID> userIds = patientsById.values().stream()
+                .map(Patient::getUserId)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<UUID, User> usersById = userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getUserId, u -> u));
+        Map<UUID, AssetDeposit> assetsById = assetDepositRepository.findAllById(assetIds).stream()
+                .collect(Collectors.toMap(AssetDeposit::getAssetId, a -> a));
+
+        return participations.stream().map(p -> {
+            Patient patient = patientsById.get(p.getPatientId());
+            User user = patient != null && patient.getUserId() != null
+                    ? usersById.get(patient.getUserId())
+                    : null;
+            AssetDeposit asset = assetsById.get(p.getAssetId());
+
+            return TradeParticipantDetailDto.builder()
+                    .participationId(p.getParticipationId())
+                    .patientId(p.getPatientId())
+                    .patientName(user != null ? user.getName() : null)
+                    .patientRegistrationId(patient != null ? patient.getRegistrationId() : null)
+                    .assetId(p.getAssetId())
+                    .assetType(asset != null ? asset.getAssetType() : null)
+                    .assetValue(asset != null ? asset.getAssetValue() : null)
+                    .atAllocated(p.getAtAllocated())
+                    .atMonetaryValuePkr(p.getAtMonetaryValuePkr())
+                    .participationStatus(p.getParticipationStatus() == null
+                            ? null
+                            : p.getParticipationStatus().name())
+                    .tradeStartTime(p.getTradeStartTime())
+                    .tradeEndTime(p.getTradeEndTime())
+                    .build();
+        }).collect(Collectors.toList());
     }
 
     public HospitalAtPoolDto getHospitalAtPool(UUID hospitalId) {
@@ -140,13 +206,63 @@ public class MarketplaceService {
         trade.setAmountBeforeTrade(BigDecimal.ZERO);
 
         BigDecimal amountInvested = trade.getOpeningPrice().multiply(trade.getVolume());
-        HospitalPoolSnapshot poolSnapshot = buildHospitalPoolSnapshot(request.getHospitalId());
-        if (amountInvested.compareTo(poolSnapshot.availablePkr) > 0) {
-            throw new IllegalArgumentException("Insufficient hospital AT pool. Available: "
-                    + toAt(poolSnapshot.availablePkr).toPlainString()
-                    + " AT, required: "
-                    + toAt(amountInvested).toPlainString()
-                    + " AT");
+
+        // Per-patient selections — admin picks which Pool 2 assets fund this trade.
+        java.util.List<CreateTradeRequest.ParticipantSelection> selections = request.getSelections() == null
+                ? java.util.Collections.emptyList()
+                : request.getSelections();
+
+        BigDecimal atPrice = tokenPriceService.getAtPricePkr();
+        BigDecimal totalSelectedAt = BigDecimal.ZERO;
+        for (CreateTradeRequest.ParticipantSelection s : selections) {
+            if (s.getPatientId() == null || s.getAssetId() == null) {
+                throw new IllegalArgumentException("Each selection must include patientId and assetId");
+            }
+            BigDecimal at = nz(s.getAtAmount());
+            if (at.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Each selection's AT amount must be greater than zero");
+            }
+            totalSelectedAt = totalSelectedAt.add(at);
+
+            var assignment = patientAtAssignmentRepository
+                    .findByPatientIdAndAssetId(s.getPatientId(), s.getAssetId())
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "AT assignment not found for patient " + s.getPatientId() + " asset " + s.getAssetId()));
+            if (assignment.getAvailabilityStatus() != com.SehatVault.SehatVaultBackend.marketplace.entity.PatientAtAssignment.AvailabilityStatus.AVAILABLE) {
+                throw new IllegalArgumentException(
+                        "Selected asset " + s.getAssetId() + " is not in Pool 2 (Available); cannot include in trade");
+            }
+            if (Boolean.TRUE.equals(assignment.getTradingOptOut())) {
+                throw new IllegalArgumentException(
+                        "Patient has opted asset " + s.getAssetId() + " out of trading; cannot include");
+            }
+            if (nz(assignment.getAvailableAt()).compareTo(at) < 0) {
+                throw new IllegalArgumentException(
+                        "Asset " + s.getAssetId() + " has only " + assignment.getAvailableAt()
+                                + " AT in Pool 2; requested " + at);
+            }
+        }
+
+        // Selected total in PKR. The buy price (amountInvested) must be <= this total —
+        // we may scale down each selection proportionally so they sum exactly to amountInvested.
+        BigDecimal selectedPkr = totalSelectedAt.multiply(atPrice);
+        if (!selections.isEmpty()) {
+            if (selectedPkr.compareTo(amountInvested) < 0) {
+                throw new IllegalArgumentException(
+                        "Sum of selected AT (PKR " + selectedPkr.toPlainString()
+                                + ") is less than the trade's investment amount (PKR "
+                                + amountInvested.toPlainString() + "). Allocate more AT or lower the buy price.");
+            }
+        } else {
+            // Backward-compat fallback when no selections are sent.
+            HospitalPoolSnapshot poolSnapshot = buildHospitalPoolSnapshot(request.getHospitalId());
+            if (amountInvested.compareTo(poolSnapshot.availablePkr) > 0) {
+                throw new IllegalArgumentException("Insufficient hospital AT pool. Available: "
+                        + toAt(poolSnapshot.availablePkr).toPlainString()
+                        + " AT, required: "
+                        + toAt(amountInvested).toPlainString()
+                        + " AT");
+            }
         }
 
         BigDecimal amountAfterTrade = trade.getClosingPrice().multiply(trade.getVolume());
@@ -170,6 +286,49 @@ public class MarketplaceService {
                 request.getNotes()));
 
         MarketplaceTrade saved = marketplaceTradeRepository.save(trade);
+
+        // Lock each participant's AT — creates TradeParticipation rows + flips assignment to UNAVAILABLE.
+        // If admins over-allocated (selectedPkr > amountInvested), scale each selection
+        // proportionally so the total locked equals amountInvested exactly.
+        BigDecimal scale = BigDecimal.ONE;
+        if (!selections.isEmpty() && selectedPkr.compareTo(amountInvested) > 0) {
+            scale = amountInvested.divide(selectedPkr, 12, RoundingMode.HALF_UP);
+        }
+        BigDecimal targetTotalAt = amountInvested.divide(atPrice, 8, RoundingMode.HALF_UP);
+        BigDecimal cumulativeLocked = BigDecimal.ZERO;
+        for (int i = 0; i < selections.size(); i++) {
+            CreateTradeRequest.ParticipantSelection s = selections.get(i);
+            var assignment = patientAtAssignmentRepository
+                    .findByPatientIdAndAssetId(s.getPatientId(), s.getAssetId())
+                    .orElseThrow();
+
+            BigDecimal lockAt;
+            boolean isLast = i == selections.size() - 1;
+            if (isLast) {
+                // Force exact total — assign whatever's left rounded up to the target.
+                lockAt = targetTotalAt.subtract(cumulativeLocked).max(BigDecimal.ZERO)
+                        .setScale(2, RoundingMode.HALF_UP);
+            } else {
+                lockAt = nz(s.getAtAmount()).multiply(scale).setScale(2, RoundingMode.HALF_UP);
+            }
+            // Don't lock more than what's actually available on the assignment.
+            BigDecimal cap = nz(assignment.getAvailableAt());
+            if (lockAt.compareTo(cap) > 0) {
+                lockAt = cap;
+            }
+            if (lockAt.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+
+            cumulativeLocked = cumulativeLocked.add(lockAt);
+            atTradingService.startTradeWithPatientAt(
+                    saved.getTradeId(),
+                    s.getPatientId(),
+                    s.getAssetId(),
+                    assignment.getAssignmentId(),
+                    lockAt);
+        }
+
         return toDto(saved);
     }
 
@@ -177,6 +336,8 @@ public class MarketplaceService {
     public TradeDto updateTrade(UUID tradeId, UpdateTradeRequest request) {
         MarketplaceTrade trade = marketplaceTradeRepository.findById(tradeId)
                 .orElseThrow(() -> new IllegalArgumentException("Trade not found"));
+
+        MarketplaceTrade.TradeStatus previousStatus = trade.getStatus();
 
         if (request.getTradeType() != null && !request.getTradeType().isBlank()) {
             trade.setTradeType(parseTradeType(request.getTradeType()));
@@ -248,9 +409,25 @@ public class MarketplaceService {
 
         trade.setAmountInvested(amountInvested);
         trade.setAmountAfterTrade(amountAfterTrade);
-        trade.setProfitLoss(amountAfterTrade.subtract(amountInvested));
+        BigDecimal updatedProfitLoss = amountAfterTrade.subtract(amountInvested);
+        trade.setProfitLoss(updatedProfitLoss);
+
+        boolean justClosed = trade.getStatus() == MarketplaceTrade.TradeStatus.CLOSED
+                && previousStatus != MarketplaceTrade.TradeStatus.CLOSED;
 
         MarketplaceTrade saved = marketplaceTradeRepository.save(trade);
+
+        // If this update flipped the trade from active → closed, settle participations
+        // so AT goes back to Pool 1 with profit/loss applied.
+        if (justClosed) {
+            try {
+                atTradingService.settleTrade(saved.getTradeId(), updatedProfitLoss);
+            } catch (Exception ex) {
+                log.error("Trade {} marked CLOSED via update but settlement failed: {}",
+                        saved.getTradeId(), ex.getMessage(), ex);
+            }
+        }
+
         return toDto(saved);
     }
 
@@ -264,23 +441,38 @@ public class MarketplaceService {
         MarketplaceTrade trade = marketplaceTradeRepository.findById(tradeId)
                 .orElseThrow(() -> new IllegalArgumentException("Trade not found"));
 
+        // If the trade is already CLOSED but has un-settled participations (e.g. closed
+        // under older code that didn't run settlement), retroactively settle them so AT
+        // returns to Pool 1. Then return.
         if (trade.getStatus() == MarketplaceTrade.TradeStatus.CLOSED) {
+            try {
+                atTradingService.settleTrade(trade.getTradeId(), nz(trade.getProfitLoss()));
+            } catch (Exception ex) {
+                log.error("Retroactive settle failed for already-closed trade {}: {}",
+                        trade.getTradeId(), ex.getMessage(), ex);
+            }
             return toDto(trade);
         }
 
         BigDecimal quantity = nz(trade.getVolume());
         BigDecimal amountInvested = nz(trade.getOpeningPrice()).multiply(quantity);
 
-        BigDecimal exitPerUnit = request != null && request.getExitValue() != null
+        // exitValue / currentValue on close are the TOTAL PKR the trade closed at
+        // (not per-unit). Falls back to the stored closingPrice × quantity when
+        // neither is provided.
+        BigDecimal amountAfterTrade = request != null && request.getExitValue() != null
                 ? request.getExitValue()
                 : request != null && request.getCurrentValue() != null
                         ? request.getCurrentValue()
-                        : nz(trade.getClosingPrice());
-        if (exitPerUnit.compareTo(BigDecimal.ZERO) <= 0) {
-            exitPerUnit = nz(trade.getOpeningPrice());
+                        : nz(trade.getClosingPrice()).multiply(quantity);
+        if (amountAfterTrade.compareTo(BigDecimal.ZERO) <= 0) {
+            amountAfterTrade = amountInvested;
         }
+        BigDecimal exitPerUnit = quantity.compareTo(BigDecimal.ZERO) > 0
+                ? amountAfterTrade.divide(quantity, 8, RoundingMode.HALF_UP)
+                : nz(trade.getClosingPrice());
 
-        BigDecimal amountAfterTrade = exitPerUnit.multiply(quantity);
+        BigDecimal profitLoss = amountAfterTrade.subtract(amountInvested);
 
         trade.setStatus(MarketplaceTrade.TradeStatus.CLOSED);
         trade.setEndTime(LocalDateTime.now());
@@ -288,9 +480,18 @@ public class MarketplaceService {
         trade.setAmountInvested(amountInvested);
         trade.setAmountBeforeTrade(amountInvested);
         trade.setAmountAfterTrade(amountAfterTrade);
-        trade.setProfitLoss(amountAfterTrade.subtract(amountInvested));
+        trade.setProfitLoss(profitLoss);
 
         MarketplaceTrade saved = marketplaceTradeRepository.save(trade);
+
+        // Settle each participation: returns AT to Pool 1 (WITH_PATIENT) with P/L applied,
+        // burns the AT from hospital_at_pool_entries, and updates patient wallet totals.
+        try {
+            atTradingService.settleTrade(saved.getTradeId(), profitLoss);
+        } catch (Exception ex) {
+            log.error("Trade {} closed but settlement failed: {}", saved.getTradeId(), ex.getMessage(), ex);
+        }
+
         return toDto(saved);
     }
 

@@ -149,6 +149,42 @@ interface BackendHospitalAtPool {
   availablePkr?: number
 }
 
+export interface TradeParticipantSelection {
+  patientId: string
+  assetId: string
+  atAmount: number
+}
+
+export interface TradeParticipantDetail {
+  participationId: string
+  patientId: string
+  patientName?: string
+  patientRegistrationId?: string
+  assetId: string
+  assetType?: string
+  assetValue?: number
+  atAllocated: number
+  atMonetaryValuePkr: number
+  participationStatus?: 'ACTIVE' | 'SETTLED' | 'WITHDRAWN'
+  tradeStartTime?: string
+  tradeEndTime?: string
+}
+
+interface BackendTradeParticipantDetail {
+  participationId: string
+  patientId: string
+  patientName?: string
+  patientRegistrationId?: string
+  assetId: string
+  assetType?: string
+  assetValue?: number | string
+  atAllocated?: number | string
+  atMonetaryValuePkr?: number | string
+  participationStatus?: 'ACTIVE' | 'SETTLED' | 'WITHDRAWN'
+  tradeStartTime?: string
+  tradeEndTime?: string
+}
+
 interface CreateTradePayload {
   hospitalId: string
   tradeType: TradeType
@@ -167,6 +203,7 @@ interface CreateTradePayload {
   low: number
   closingPrice: number
   notes: string
+  selections?: TradeParticipantSelection[]
 }
 
 interface UpdateTradePayload {
@@ -338,6 +375,33 @@ export const marketplaceService = {
     return mapTrade(result.data)
   },
 
+  async getTradeParticipants(tradeId: string): Promise<TradeParticipantDetail[]> {
+    const response = await fetch(`${API_BASE}/marketplace/trades/${tradeId}/participants`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    })
+
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, 'Failed to fetch trade participants'))
+    }
+
+    const result: ApiResponse<BackendTradeParticipantDetail[]> = await response.json()
+    return (result.data || []).map((p) => ({
+      participationId: p.participationId,
+      patientId: p.patientId,
+      patientName: p.patientName,
+      patientRegistrationId: p.patientRegistrationId,
+      assetId: p.assetId,
+      assetType: p.assetType,
+      assetValue: p.assetValue === undefined || p.assetValue === null ? undefined : Number(p.assetValue),
+      atAllocated: Number(p.atAllocated || 0),
+      atMonetaryValuePkr: Number(p.atMonetaryValuePkr || 0),
+      participationStatus: p.participationStatus,
+      tradeStartTime: p.tradeStartTime,
+      tradeEndTime: p.tradeEndTime,
+    }))
+  },
+
   async getPatientViewTrades(hospitalId: string): Promise<PatientMarketplaceTrade[]> {
     const response = await fetch(`${API_BASE}/marketplace/trades/hospital/${hospitalId}/patient-view`, {
       method: 'GET',
@@ -383,6 +447,17 @@ export const marketplaceService = {
       availableAt: Number(data.availableAt || 0),
       availablePkr: Number(data.availablePkr || 0),
     }
+  },
+
+  async getMyAssetTokens(): Promise<PatientAssetToken[]> {
+    const url = `${API_BASE}/marketplace/at-trading/me/asset-tokens`
+    const response = await fetch(url, { method: 'GET', headers: getAuthHeaders() })
+    if (!response.ok) {
+      throw new Error(`Failed to fetch asset tokens (${response.status})`)
+    }
+    const payload = await response.json()
+    const data = payload?.data || []
+    return Array.isArray(data) ? data : []
   },
 
   async getPatientAssetTokens(patientId: string): Promise<PatientAssetToken[]> {

@@ -24,7 +24,7 @@ export default function EmergencyRedemptionPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const [pool1Assets, setPool1Assets] = useState<PatientAssetToken[]>([])
+  const [allAssets, setAllAssets] = useState<PatientAssetToken[]>([])
   const [selectedAssetId, setSelectedAssetId] = useState<string>('')
   const [requestedAtAmount, setRequestedAtAmount] = useState('')
   const [patientReason, setPatientReason] = useState('')
@@ -33,9 +33,13 @@ export default function EmergencyRedemptionPage() {
 
   const [requests, setRequests] = useState<EmergencyRedemptionDto[]>([])
 
+  const pool1Assets = useMemo(
+    () => allAssets.filter((a) => String(a.availabilityStatus) === 'WITH_PATIENT'),
+    [allAssets],
+  )
   const selectedAsset = useMemo(
-    () => pool1Assets.find((a) => String(a.assetId) === selectedAssetId) || null,
-    [pool1Assets, selectedAssetId],
+    () => allAssets.find((a) => String(a.assetId) === selectedAssetId) || null,
+    [allAssets, selectedAssetId],
   )
   const selectedAssetMaxAt = Number(selectedAsset?.availableAt || 0)
 
@@ -64,12 +68,19 @@ export default function EmergencyRedemptionPage() {
       ])
       setWalletAt(summary.totalAt)
       setRequests(list)
-      const pool1 = (tokens || []).filter(
-        (t) => String(t.availabilityStatus) === 'WITH_PATIENT' && Number(t.availableAt || 0) > 0,
+      // Show every asset that has been minted (excludes pre-mint placeholder rows)
+      const minted = (tokens || []).filter(
+        (t) => String(t.availabilityStatus) !== 'PENDING_BANK_APPROVAL',
       )
-      setPool1Assets(pool1)
+      setAllAssets(minted)
       // Reset selection if currently-selected asset is no longer in Pool 1
-      if (selectedAssetId && !pool1.some((a) => String(a.assetId) === selectedAssetId)) {
+      const stillRedeemable = minted.some(
+        (a) =>
+          String(a.assetId) === selectedAssetId &&
+          String(a.availabilityStatus) === 'WITH_PATIENT' &&
+          Number(a.availableAt || 0) > 0,
+      )
+      if (selectedAssetId && !stillRedeemable) {
         setSelectedAssetId('')
       }
     } catch (e) {
@@ -168,50 +179,100 @@ export default function EmergencyRedemptionPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Pool 1 asset picker */}
+          {/* Asset picker — Pool 1 selectable, Pool 2 / In-Trade shown in red and disabled */}
           <div>
-            <label className="text-sm text-muted-foreground">Asset (Pool 1) to redeem against</label>
-            {pool1Assets.length === 0 ? (
+            <label className="text-sm text-muted-foreground">Select an asset to redeem against</label>
+            {allAssets.length === 0 ? (
               <div className="mt-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                No Pool 1 assets available. Emergency redemption only works on AT that is still with you (Pool 1).
-                Once the hospital moves AT into the Trading Pool, it becomes locked and cannot be redeemed.
+                You don&apos;t have any minted AT yet. Once the bank confirms custody on a deposit, AT will appear here.
               </div>
             ) : (
               <div className="mt-1 space-y-2">
-                {pool1Assets.map((a) => {
+                {allAssets.map((a) => {
                   const id = String(a.assetId)
+                  const status = String(a.availabilityStatus)
                   const remaining = Number(a.availableAt || 0)
+                  const total = Number(a.totalAtAssigned || 0)
+                  const inTradeAmount = Number(a.unavailableAt || 0)
+                  const isPool1 = status === 'WITH_PATIENT' && remaining > 0
+                  const isInTrade = status === 'UNAVAILABLE'
+                  const isPool2Idle = status === 'AVAILABLE'
                   const isSelected = selectedAssetId === id
+
+                  let statusBadge: React.ReactNode = null
+                  let cardClass = 'border-slate-200 hover:bg-slate-50'
+                  let amountClass = 'text-amber-700'
+                  let amountLabel = 'remaining in Pool 1'
+
+                  if (isPool1) {
+                    if (isSelected) cardClass = 'border-amber-500 bg-amber-50 ring-1 ring-amber-400'
+                    statusBadge = (
+                      <span className="ml-2 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                        Pool 1 — Redeemable
+                      </span>
+                    )
+                  } else if (isPool2Idle) {
+                    cardClass = 'border-rose-300 bg-rose-50 cursor-not-allowed opacity-90'
+                    amountClass = 'text-rose-700'
+                    amountLabel = 'in Trading Pool — locked'
+                    statusBadge = (
+                      <span className="ml-2 inline-flex rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold text-rose-800">
+                        Pool 2 — Locked
+                      </span>
+                    )
+                  } else if (isInTrade) {
+                    cardClass = 'border-rose-400 bg-rose-50 cursor-not-allowed opacity-90'
+                    amountClass = 'text-rose-700'
+                    amountLabel = `${inTradeAmount.toLocaleString()} AT in active trade`
+                    statusBadge = (
+                      <span className="ml-2 inline-flex rounded-full bg-rose-200 px-2 py-0.5 text-[10px] font-semibold text-rose-900">
+                        In Trade — Locked
+                      </span>
+                    )
+                  } else {
+                    cardClass = 'border-slate-200 bg-slate-50 cursor-not-allowed opacity-70'
+                    amountClass = 'text-slate-600'
+                    amountLabel = 'not available'
+                  }
+
                   return (
                     <button
                       key={id}
                       type="button"
-                      onClick={() => setSelectedAssetId(id)}
-                      className={`w-full rounded-md border px-3 py-2 text-left text-sm transition-colors ${
-                        isSelected
-                          ? 'border-amber-500 bg-amber-50 ring-1 ring-amber-400'
-                          : 'border-slate-200 hover:bg-slate-50'
-                      }`}
+                      disabled={!isPool1}
+                      onClick={() => isPool1 && setSelectedAssetId(id)}
+                      className={`w-full rounded-md border px-3 py-2 text-left text-sm transition-colors ${cardClass}`}
                     >
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="font-medium">
-                            {a.assetType || 'Asset'} <span className="font-mono text-xs text-slate-500">#{id.slice(0, 8)}</span>
+                            {a.assetType || 'Asset'}{' '}
+                            <span className="font-mono text-xs text-slate-500">#{id.slice(0, 8)}</span>
+                            {statusBadge}
                           </p>
                           <p className="text-xs text-slate-500">
                             Asset value: PKR {Number(a.assetValue || 0).toLocaleString()}
                             {a.weight ? ` · ${a.weight} g` : ''}
+                            {!isPool1 && ` · Total minted: ${total.toLocaleString()} AT`}
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="font-semibold text-amber-700">{remaining.toLocaleString()} AT</p>
-                          <p className="text-xs text-amber-700">remaining in Pool 1</p>
+                          <p className={`font-semibold ${amountClass}`}>
+                            {(isPool1 ? remaining : isInTrade ? inTradeAmount : total).toLocaleString()} AT
+                          </p>
+                          <p className={`text-xs ${amountClass}`}>{amountLabel}</p>
                         </div>
                       </div>
                     </button>
                   )
                 })}
               </div>
+            )}
+            {pool1Assets.length === 0 && allAssets.length > 0 && (
+              <p className="mt-2 text-xs text-rose-700">
+                None of your assets are in Pool 1 right now — they&apos;re all locked in the Trading Pool. AT becomes
+                redeemable again after the trade cycle ends.
+              </p>
             )}
           </div>
 

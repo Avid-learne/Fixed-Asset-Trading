@@ -7,12 +7,24 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
+import { ChevronDown, ChevronUp, Users } from 'lucide-react'
 import { authService } from '@/lib/authService'
-import { marketplaceService, type HospitalAtPool, type MarketplaceTrade, type TradeStatus } from '@/services/marketplaceService'
+import {
+  marketplaceService,
+  type HospitalAtPool,
+  type MarketplaceTrade,
+  type TradeParticipantDetail,
+  type TradeStatus,
+} from '@/services/marketplaceService'
+import { depositRequestService, type AssetDepositItem } from '@/services/depositRequestService'
+import { dashboardService, type AssetPrices } from '@/services/dashboardService'
 import { useToast } from '@/hooks/use-toast'
 
 const assetTypeOptions = ['Real Estate', 'Bonds', 'Machinery', 'Equipment', 'Other']
-const AT_TO_PKR = 10
+// Backend default (TokenPriceService) is 100 PKR per AT. Used only as fallback
+// when the live rate can't be fetched — must match the backend or trade math
+// (allocation validation, P/L display, Pool 1 reconciliation) goes off by 10×.
+const AT_TO_PKR_FALLBACK = 100
 
 type NewTradeForm = {
   assetName: string
@@ -37,17 +49,12 @@ const asNumber = (value: string | number | undefined | null): number => {
   return Number.isFinite(n) ? n : 0
 }
 
-const convertPKRtoAT = (pkr: number) => pkr / AT_TO_PKR
-
-const formatAT = (pkr: number) => `${convertPKRtoAT(pkr).toLocaleString(undefined, { maximumFractionDigits: 2 })} AT`
 const formatPKR = (value: number) => `PKR ${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
 
 const compactNumber = (value: number) => new Intl.NumberFormat('en', {
   notation: 'compact',
   maximumFractionDigits: value >= 1000000 ? 2 : 1,
 }).format(value)
-
-const formatATCompact = (pkr: number) => `${compactNumber(convertPKRtoAT(pkr))} AT`
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -72,10 +79,21 @@ export default function HospitalAdminMarketplace() {
 
   const [trades, setTrades] = useState<MarketplaceTrade[]>([])
   const [atPool, setAtPool] = useState<HospitalAtPool>(emptyPool)
+  const [assetPrices, setAssetPrices] = useState<AssetPrices | null>(null)
   const [loading, setLoading] = useState(true)
   const [poolLoading, setPoolLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  // Live AT/PKR rate from the backend so admin display matches what the backend
+  // actually locks/settles. Falls back to 100 (the backend's own default).
+  const tokenPricePerPkr = assetPrices?.tokenPricePerPkr && assetPrices.tokenPricePerPkr > 0
+    ? assetPrices.tokenPricePerPkr
+    : AT_TO_PKR_FALLBACK
+  const convertPKRtoAT = (pkr: number) => pkr / tokenPricePerPkr
+  const formatAT = (pkr: number) =>
+    `${convertPKRtoAT(pkr).toLocaleString(undefined, { maximumFractionDigits: 2 })} AT`
+  const formatATCompact = (pkr: number) => `${compactNumber(convertPKRtoAT(pkr))} AT`
 
   const [form, setForm] = useState<NewTradeForm>(initialForm)
 
@@ -85,6 +103,30 @@ export default function HospitalAdminMarketplace() {
 
   const [currentValueByTrade, setCurrentValueByTrade] = useState<Record<string, string>>({})
   const [exitValueByTrade, setExitValueByTrade] = useState<Record<string, string>>({})
+
+  // Pool 2 selection — admin picks which patient assets fund the new trade.
+  const [pool2Assets, setPool2Assets] = useState<AssetDepositItem[]>([])
+  const [allocations, setAllocations] = useState<Record<string, string>>({})
+
+  // Per-trade participants (lazy-loaded when admin expands the trade card).
+  const [expandedTradeId, setExpandedTradeId] = useState<string | null>(null)
+  const [participantsByTrade, setParticipantsByTrade] = useState<Record<string, TradeParticipantDetail[]>>({})
+  const [participantsLoading, setParticipantsLoading] = useState<Record<string, boolean>>({})
+  const [participantsError, setParticipantsError] = useState<Record<string, string>>({})
+
+  const allocationsList = useMemo(
+    () =>
+      pool2Assets
+        .map((a) => ({
+          patientId: a.patientId,
+          assetId: a.assetId,
+          atAmount: asNumber(allocations[a.assetId]),
+        }))
+        .filter((s) => s.atAmount > 0),
+    [pool2Assets, allocations],
+  )
+  const totalAllocatedAt = allocationsList.reduce((sum, s) => sum + s.atAmount, 0)
+  const totalAllocatedPkr = totalAllocatedAt * tokenPricePerPkr
 
   useEffect(() => {
     const resolveHospitalId = async () => {
@@ -121,12 +163,18 @@ export default function HospitalAdminMarketplace() {
       setLoading(true)
       setPoolLoading(true)
       setError('')
-      const [data, pool] = await Promise.all([
+      const [data, pool, p2, prices] = await Promise.all([
         marketplaceService.getHospitalTrades(hospitalId),
         marketplaceService.getHospitalAtPool(hospitalId),
+        depositRequestService.getHospitalPool2().catch(() => [] as AssetDepositItem[]),
+        dashboardService.getAssetPrices().catch(() => null),
       ])
       setTrades(data)
       setAtPool(pool)
+      setPool2Assets(
+        (p2 || []).filter((row) => Number(row.currentPool1At ?? row.expectedTokens ?? 0) > 0),
+      )
+      setAssetPrices(prices)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load trades')
     } finally {
@@ -193,8 +241,17 @@ export default function HospitalAdminMarketplace() {
       const investedAmount = buyPrice * quantity
       const currentValue = form.currentValue ? asNumber(form.currentValue) : buyPrice
 
-      if (!poolLoading && investedAmount > atPool.availablePkr) {
-        setError(`Insufficient pooled AT. Available: ${formatAT(atPool.availablePkr)}, required: ${formatAT(investedAmount)}.`)
+      if (allocationsList.length === 0) {
+        setError('Select at least one Pool 2 asset and allocate AT for the trade.')
+        return
+      }
+      const selectedPkr = totalAllocatedAt * tokenPricePerPkr
+      if (selectedPkr + 0.01 < investedAmount) {
+        setError(
+          `Allocated AT (${totalAllocatedAt.toLocaleString()} AT = PKR ${selectedPkr.toLocaleString()}) ` +
+            `is less than the trade's investment amount (PKR ${investedAmount.toLocaleString()}). ` +
+            `Either increase per-patient AT or lower the buy price.`,
+        )
         return
       }
 
@@ -216,6 +273,7 @@ export default function HospitalAdminMarketplace() {
         low: buyPrice,
         closingPrice: buyPrice,
         notes: '',
+        selections: allocationsList,
       })
 
       toast({
@@ -223,6 +281,7 @@ export default function HospitalAdminMarketplace() {
         description: `${form.assetName} has been logged as active trade.`,
       })
       setForm(initialForm)
+      setAllocations({})
       await loadMarketplaceData()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add trade')
@@ -274,9 +333,9 @@ export default function HospitalAdminMarketplace() {
   }
 
   const handleCloseTrade = async (trade: MarketplaceTrade) => {
-    const exitPerUnit = asNumber(exitValueByTrade[trade.id])
-    if (exitPerUnit <= 0) {
-      setError('Enter a valid per-unit sell/exit value before closing.')
+    const exitTotal = asNumber(exitValueByTrade[trade.id])
+    if (exitTotal < 0 || !Number.isFinite(exitTotal)) {
+      setError('Enter a valid total close value (PKR) before closing.')
       return
     }
 
@@ -284,8 +343,7 @@ export default function HospitalAdminMarketplace() {
       setSaving(true)
       setError('')
       await marketplaceService.closeTrade(trade.id, {
-        currentValue: exitPerUnit,
-        exitValue: exitPerUnit,
+        exitValue: exitTotal,
       })
 
       toast({
@@ -297,6 +355,30 @@ export default function HospitalAdminMarketplace() {
       setError(err instanceof Error ? err.message : 'Failed to close trade')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleToggleParticipants = async (tradeId: string) => {
+    if (expandedTradeId === tradeId) {
+      setExpandedTradeId(null)
+      return
+    }
+    setExpandedTradeId(tradeId)
+    if (participantsByTrade[tradeId]) {
+      return
+    }
+    setParticipantsLoading((p) => ({ ...p, [tradeId]: true }))
+    setParticipantsError((p) => ({ ...p, [tradeId]: '' }))
+    try {
+      const data = await marketplaceService.getTradeParticipants(tradeId)
+      setParticipantsByTrade((p) => ({ ...p, [tradeId]: data }))
+    } catch (err) {
+      setParticipantsError((p) => ({
+        ...p,
+        [tradeId]: err instanceof Error ? err.message : 'Failed to load participants',
+      }))
+    } finally {
+      setParticipantsLoading((p) => ({ ...p, [tradeId]: false }))
     }
   }
 
@@ -326,6 +408,78 @@ export default function HospitalAdminMarketplace() {
           <div className="space-y-2"><Label>Buy Price (PKR)</Label><Input type="number" value={form.buyPrice} onChange={(e) => setForm((p) => ({ ...p, buyPrice: e.target.value }))} /><p className="text-xs text-slate-500">Display: {formatAT(asNumber(form.buyPrice))}</p></div>
           <div className="space-y-2"><Label>Quantity</Label><Input type="number" value={form.quantity} onChange={(e) => setForm((p) => ({ ...p, quantity: e.target.value }))} /></div>
           <div className="space-y-2"><Label>Current Value Per Unit (PKR, Optional)</Label><Input type="number" value={form.currentValue} onChange={(e) => setForm((p) => ({ ...p, currentValue: e.target.value }))} /><p className="text-xs text-slate-500">Per unit: {formatAT(asNumber(form.currentValue))}</p><p className="text-xs text-slate-500">Total: {formatAT(asNumber(form.currentValue) * asNumber(form.quantity))}</p></div>
+          <div className="md:col-span-3 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">Allocate AT from Pool 2</p>
+                <p className="text-xs text-slate-500">
+                  Pick which patient assets fund this trade. Only these patients share the P/L when it settles.
+                </p>
+              </div>
+              <div className="text-right text-xs">
+                <p className="text-slate-500">Allocated</p>
+                <p className="font-semibold text-emerald-700">
+                  {totalAllocatedAt.toLocaleString()} AT · PKR {totalAllocatedPkr.toLocaleString()}
+                </p>
+                <p className="text-slate-500">
+                  Required: PKR {(asNumber(form.buyPrice) * asNumber(form.quantity)).toLocaleString()}
+                </p>
+              </div>
+            </div>
+            {pool2Assets.length === 0 ? (
+              <p className="text-sm text-rose-700">
+                No assets in Pool 2. Move some from Pool 1 (Pool Management) before creating a trade.
+              </p>
+            ) : (
+              <div className="space-y-2 max-h-72 overflow-auto">
+                {pool2Assets.map((a) => {
+                  const remaining = Number(a.currentPool1At ?? a.expectedTokens ?? 0)
+                  const value = Number(allocations[a.assetId] ?? '')
+                  return (
+                    <div
+                      key={a.assetId}
+                      className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-slate-900 truncate">
+                          {a.patientName}{' '}
+                          <span className="font-mono text-xs text-slate-500">#{a.assetId.slice(0, 8)}</span>
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {a.assetType} · {remaining.toLocaleString()} AT in Pool 2
+                        </p>
+                      </div>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={remaining}
+                        value={allocations[a.assetId] ?? ''}
+                        onChange={(e) =>
+                          setAllocations((prev) => ({ ...prev, [a.assetId]: e.target.value }))
+                        }
+                        placeholder="AT to use"
+                        className="w-32"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          setAllocations((prev) => ({ ...prev, [a.assetId]: String(remaining) }))
+                        }
+                        className="text-xs"
+                      >
+                        Max
+                      </Button>
+                      {value > remaining && (
+                        <span className="text-xs text-rose-700">Exceeds remaining</span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
           <div className="md:col-span-3 space-y-2">
             <Button disabled={saving || poolLoading} onClick={handleAddTrade} className="bg-emerald-600 hover:bg-emerald-700">Add Trade</Button>
             <p className="text-xs text-slate-500">Pool available for new trades: {poolLoading ? 'Loading...' : formatAT(atPool.availablePkr)}</p>
@@ -366,6 +520,113 @@ export default function HospitalAdminMarketplace() {
                     <div><p className="text-xs uppercase tracking-wide text-slate-500">Realized P&amp;L</p><p className={`mt-1 font-semibold ${asNumber(trade.realizedPnl) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{asNumber(trade.realizedPnl) >= 0 ? '+' : '-'}{formatATCompact(Math.abs(asNumber(trade.realizedPnl)))}</p></div>
                   </div>
 
+                  <div className="mt-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleToggleParticipants(trade.id)}
+                      className="text-slate-700 hover:text-slate-900 px-2"
+                    >
+                      <Users className="h-4 w-4 mr-2" />
+                      {expandedTradeId === trade.id ? 'Hide participants' : 'View participants'}
+                      {expandedTradeId === trade.id
+                        ? <ChevronUp className="h-4 w-4 ml-1" />
+                        : <ChevronDown className="h-4 w-4 ml-1" />}
+                    </Button>
+
+                    {expandedTradeId === trade.id && (
+                      <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                        {participantsLoading[trade.id] && (
+                          <p className="text-sm text-slate-500">Loading participants...</p>
+                        )}
+                        {participantsError[trade.id] && (
+                          <p className="text-sm text-rose-700">{participantsError[trade.id]}</p>
+                        )}
+                        {!participantsLoading[trade.id] && !participantsError[trade.id] && (() => {
+                          const rows = participantsByTrade[trade.id] || []
+                          if (rows.length === 0) {
+                            return <p className="text-sm text-slate-500">No participants recorded for this trade.</p>
+                          }
+                          const totalAt = rows.reduce((sum, r) => sum + asNumber(r.atAllocated), 0)
+                          const totalPkr = rows.reduce((sum, r) => sum + asNumber(r.atMonetaryValuePkr), 0)
+                          return (
+                            <div className="space-y-3">
+                              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
+                                <p className="font-semibold text-slate-900">
+                                  {rows.length} {rows.length === 1 ? 'patient funded' : 'patients funded'} this trade
+                                </p>
+                                <p>
+                                  Total AT used: <span className="font-semibold text-emerald-700">{totalAt.toLocaleString(undefined, { maximumFractionDigits: 2 })} AT</span>
+                                  {' · '}
+                                  {formatPKR(totalPkr)}
+                                </p>
+                              </div>
+                              <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
+                                <table className="min-w-full text-sm">
+                                  <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
+                                    <tr>
+                                      <th className="px-3 py-2 text-left font-medium">Patient</th>
+                                      <th className="px-3 py-2 text-left font-medium">Asset</th>
+                                      <th className="px-3 py-2 text-right font-medium">AT Used</th>
+                                      <th className="px-3 py-2 text-right font-medium">PKR Value</th>
+                                      <th className="px-3 py-2 text-right font-medium">% of Trade</th>
+                                      <th className="px-3 py-2 text-left font-medium">Status</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {rows.map((r) => {
+                                      const at = asNumber(r.atAllocated)
+                                      const pkr = asNumber(r.atMonetaryValuePkr)
+                                      const share = totalAt > 0 ? (at / totalAt) * 100 : 0
+                                      return (
+                                        <tr key={r.participationId} className="border-t border-slate-200">
+                                          <td className="px-3 py-2">
+                                            <p className="font-medium text-slate-900">{r.patientName || 'Unknown patient'}</p>
+                                            <p className="text-xs text-slate-500 font-mono">
+                                              {r.patientRegistrationId
+                                                ? `Reg ${r.patientRegistrationId}`
+                                                : `#${r.patientId.slice(0, 8)}`}
+                                            </p>
+                                          </td>
+                                          <td className="px-3 py-2">
+                                            <p className="text-slate-900">{r.assetType || 'Unknown'}</p>
+                                            <p className="text-xs text-slate-500 font-mono">#{r.assetId.slice(0, 8)}</p>
+                                          </td>
+                                          <td className="px-3 py-2 text-right font-semibold text-emerald-700">
+                                            {at.toLocaleString(undefined, { maximumFractionDigits: 2 })} AT
+                                          </td>
+                                          <td className="px-3 py-2 text-right text-slate-700">
+                                            {formatPKR(pkr)}
+                                          </td>
+                                          <td className="px-3 py-2 text-right text-slate-700">
+                                            {share.toFixed(2)}%
+                                          </td>
+                                          <td className="px-3 py-2">
+                                            <Badge
+                                              className={
+                                                r.participationStatus === 'ACTIVE'
+                                                  ? 'bg-emerald-600 hover:bg-emerald-600'
+                                                  : r.participationStatus === 'SETTLED'
+                                                  ? 'bg-slate-700 hover:bg-slate-700'
+                                                  : 'bg-amber-600 hover:bg-amber-600'
+                                              }
+                                            >
+                                              {r.participationStatus || 'UNKNOWN'}
+                                            </Badge>
+                                          </td>
+                                        </tr>
+                                      )
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          )
+                        })()}
+                      </div>
+                    )}
+                  </div>
+
                   {trade.status === 'OPEN' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div className="flex items-end gap-2">
@@ -385,15 +646,15 @@ export default function HospitalAdminMarketplace() {
 
                       <div className="flex items-end gap-2">
                         <div className="flex-1 space-y-2">
-                          <Label>Sell / Exit Value Per Unit (PKR)</Label>
+                          <Label>Sell / Exit Total Value (PKR)</Label>
                           <Input
                             type="number"
                             value={exitValueByTrade[trade.id] ?? ''}
                             onChange={(e) => setExitValueByTrade((p) => ({ ...p, [trade.id]: e.target.value }))}
-                            placeholder="Enter per-unit exit value"
+                            placeholder="Enter total PKR the trade closed at"
                           />
-                          <p className="text-xs text-slate-500">Per unit: {formatAT(asNumber(exitValueByTrade[trade.id]))}</p>
-                          <p className="text-xs text-slate-500">Total close value: {formatAT(asNumber(exitValueByTrade[trade.id]) * asNumber(trade.quantity))}</p>
+                          <p className="text-xs text-slate-500">Total close value: {formatAT(asNumber(exitValueByTrade[trade.id]))}</p>
+                          <p className="text-xs text-slate-500">Per unit: {asNumber(trade.quantity) > 0 ? formatAT(asNumber(exitValueByTrade[trade.id]) / asNumber(trade.quantity)) : '—'}</p>
                         </div>
                         <Button disabled={saving} variant="outline" className="border-rose-200 text-rose-600 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700" onClick={() => handleCloseTrade(trade)}>Close Trade</Button>
                       </div>

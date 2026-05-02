@@ -230,6 +230,22 @@ public class AssetDepositController {
         }
     }
 
+    /** Hospital admin lists all assets sitting in Pool 2 (released to Trading Pool). */
+    @GetMapping("/hospital/pool2")
+    public ResponseEntity<?> getHospitalPool2(Authentication authentication) {
+        try {
+            if (authentication == null || authentication.getName() == null) {
+                return ResponseEntity.status(401).body(error("Unauthorized"));
+            }
+            List<AssetDepositDto> data = assetDepositService.getHospitalPool2(authentication.getName());
+            return ResponseEntity.ok(success("Pool 2 loaded", data));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(error(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(error("Error loading Pool 2: " + e.getMessage()));
+        }
+    }
+
     /** Hospital admin lists all deposits sitting in Pool 1 (eligible to move to Pool 2). */
     @GetMapping("/hospital/pool1")
     public ResponseEntity<?> getHospitalPool1(Authentication authentication) {

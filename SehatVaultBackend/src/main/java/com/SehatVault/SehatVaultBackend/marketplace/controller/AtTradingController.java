@@ -27,6 +27,12 @@ public class AtTradingController {
     @Autowired
     private TokenPriceService tokenPriceService;
 
+    @Autowired
+    private com.SehatVault.SehatVaultBackend.auth.repository.UserRepository userRepository;
+
+    @Autowired
+    private com.SehatVault.SehatVaultBackend.patient.repository.PatientRepository patientRepository;
+
     /**
      * Get patient's AT status summary
      */
@@ -72,6 +78,32 @@ public class AtTradingController {
         } catch (Exception e) {
             log.error("Error fetching available AT for patient {}", patientId, e);
             return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
+     * Get the currently-authenticated patient's asset tokens (no patientId in URL).
+     * Resolves the patient row from the JWT email so the dashboard works even if the
+     * frontend's localStorage doesn't have patientId cached.
+     */
+    @GetMapping("/me/asset-tokens")
+    public ResponseEntity<ApiResponse<List<PatientAssetTokenDto>>> getMyAssetTokens(
+            org.springframework.security.core.Authentication authentication) {
+        if (authentication == null || authentication.getName() == null) {
+            return ResponseEntity.status(401).body(ApiResponse.error("Unauthorized"));
+        }
+        try {
+            var user = userRepository.findByEmail(authentication.getName())
+                    .orElseThrow(() -> new IllegalArgumentException("User not found"));
+            var patient = patientRepository.findByUserId(user.getUserId())
+                    .orElseThrow(() -> new IllegalArgumentException("Patient profile not found"));
+            List<PatientAssetTokenDto> tokens = atTradingService.getPatientAssetTokens(patient.getId());
+            return ResponseEntity.ok(ApiResponse.success("Asset tokens retrieved successfully", tokens));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error fetching asset tokens for current user", e);
+            return ResponseEntity.badRequest().body(ApiResponse.error("Failed to fetch asset tokens: " + e.getMessage()));
         }
     }
 

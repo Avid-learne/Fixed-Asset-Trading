@@ -77,7 +77,19 @@ const getAuthHeaders = (): HeadersInit => {
 }
 
 async function parseResponse<T>(response: Response, fallback: string): Promise<T> {
-  const result: ApiResponse<T> = await response.json()
+  const text = await response.text()
+  if (!text) {
+    if (response.status === 401) throw new Error('Unauthorized — please log in again.')
+    if (response.status === 403) throw new Error('Forbidden — your session may have expired.')
+    if (response.status === 404) throw new Error(`Not found (404): ${fallback} — has the backend been restarted?`)
+    throw new Error(`${fallback} (HTTP ${response.status} — empty response)`)
+  }
+  let result: ApiResponse<T>
+  try {
+    result = JSON.parse(text) as ApiResponse<T>
+  } catch {
+    throw new Error(`${fallback} (HTTP ${response.status} — non-JSON response: ${text.slice(0, 120)})`)
+  }
   if (!response.ok || !result.success) {
     throw new Error(result.message || fallback)
   }
@@ -184,6 +196,14 @@ export const depositRequestService = {
       headers: getAuthHeaders(),
     })
     return parseResponse<AssetDepositItem[]>(response, 'Failed to load Pool 1')
+  },
+
+  async getHospitalPool2(): Promise<AssetDepositItem[]> {
+    const response = await fetch(`${API_BASE}/asset-deposits/hospital/pool2`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    })
+    return parseResponse<AssetDepositItem[]>(response, 'Failed to load Pool 2')
   },
 
   async moveToTradingPool(assetId: string): Promise<AssetDepositItem> {

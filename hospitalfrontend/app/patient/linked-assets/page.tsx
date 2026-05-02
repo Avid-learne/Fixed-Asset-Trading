@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle, Clock, Lock, Unlock, Coins } from 'lucide-react'
+import { AlertCircle, Clock, Lock, Unlock, Coins, ShieldOff } from 'lucide-react'
 import { marketplaceService, PatientAssetToken } from '@/services/marketplaceService'
+import { depositRequestService } from '@/services/depositRequestService'
 
 import { formatDate, formatNumber } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
@@ -36,30 +37,98 @@ export default function LinkedAssetsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'combined' | 'tokens-only'>('combined')
+  const [optOutToggling, setOptOutToggling] = useState<string | null>(null)
+
+  const handleToggleOptOut = async (assetId: string, currentlyOptedOut: boolean) => {
+    try {
+      setOptOutToggling(assetId)
+      await depositRequestService.toggleTradingOptOut(assetId, !currentlyOptedOut)
+      setAssetTokens((prev) =>
+        prev.map((t) =>
+          String(t.assetId) === assetId ? { ...t, tradingOptOut: !currentlyOptedOut } : t,
+        ),
+      )
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to update opt-out')
+    } finally {
+      setOptOutToggling(null)
+    }
+  }
 
   const fetchAssetTokens = useCallback(async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      
-      if (!user?.patientId) {
-        throw new Error('Patient ID not available')
-      }
+    setLoading(true)
+    setError(null)
 
-      const tokens = await marketplaceService.getPatientAssetTokens(user.patientId)
-      setAssetTokens(tokens as LinkedAssetWithToken[])
+    // Attempt 1 — new /me endpoint (no patientId needed)
+    try {
+      const tokens = await marketplaceService.getMyAssetTokens()
+      if (tokens && tokens.length > 0) {
+        setAssetTokens(tokens as LinkedAssetWithToken[])
+        setLoading(false)
+        return
+      }
+    } catch (err) {
+      console.warn('[linked-assets] /me/asset-tokens failed, trying old endpoint:', err)
+    }
+
+    // Attempt 2 — old endpoint, only if localStorage has patientId
+    if (user?.patientId) {
+      try {
+        const tokens = await marketplaceService.getPatientAssetTokens(user.patientId)
+        if (tokens && tokens.length > 0) {
+          setAssetTokens(tokens as LinkedAssetWithToken[])
+          setLoading(false)
+          return
+        }
+      } catch (err) {
+        console.warn('[linked-assets] /patient/{id}/asset-tokens failed, falling back to deposits:', err)
+      }
+    }
+
+    // Attempt 3 — derive cards from /asset-deposits/mine (always works via JWT)
+    try {
+      const deposits = await depositRequestService.getMyRequests('all')
+      const cards = (deposits || []).map((d) => {
+        const expected = Number(d.expectedTokens ?? 0)
+        const status = String(d.custodyStatus || '').toLowerCase() === 'confirmed'
+          ? 'WITH_PATIENT'
+          : 'PENDING_BANK_APPROVAL'
+        return {
+          assetId: d.assetId,
+          assignmentId: d.assetId,
+          patientId: d.patientId,
+          patientName: d.patientName,
+          patientEmail: d.patientEmail,
+          hospitalId: d.hospitalId,
+          hospitalName: d.hospitalName,
+          assetType: d.assetType,
+          assetValue: Number(d.assetValue ?? 0),
+          weight: d.weight,
+          totalAtAssigned: expected,
+          availableAt: status === 'WITH_PATIENT' ? expected : 0,
+          unavailableAt: 0,
+          availabilityStatus: status,
+          tradingOptOut: false,
+          monetaryValuePkr: Number(d.assetValue ?? 0),
+          availableMonetaryValuePkr: status === 'WITH_PATIENT' ? Number(d.assetValue ?? 0) : 0,
+          unavailableMonetaryValuePkr: 0,
+          depositStatus: d.status,
+          submittedAt: d.submittedAt,
+          approvedAt: d.approvedAt,
+          assignedAt: d.custodyConfirmedAt,
+        } as unknown as LinkedAssetWithToken
+      }).filter((c) => Number(c.totalAtAssigned) > 0)
+      setAssetTokens(cards)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load asset tokens')
-      console.error('Error fetching asset tokens:', err)
+      console.error('[linked-assets] all attempts failed:', err)
     } finally {
       setLoading(false)
     }
   }, [user?.patientId])
 
   useEffect(() => {
-    console.log('LinkedAssets: user=', user)
-    console.log('LinkedAssets: patientId=', user?.patientId)
-    if (user?.patientId) {
+    if (user) {
       fetchAssetTokens()
     } else {
       setLoading(false)
@@ -357,14 +426,48 @@ export default function LinkedAssetsPage() {
 
                   {/* Pool 1 — AT minted but still with patient */}
                   {String(token.availabilityStatus) === 'WITH_PATIENT' && (
-                    <Alert className="bg-amber-50 border-amber-200">
-                      <Coins className="h-4 w-4 text-amber-600" />
-                      <AlertDescription className="text-amber-800">
-                        <strong>{formatNumber(token.totalAtAssigned)} AT</strong> are sitting in Pool 1 (Available Pool). They are
-                        idle and fully redeemable through Emergency Redemption. Monthly baseline HT and profit share
-                        will start once the hospital admin moves them into the Trading Pool.
-                      </AlertDescription>
-                    </Alert>
+                    <>
+                      <Alert className="bg-amber-50 border-amber-200">
+                        <Coins className="h-4 w-4 text-amber-600" />
+                        <AlertDescription className="text-amber-800">
+                          <strong>{formatNumber(token.totalAtAssigned)} AT</strong> are sitting in Pool 1 (Available Pool). They are
+                          idle and fully redeemable through Emergency Redemption. Monthly baseline HT and profit share
+                          will start once the hospital admin moves them into the Trading Pool.
+                        </AlertDescription>
+                      </Alert>
+
+                      <div className={`rounded-md border p-3 flex items-start justify-between gap-3 ${token.tradingOptOut ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-slate-50'}`}>
+                        <div className="flex items-start gap-2">
+                          <ShieldOff className={`h-4 w-4 mt-0.5 ${token.tradingOptOut ? 'text-rose-700' : 'text-slate-500'}`} />
+                          <div>
+                            <p className={`text-sm font-medium ${token.tradingOptOut ? 'text-rose-800' : 'text-slate-700'}`}>
+                              {token.tradingOptOut ? 'Excluded from trading' : 'Available for trading'}
+                            </p>
+                            <p className={`text-xs ${token.tradingOptOut ? 'text-rose-700' : 'text-slate-500'} mt-1`}>
+                              {token.tradingOptOut
+                                ? 'Hospital cannot move this AT into the Trading Pool while this flag is on.'
+                                : 'Turn this on if you don’t want this asset used for trading. You can flip it back anytime while it is in Pool 1.'}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={optOutToggling === String(token.assetId)}
+                          onClick={() => handleToggleOptOut(String(token.assetId), Boolean(token.tradingOptOut))}
+                          className={`shrink-0 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                            token.tradingOptOut
+                              ? 'bg-rose-600 text-white hover:bg-rose-700'
+                              : 'bg-slate-700 text-white hover:bg-slate-800'
+                          } ${optOutToggling === String(token.assetId) ? 'opacity-60 cursor-wait' : ''}`}
+                        >
+                          {optOutToggling === String(token.assetId)
+                            ? 'Saving...'
+                            : token.tradingOptOut
+                              ? 'Allow Trading'
+                              : 'Block Trading'}
+                        </button>
+                      </div>
+                    </>
                   )}
 
                   {/* Pool 2 — AT in trading pool */}
