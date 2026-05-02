@@ -74,6 +74,39 @@ const getHeaders = (): HeadersInit => {
   }
 }
 
+/**
+ * Read a fetch Response and return the parsed ApiResponse data.
+ *
+ * Defensive against a backend that sometimes returns a non-JSON body on errors
+ * (Spring's default 401/500 page, an empty 204, an HTML error page from a
+ * misconfigured proxy, etc.). Without this, every callsite would die with the
+ * cryptic "Unexpected end of JSON input" instead of showing what's wrong.
+ */
+async function parseApi<T>(res: Response, fallbackMsg: string): Promise<T> {
+  const text = await res.text()
+  let parsed: ApiResponse<T> | null = null
+  if (text) {
+    try {
+      parsed = JSON.parse(text) as ApiResponse<T>
+    } catch {
+      // Body wasn't JSON — ignore, we'll synthesise an error from status.
+    }
+  }
+  if (!res.ok) {
+    const msg = parsed?.message
+      || (text && text.length < 300 ? text : '')
+      || `${fallbackMsg} (HTTP ${res.status} ${res.statusText || ''})`.trim()
+    throw new Error(msg)
+  }
+  if (!parsed) {
+    throw new Error(`${fallbackMsg} — server returned an empty or invalid response`)
+  }
+  if (!parsed.success) {
+    throw new Error(parsed.message || fallbackMsg)
+  }
+  return parsed.data
+}
+
 const mapReq = (r: FractionalizationRequestView): FractionalizationRequestView => ({
   ...r,
   fractionalizeHtAmount: Number(r.fractionalizeHtAmount || 0),
@@ -97,23 +130,17 @@ export const fractionalizationService = {
       headers: getHeaders(),
       body: JSON.stringify(payload),
     })
-    const json: ApiResponse<FractionalizationRequestView> = await res.json()
-    if (!res.ok || !json.success) throw new Error(json.message || 'Submit failed')
-    return mapReq(json.data)
+    return mapReq(await parseApi<FractionalizationRequestView>(res, 'Submit failed'))
   },
 
   async myRequests(): Promise<FractionalizationRequestView[]> {
     const res = await fetch(`${API_URL}/requests/mine`, { headers: getHeaders() })
-    const json: ApiResponse<FractionalizationRequestView[]> = await res.json()
-    if (!res.ok || !json.success) throw new Error(json.message || 'Fetch failed')
-    return (json.data || []).map(mapReq)
+    return (await parseApi<FractionalizationRequestView[]>(res, 'Fetch failed') || []).map(mapReq)
   },
 
   async pendingForAdmin(): Promise<FractionalizationRequestView[]> {
     const res = await fetch(`${API_URL}/admin/requests/pending`, { headers: getHeaders() })
-    const json: ApiResponse<FractionalizationRequestView[]> = await res.json()
-    if (!res.ok || !json.success) throw new Error(json.message || 'Fetch failed')
-    return (json.data || []).map(mapReq)
+    return (await parseApi<FractionalizationRequestView[]>(res, 'Fetch failed') || []).map(mapReq)
   },
 
   async forwardToInsurer(requestId: string): Promise<FractionalizationRequestView> {
@@ -121,16 +148,12 @@ export const fractionalizationService = {
       method: 'POST',
       headers: getHeaders(),
     })
-    const json: ApiResponse<FractionalizationRequestView> = await res.json()
-    if (!res.ok || !json.success) throw new Error(json.message || 'Forward failed')
-    return mapReq(json.data)
+    return mapReq(await parseApi<FractionalizationRequestView>(res, 'Forward failed'))
   },
 
   async pendingForInsurer(): Promise<FractionalizationRequestView[]> {
     const res = await fetch(`${API_URL}/insurer/requests/pending`, { headers: getHeaders() })
-    const json: ApiResponse<FractionalizationRequestView[]> = await res.json()
-    if (!res.ok || !json.success) throw new Error(json.message || 'Fetch failed')
-    return (json.data || []).map(mapReq)
+    return (await parseApi<FractionalizationRequestView[]>(res, 'Fetch failed') || []).map(mapReq)
   },
 
   async approve(requestId: string, payload: AdminDecisionRequest): Promise<FractionalizationRequestView> {
@@ -139,9 +162,7 @@ export const fractionalizationService = {
       headers: getHeaders(),
       body: JSON.stringify(payload),
     })
-    const json: ApiResponse<FractionalizationRequestView> = await res.json()
-    if (!res.ok || !json.success) throw new Error(json.message || 'Approve failed')
-    return mapReq(json.data)
+    return mapReq(await parseApi<FractionalizationRequestView>(res, 'Approve failed'))
   },
 
   async reject(requestId: string, rejectionReason: string): Promise<FractionalizationRequestView> {
@@ -150,23 +171,17 @@ export const fractionalizationService = {
       headers: getHeaders(),
       body: JSON.stringify({ rejectionReason }),
     })
-    const json: ApiResponse<FractionalizationRequestView> = await res.json()
-    if (!res.ok || !json.success) throw new Error(json.message || 'Reject failed')
-    return mapReq(json.data)
+    return mapReq(await parseApi<FractionalizationRequestView>(res, 'Reject failed'))
   },
 
   async myBeneficiaryAllocations(): Promise<FractionalAllocationView[]> {
     const res = await fetch(`${API_URL}/allocations/beneficiary`, { headers: getHeaders() })
-    const json: ApiResponse<FractionalAllocationView[]> = await res.json()
-    if (!res.ok || !json.success) throw new Error(json.message || 'Fetch failed')
-    return (json.data || []).map(mapAlloc)
+    return (await parseApi<FractionalAllocationView[]>(res, 'Fetch failed') || []).map(mapAlloc)
   },
 
   async myPrimaryAllocations(): Promise<FractionalAllocationView[]> {
     const res = await fetch(`${API_URL}/allocations/primary`, { headers: getHeaders() })
-    const json: ApiResponse<FractionalAllocationView[]> = await res.json()
-    if (!res.ok || !json.success) throw new Error(json.message || 'Fetch failed')
-    return (json.data || []).map(mapAlloc)
+    return (await parseApi<FractionalAllocationView[]>(res, 'Fetch failed') || []).map(mapAlloc)
   },
 
   async redeemFromOwnProfile(allocationId: string, amount: number, reason?: string): Promise<FractionalAllocationView> {
@@ -175,9 +190,7 @@ export const fractionalizationService = {
       headers: getHeaders(),
       body: JSON.stringify({ allocationId, amount, reason }),
     })
-    const json: ApiResponse<FractionalAllocationView> = await res.json()
-    if (!res.ok || !json.success) throw new Error(json.message || 'Redeem failed')
-    return mapAlloc(json.data)
+    return mapAlloc(await parseApi<FractionalAllocationView>(res, 'Redeem failed'))
   },
 
   async redeemAtHospital(allocationId: string, amount: number, reason?: string): Promise<FractionalAllocationView> {
@@ -186,9 +199,7 @@ export const fractionalizationService = {
       headers: getHeaders(),
       body: JSON.stringify({ allocationId, amount, reason }),
     })
-    const json: ApiResponse<FractionalAllocationView> = await res.json()
-    if (!res.ok || !json.success) throw new Error(json.message || 'Redeem failed')
-    return mapAlloc(json.data)
+    return mapAlloc(await parseApi<FractionalAllocationView>(res, 'Redeem failed'))
   },
 
   async revoke(allocationId: string, reason?: string): Promise<FractionalAllocationView> {
@@ -197,8 +208,6 @@ export const fractionalizationService = {
       headers: getHeaders(),
       body: JSON.stringify({ reason }),
     })
-    const json: ApiResponse<FractionalAllocationView> = await res.json()
-    if (!res.ok || !json.success) throw new Error(json.message || 'Revoke failed')
-    return mapAlloc(json.data)
+    return mapAlloc(await parseApi<FractionalAllocationView>(res, 'Revoke failed'))
   },
 }

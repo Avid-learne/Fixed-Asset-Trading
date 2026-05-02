@@ -46,6 +46,7 @@ import {
   Activity,
   Building2,
   ShoppingCart,
+  Split,
 } from 'lucide-react'
 import { UserRole } from '@/types'
 
@@ -63,6 +64,7 @@ const patientNavItems: NavItem[] = [
   { name: 'Deposit Asset', href: '/patient/deposit', icon: Upload, roles: [UserRole.PATIENT], activeMatch: '/patient/deposit' },
   { name: 'My Wallet', href: '/patient/wallet', icon: Coins, roles: [UserRole.PATIENT], activeMatch: '/patient/wallet' },
   { name: 'Emergency Redemption', href: '/patient/emergency-redemption', icon: AlertTriangle, roles: [UserRole.PATIENT] },
+  { name: 'Fractionalization', href: '/patient/fractionalization', icon: Split, roles: [UserRole.PATIENT] },
   { name: 'Activity', href: '/patient/activity', icon: History, roles: [UserRole.PATIENT] },
   { name: 'Notifications', href: '/patient/notifications', icon: Bell, roles: [UserRole.PATIENT] },
   { name: 'Health Card', href: '/patient/health-card', icon: Users, roles: [UserRole.PATIENT] },
@@ -88,6 +90,7 @@ const hospitalAdminNavItems: NavItem[] = [
   { name: 'Pool Management', href: '/hospitaladmin/pool', icon: TrendingUp, roles: [UserRole.HOSPITAL_ADMIN] },
   { name: 'Profit Allocation', href: '/hospitaladmin/allocation', icon: Gift, roles: [UserRole.HOSPITAL_ADMIN] },
   { name: 'Emergency Redemptions', href: '/hospitaladmin/emergency-redemptions', icon: AlertTriangle, roles: [UserRole.HOSPITAL_ADMIN] },
+  { name: 'Fractionalization', href: '/hospitaladmin/fractionalization', icon: Split, roles: [UserRole.HOSPITAL_ADMIN] },
   { name: 'Subscription Plans', href: '/hospitaladmin/subscriptions', icon: Package, roles: [UserRole.HOSPITAL_ADMIN] },
   { name: 'Patient Profiles', href: '/hospitaladmin/patients', icon: Users, roles: [UserRole.HOSPITAL_ADMIN] },
   { name: 'Staff Management', href: '/hospitaladmin/staff', icon: Users, roles: [UserRole.HOSPITAL_ADMIN] },

@@ -13,8 +13,10 @@ import com.SehatVault.SehatVaultBackend.marketplace.dto.TradeDto;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.TradeParticipantDetailDto;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.UpdateTradeRequest;
 import com.SehatVault.SehatVaultBackend.marketplace.entity.MarketplaceTrade;
+import com.SehatVault.SehatVaultBackend.marketplace.entity.TradeAtSettlement;
 import com.SehatVault.SehatVaultBackend.marketplace.entity.TradeParticipation;
 import com.SehatVault.SehatVaultBackend.marketplace.repository.MarketplaceTradeRepository;
+import com.SehatVault.SehatVaultBackend.marketplace.repository.TradeAtSettlementRepository;
 import com.SehatVault.SehatVaultBackend.marketplace.repository.TradeParticipationRepository;
 import com.SehatVault.SehatVaultBackend.wallet.service.TokenPriceService;
 import com.SehatVault.SehatVaultBackend.patient.entity.Patient;
@@ -52,6 +54,7 @@ public class MarketplaceService {
     private final TradeParticipationRepository tradeParticipationRepository;
     private final UserRepository userRepository;
     private final AssetDepositRepository assetDepositRepository;
+    private final TradeAtSettlementRepository tradeAtSettlementRepository;
 
     public List<TradeDto> getTradesByHospital(UUID hospitalId) {
         return marketplaceTradeRepository.findByHospitalIdOrderByStartTimeDesc(hospitalId)
@@ -68,9 +71,8 @@ public class MarketplaceService {
     }
 
     public List<TradeParticipantDetailDto> getTradeParticipants(UUID tradeId) {
-        if (!marketplaceTradeRepository.existsById(tradeId)) {
-            throw new IllegalArgumentException("Trade not found");
-        }
+        MarketplaceTrade trade = marketplaceTradeRepository.findById(tradeId)
+                .orElseThrow(() -> new IllegalArgumentException("Trade not found"));
 
         List<TradeParticipation> participations = tradeParticipationRepository.findByTradeId(tradeId);
         if (participations.isEmpty()) {
@@ -95,12 +97,67 @@ public class MarketplaceService {
         Map<UUID, AssetDeposit> assetsById = assetDepositRepository.findAllById(assetIds).stream()
                 .collect(Collectors.toMap(AssetDeposit::getAssetId, a -> a));
 
+        // For SETTLED participations, participation.atAllocated is the post-loss amount.
+        // Pre-trade allocation comes from (1) the TradeAtSettlement record if present,
+        // or (2) trade-level back-computation if the record is missing (legacy bug where
+        // trade_at_settlements.trade_id had a UNIQUE constraint that blocked second+
+        // participation INSERTs on multi-user trades).
+        BigDecimal atPrice = tokenPriceService.getAtPricePkr();
+
+        // Trade-level loss ratio for the back-compute fallback. Only meaningful on a loss.
+        BigDecimal tradeInvested = trade.getAmountInvested() == null
+                ? BigDecimal.ZERO : trade.getAmountInvested();
+        BigDecimal tradeProfitLoss = trade.getProfitLoss() == null
+                ? BigDecimal.ZERO : trade.getProfitLoss();
+        BigDecimal tradeLossRatio = tradeInvested.compareTo(BigDecimal.ZERO) > 0 && tradeProfitLoss.signum() < 0
+                ? tradeProfitLoss.negate().divide(tradeInvested, 10, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+
         return participations.stream().map(p -> {
             Patient patient = patientsById.get(p.getPatientId());
             User user = patient != null && patient.getUserId() != null
                     ? usersById.get(patient.getUserId())
                     : null;
             AssetDeposit asset = assetsById.get(p.getAssetId());
+
+            BigDecimal currentAt = p.getAtAllocated() == null ? BigDecimal.ZERO : p.getAtAllocated();
+            BigDecimal originalAt = tradeAtSettlementRepository
+                    .findByParticipationId(p.getParticipationId())
+                    .map(s -> {
+                        BigDecimal stored = s.getOriginalAtAllocated();
+                        BigDecimal returned = s.getAtReturnedAvailable();
+                        BigDecimal pl = s.getTradeProfitLoss();
+                        // Legacy recovery: settlement rows written before the originalAt
+                        // snapshot fix have stored == returned even on a loss. Back-compute
+                        // the true original from: original = returned − pl/atPrice.
+                        if (stored != null && returned != null && pl != null
+                                && pl.signum() < 0
+                                && stored.compareTo(returned) == 0
+                                && atPrice.signum() > 0) {
+                            return returned.subtract(pl.divide(atPrice, 8, RoundingMode.HALF_UP))
+                                    .setScale(2, RoundingMode.HALF_UP);
+                        }
+                        return stored;
+                    })
+                    .orElseGet(() -> {
+                        // No settlement record. If the participation is SETTLED on a losing trade,
+                        // the proportional shrink was applied — back-compute from the trade-level
+                        // loss ratio: original = currentAt / (1 − lossRatio). For ACTIVE
+                        // participations and break-even/profit trades, the current value already
+                        // equals the original.
+                        boolean isSettled = p.getParticipationStatus() == TradeParticipation.ParticipationStatus.SETTLED;
+                        if (isSettled && tradeLossRatio.signum() > 0) {
+                            BigDecimal denom = BigDecimal.ONE.subtract(tradeLossRatio);
+                            if (denom.signum() > 0) {
+                                return currentAt.divide(denom, 8, RoundingMode.HALF_UP)
+                                        .setScale(2, RoundingMode.HALF_UP);
+                            }
+                        }
+                        return currentAt;
+                    });
+            BigDecimal originalPkr = originalAt == null
+                    ? null
+                    : originalAt.multiply(atPrice).setScale(2, RoundingMode.HALF_UP);
 
             return TradeParticipantDetailDto.builder()
                     .participationId(p.getParticipationId())
@@ -112,6 +169,8 @@ public class MarketplaceService {
                     .assetValue(asset != null ? asset.getAssetValue() : null)
                     .atAllocated(p.getAtAllocated())
                     .atMonetaryValuePkr(p.getAtMonetaryValuePkr())
+                    .originalAtAllocated(originalAt)
+                    .originalAtMonetaryValuePkr(originalPkr)
                     .participationStatus(p.getParticipationStatus() == null
                             ? null
                             : p.getParticipationStatus().name())

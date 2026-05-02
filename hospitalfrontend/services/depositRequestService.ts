@@ -66,6 +66,13 @@ export type AssetDepositItem = {
   currentPool1At?: number
   /** Current PKR backing value of remaining Pool 1 AT (= currentPool1At * AT price). */
   currentPool1ValuePkr?: number
+  /** Mirrors PatientAtAssignment.availabilityStatus on the Pool 2 endpoint:
+   *  AVAILABLE = sitting in Pool 2 free to fund a new trade,
+   *  UNAVAILABLE = already locked into a live trade. */
+  availabilityStatus?: 'WITH_PATIENT' | 'AVAILABLE' | 'UNAVAILABLE'
+  /** True iff the patient blocked this asset from trading. Pool Management UI uses
+   *  this to disable the "Move to Trading Pool" button. */
+  tradingOptOut?: boolean
 }
 
 const getAuthHeaders = (): HeadersInit => {
@@ -212,5 +219,23 @@ export const depositRequestService = {
       headers: getAuthHeaders(),
     })
     return parseResponse<AssetDepositItem>(response, 'Failed to move AT to Trading Pool')
+  },
+
+  /** Patient flips the trading-opt-out flag on their own asset. While true, the asset
+   *  cannot be moved to Pool 2 and won't be selected for any new trade. If currently
+   *  locked in a live trade, it returns to Pool 1 on settlement and stays there. */
+  async toggleTradingOptOut(
+    assetId: string,
+    optOut: boolean,
+  ): Promise<{ assetId: string; tradingOptOut: boolean; availabilityStatus: string }> {
+    const response = await fetch(`${API_BASE}/asset-deposits/${assetId}/trading-opt-out`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ optOut }),
+    })
+    return parseResponse<{ assetId: string; tradingOptOut: boolean; availabilityStatus: string }>(
+      response,
+      optOut ? 'Failed to block trading' : 'Failed to allow trading',
+    )
   },
 }

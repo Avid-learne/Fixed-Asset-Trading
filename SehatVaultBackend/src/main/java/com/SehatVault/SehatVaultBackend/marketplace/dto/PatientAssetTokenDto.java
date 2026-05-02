@@ -37,6 +37,12 @@ public class PatientAssetTokenDto {
     private String availabilityStatus;
     private LocalDateTime assignedAt;
 
+    /** True iff the patient has opted this asset out of trading. While true, the asset
+     *  cannot be moved into Pool 2 and will not be selected for any new trade — even if
+     *  it is currently locked in a live trade, it returns to Pool 1 only when that trade
+     *  closes and stays there until the patient flips this flag back. */
+    private Boolean tradingOptOut;
+
     // Convenience fields
     private BigDecimal monetaryValuePkr;
     private BigDecimal availableMonetaryValuePkr;

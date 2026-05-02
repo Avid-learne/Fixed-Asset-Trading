@@ -30,6 +30,11 @@ public class TradeParticipantDetailDto {
     private BigDecimal assetValue;
     private BigDecimal atAllocated;
     private BigDecimal atMonetaryValuePkr;
+    /** Pre-trade allocation. For SETTLED participations this is the amount locked at trade start
+     *  (read from the TradeAtSettlement record). For ACTIVE participations it equals atAllocated. */
+    private BigDecimal originalAtAllocated;
+    /** Pre-trade monetary value = originalAtAllocated × AT price at trade start. */
+    private BigDecimal originalAtMonetaryValuePkr;
     private String participationStatus;
     private LocalDateTime tradeStartTime;
     private LocalDateTime tradeEndTime;

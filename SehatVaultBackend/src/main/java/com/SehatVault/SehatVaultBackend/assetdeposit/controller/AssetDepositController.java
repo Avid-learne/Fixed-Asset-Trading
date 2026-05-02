@@ -246,6 +246,33 @@ public class AssetDepositController {
         }
     }
 
+    /** Patient flips their asset's "blocked from trading" flag. While true, the asset
+     *  cannot be moved to Pool 2 and will not be selected for any new trade. If the
+     *  asset is currently locked in a live trade, it returns to Pool 1 when that trade
+     *  closes and stays there until the patient flips this back. */
+    @PostMapping("/{assetId}/trading-opt-out")
+    public ResponseEntity<?> toggleTradingOptOut(
+            Authentication authentication,
+            @PathVariable UUID assetId,
+            @RequestBody Map<String, Object> body) {
+        try {
+            if (authentication == null || authentication.getName() == null) {
+                return ResponseEntity.status(401).body(error("Unauthorized"));
+            }
+            Object optOutRaw = body == null ? null : body.get("optOut");
+            if (!(optOutRaw instanceof Boolean optOut)) {
+                return ResponseEntity.badRequest().body(error("Body must contain boolean 'optOut'"));
+            }
+            Map<String, Object> data = assetDepositService
+                    .setTradingOptOut(authentication.getName(), assetId, optOut);
+            return ResponseEntity.ok(success(optOut ? "Asset blocked from trading" : "Asset cleared for trading", data));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(error(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(error("Error updating opt-out: " + e.getMessage()));
+        }
+    }
+
     /** Hospital admin lists all deposits sitting in Pool 1 (eligible to move to Pool 2). */
     @GetMapping("/hospital/pool1")
     public ResponseEntity<?> getHospitalPool1(Authentication authentication) {

@@ -24,6 +24,12 @@ public class ProfitDistribution {
     @Column(name = "hospital_id", nullable = false)
     private UUID hospitalId;
 
+    /** The marketplace trade this distribution is for. Nullable for legacy/lump-sum
+     *  distributions written before per-trade was introduced. A trade is considered
+     *  "already distributed" iff a row exists with this column set. */
+    @Column(name = "trade_id")
+    private UUID tradeId;
+
     @Column(name = "total_profit", nullable = false)
     private BigDecimal totalProfit;
 
@@ -44,6 +50,16 @@ public class ProfitDistribution {
 
     @Column(name = "bank_loan_funds")
     private BigDecimal bankLoanFunds = BigDecimal.ZERO;
+
+    /** AT credited to the hospital from this distribution (no burn). Cumulative
+     *  hospital AT profit balance is computed by summing this column. */
+    @Column(name = "hospital_at_credited")
+    private BigDecimal hospitalAtCredited = BigDecimal.ZERO;
+
+    /** AT credited to the bank from this distribution (no burn). Cumulative
+     *  bank AT profit balance is computed by summing this column. */
+    @Column(name = "bank_at_credited")
+    private BigDecimal bankAtCredited = BigDecimal.ZERO;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { AlertCircle, Clock, Lock, Unlock, Coins, ShieldOff } from 'lucide-react'
 import { marketplaceService, PatientAssetToken } from '@/services/marketplaceService'
 import { depositRequestService } from '@/services/depositRequestService'
+import { dashboardService, type AssetPrices } from '@/services/dashboardService'
 
 import { formatDate, formatNumber } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
@@ -38,6 +39,18 @@ export default function LinkedAssetsPage() {
   const [error, setError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'combined' | 'tokens-only'>('combined')
   const [optOutToggling, setOptOutToggling] = useState<string | null>(null)
+  const [assetPrices, setAssetPrices] = useState<AssetPrices | null>(null)
+
+  // Live AT/PKR rate from the DB (TokenPriceService). Falls back to 100 — the backend's
+  // own default — so per-token PKR figures here always agree with what marketplace and
+  // pool views display.
+  const tokenPricePerPkr = assetPrices?.tokenPricePerPkr && assetPrices.tokenPricePerPkr > 0
+    ? assetPrices.tokenPricePerPkr
+    : 100
+
+  useEffect(() => {
+    dashboardService.getAssetPrices().then(setAssetPrices).catch(() => setAssetPrices(null))
+  }, [])
 
   const handleToggleOptOut = async (assetId: string, currentlyOptedOut: boolean) => {
     try {
@@ -135,13 +148,22 @@ export default function LinkedAssetsPage() {
     }
   }, [user, fetchAssetTokens])
 
-  const getTotalAvailableAt = () => 
+  const getTotalAvailableAt = () =>
     assetTokens.reduce((sum, token) => sum + Number(token.availableAt || 0), 0)
 
   const getTotalUnavailableAt = () => getTotalAt() - getTotalAvailableAt()
 
-  const getTotalAt = () => 
+  const getTotalAt = () =>
     assetTokens.reduce((sum, token) => sum + Number(token.totalAtAssigned || 0), 0)
+
+  // Prefer the per-token PKR fields the backend already returns (computed with the live
+  // AT price). Fall back to local conversion only if the field is missing.
+  const getTotalMonetaryValuePkr = () =>
+    assetTokens.reduce((sum, token) => {
+      const pkr = Number(token.monetaryValuePkr ?? 0)
+      if (pkr > 0) return sum + pkr
+      return sum + Number(token.totalAtAssigned || 0) * tokenPricePerPkr
+    }, 0)
 
   const renderAvailabilityBadge = (status: 'WITH_PATIENT' | 'AVAILABLE' | 'UNAVAILABLE' | 'PENDING_BANK_APPROVAL' | string) => {
     if (status === 'PENDING_BANK_APPROVAL') {
@@ -230,9 +252,9 @@ export default function LinkedAssetsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-purple-600 truncate">
-              PKR {formatNumber(getTotalAt() * 10)}
+              PKR {formatNumber(getTotalMonetaryValuePkr())}
             </div>
-            <p className="text-xs text-gray-500 mt-2">1 AT = 10 PKR</p>
+            <p className="text-xs text-gray-500 mt-2">1 AT = {tokenPricePerPkr} PKR</p>
           </CardContent>
         </Card>
       </div>
@@ -365,7 +387,11 @@ export default function LinkedAssetsPage() {
                       <div>
                         <p className="text-xs text-gray-600">In Trade Value</p>
                         <p className="text-lg font-bold text-orange-600">
-                          {formatNumber((Number(token.totalAtAssigned || 0) - Number(token.availableAt || 0)) * 10)}
+                          {formatNumber(
+                            Number(token.unavailableMonetaryValuePkr ?? 0) > 0
+                              ? Number(token.unavailableMonetaryValuePkr)
+                              : (Number(token.totalAtAssigned || 0) - Number(token.availableAt || 0)) * tokenPricePerPkr,
+                          )}
                         </p>
                       </div>
                     </div>

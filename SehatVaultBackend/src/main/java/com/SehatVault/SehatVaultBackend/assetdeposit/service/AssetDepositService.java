@@ -228,6 +228,39 @@ public class AssetDepositService {
                 .toList();
     }
 
+    /**
+     * Patient flips the trading-opt-out flag on their own asset. Two cases are handled
+     * implicitly by the flag's downstream readers:
+     *   • Asset currently sitting idle in Pool 1 or Pool 2 (AVAILABLE)
+     *     → MarketplaceService.createTrade refuses to include it.
+     *     → AtTradingService.releaseForTrading refuses to move Pool 1 → Pool 2.
+     *   • Asset currently locked in a live trade (UNAVAILABLE)
+     *     → settlement returns it to Pool 1 as usual; the flag prevents any
+     *       subsequent trade selection until the patient clears it.
+     */
+    @Transactional
+    public java.util.Map<String, Object> setTradingOptOut(String email, UUID assetId, boolean optOut) {
+        User user = requireUser(email);
+        requireRole(user, Role.RoleType.patient, "Only patients can change trading opt-out");
+
+        Patient patient = patientRepository.findByUserId(user.getUserId())
+                .orElseThrow(() -> new IllegalArgumentException("Patient profile not found"));
+
+        var assignment = patientAtAssignmentRepository
+                .findByPatientIdAndAssetId(patient.getId(), assetId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "No AT assignment for this asset — nothing to opt out"));
+
+        assignment.setTradingOptOut(optOut);
+        patientAtAssignmentRepository.save(assignment);
+
+        java.util.Map<String, Object> data = new java.util.HashMap<>();
+        data.put("assetId", assetId);
+        data.put("tradingOptOut", optOut);
+        data.put("availabilityStatus", assignment.getAvailabilityStatus().name());
+        return data;
+    }
+
     @Transactional
     public AssetDepositDto approveRequest(String email, UUID assetId, UUID bankId) {
         User admin = requireUser(email);
@@ -703,12 +736,16 @@ public class AssetDepositService {
                     User pu = userRepository.findById(p.getUserId()).orElseThrow();
                     AssetDepositDto dto = toDto(d, p, pu, hospital);
                     // Override expected/current with the live assignment counters so the UI reflects redemptions.
-                    BigDecimal currentAt = patientAtAssignmentRepository
-                            .findByPatientIdAndAssetId(p.getId(), d.getAssetId())
+                    var assignmentOpt = patientAtAssignmentRepository
+                            .findByPatientIdAndAssetId(p.getId(), d.getAssetId());
+                    BigDecimal currentAt = assignmentOpt
                             .map(a -> nzNum(a.getTotalAtAssigned()))
                             .orElse(BigDecimal.ZERO);
                     dto.setCurrentPool1At(currentAt);
                     dto.setCurrentPool1ValuePkr(currentAt.multiply(tokenPriceService.getAtPricePkr()));
+                    dto.setTradingOptOut(assignmentOpt
+                            .map(a -> Boolean.TRUE.equals(a.getTradingOptOut()))
+                            .orElse(Boolean.FALSE));
                     return dto;
                 })
                 .toList();
@@ -753,6 +790,8 @@ public class AssetDepositService {
                     BigDecimal currentAt = nzNum(assignment.getTotalAtAssigned());
                     dto.setCurrentPool1At(currentAt); // reuse the field as "current AT in pool"
                     dto.setCurrentPool1ValuePkr(currentAt.multiply(tokenPriceService.getAtPricePkr()));
+                    dto.setAvailabilityStatus(status.name());
+                    dto.setTradingOptOut(Boolean.TRUE.equals(assignment.getTradingOptOut()));
                     return dto;
                 })
                 .filter(java.util.Objects::nonNull)

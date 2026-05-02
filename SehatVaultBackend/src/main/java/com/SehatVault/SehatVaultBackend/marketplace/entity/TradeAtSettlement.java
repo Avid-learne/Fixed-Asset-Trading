@@ -29,10 +29,12 @@ public class TradeAtSettlement {
     @Column(name = "settlement_id")
     private UUID settlementId;
 
-    @Column(name = "trade_id", nullable = false, unique = true)
+    // NOT unique — multi-participant trades have one settlement row per participation.
+    // The legacy unique constraint on this column is dropped at startup by SettlementSchemaFixer.
+    @Column(name = "trade_id", nullable = false)
     private UUID tradeId;
 
-    @Column(name = "participation_id", nullable = false)
+    @Column(name = "participation_id", nullable = false, unique = true)
     private UUID participationId;
 
     @Column(name = "patient_id", nullable = false)

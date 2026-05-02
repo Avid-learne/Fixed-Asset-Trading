@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ArrowRightCircle, Coins, Loader2, RefreshCw, Search, TrendingUp } from 'lucide-react'
+import { ArrowRightCircle, Coins, Loader2, RefreshCw, Search, TrendingUp, ShieldOff } from 'lucide-react'
 import { depositRequestService, type AssetDepositItem } from '@/services/depositRequestService'
 
 const toNumber = (value: number | string | undefined | null) => Number(value || 0)
@@ -19,9 +19,12 @@ export default function HospitalPoolManagementPage() {
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
 
-  const load = async () => {
+  // showSpinner=true on the initial load and on the manual Refresh button — for the
+  // background polling we update silently so the table doesn't flash a spinner every
+  // tick while the admin is reading it.
+  const load = async (showSpinner = true) => {
     try {
-      setLoading(true)
+      if (showSpinner) setLoading(true)
       setError('')
       const [p1, p2] = await Promise.all([
         depositRequestService.getHospitalPool1(),
@@ -30,14 +33,30 @@ export default function HospitalPoolManagementPage() {
       setPool1(p1)
       setPool2(p2)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load pools')
+      // Background refreshes shouldn't paint a red banner if the network blips —
+      // surface errors only on user-initiated loads.
+      if (showSpinner) {
+        setError(err instanceof Error ? err.message : 'Failed to load pools')
+      }
     } finally {
-      setLoading(false)
+      if (showSpinner) setLoading(false)
     }
   }
 
   useEffect(() => {
     load()
+    // Silent refresh every 10s. Keeps the pool tables in sync with patient opt-out
+    // changes, custody confirmations, and trade settlements without forcing the
+    // admin to click Refresh.
+    const id = window.setInterval(() => load(false), 10000)
+    // Refresh immediately when the tab regains focus — covers admins coming back
+    // from another tab where they just performed an action.
+    const onFocus = () => load(false)
+    window.addEventListener('focus', onFocus)
+    return () => {
+      window.clearInterval(id)
+      window.removeEventListener('focus', onFocus)
+    }
   }, [])
 
   const filtered = useMemo(() => {
@@ -210,19 +229,35 @@ export default function HospitalPoolManagementPage() {
                           : '-'}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          className="bg-emerald-600 hover:bg-emerald-700"
-                          disabled={actionLoadingId === row.assetId}
-                          onClick={() => moveToPool2(row)}
-                        >
-                          {actionLoadingId === row.assetId ? (
-                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                          ) : (
-                            <ArrowRightCircle className="h-4 w-4 mr-1" />
-                          )}
-                          Move to Trading Pool
-                        </Button>
+                        {row.tradingOptOut ? (
+                          <div className="inline-flex flex-col items-end gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled
+                              className="border-rose-200 text-rose-600 cursor-not-allowed"
+                              title="Patient has blocked this asset from trading"
+                            >
+                              <ShieldOff className="h-4 w-4 mr-1" />
+                              Blocked by patient
+                            </Button>
+                            <p className="text-[10px] text-rose-700">Re-enable from patient side</p>
+                          </div>
+                        ) : (
+                          <Button
+                            size="sm"
+                            className="bg-emerald-600 hover:bg-emerald-700"
+                            disabled={actionLoadingId === row.assetId}
+                            onClick={() => moveToPool2(row)}
+                          >
+                            {actionLoadingId === row.assetId ? (
+                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                            ) : (
+                              <ArrowRightCircle className="h-4 w-4 mr-1" />
+                            )}
+                            Move to Trading Pool
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))

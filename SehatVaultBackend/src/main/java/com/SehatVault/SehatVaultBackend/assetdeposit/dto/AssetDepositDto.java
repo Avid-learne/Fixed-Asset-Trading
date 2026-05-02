@@ -25,6 +25,13 @@ public class AssetDepositDto {
     private BigDecimal currentPool1At;
     /** Current PKR backing value of the AT remaining in Pool 1 = currentPool1At * AT price. */
     private BigDecimal currentPool1ValuePkr;
+    /** Mirrors PatientAtAssignment.availabilityStatus (WITH_PATIENT / AVAILABLE / UNAVAILABLE).
+     *  The trade-creation picker uses this to exclude UNAVAILABLE (already locked in a live trade). */
+    private String availabilityStatus;
+    /** True iff the patient has blocked this asset from trading. Pool Management UI uses
+     *  this to disable the "Move to Trading Pool" button so the admin sees the blocker
+     *  instead of clicking and getting a backend error. */
+    private Boolean tradingOptOut;
     private String status;
     private String bankApprovalStatus;
     private LocalDateTime submittedAt;

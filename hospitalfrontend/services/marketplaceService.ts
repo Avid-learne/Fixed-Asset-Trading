@@ -65,6 +65,9 @@ export interface PatientAssetToken {
   availableAt: number
   unavailableAt: number
   availabilityStatus: 'WITH_PATIENT' | 'AVAILABLE' | 'UNAVAILABLE' | 'PENDING_BANK_APPROVAL'
+  /** True iff the patient has blocked this asset from trading. The hospital admin
+   *  cannot move it into Pool 2 and it won't be selected for any new trade. */
+  tradingOptOut?: boolean
   monetaryValuePkr: number
   availableMonetaryValuePkr: number
   unavailableMonetaryValuePkr: number
@@ -165,6 +168,10 @@ export interface TradeParticipantDetail {
   assetValue?: number
   atAllocated: number
   atMonetaryValuePkr: number
+  /** Pre-trade allocation (locked at trade start). Equals atAllocated for ACTIVE participations. */
+  originalAtAllocated?: number
+  /** Pre-trade monetary value in PKR (= originalAtAllocated × AT price). */
+  originalAtMonetaryValuePkr?: number
   participationStatus?: 'ACTIVE' | 'SETTLED' | 'WITHDRAWN'
   tradeStartTime?: string
   tradeEndTime?: string
@@ -180,6 +187,8 @@ interface BackendTradeParticipantDetail {
   assetValue?: number | string
   atAllocated?: number | string
   atMonetaryValuePkr?: number | string
+  originalAtAllocated?: number | string
+  originalAtMonetaryValuePkr?: number | string
   participationStatus?: 'ACTIVE' | 'SETTLED' | 'WITHDRAWN'
   tradeStartTime?: string
   tradeEndTime?: string
@@ -396,6 +405,14 @@ export const marketplaceService = {
       assetValue: p.assetValue === undefined || p.assetValue === null ? undefined : Number(p.assetValue),
       atAllocated: Number(p.atAllocated || 0),
       atMonetaryValuePkr: Number(p.atMonetaryValuePkr || 0),
+      originalAtAllocated:
+        p.originalAtAllocated === undefined || p.originalAtAllocated === null
+          ? undefined
+          : Number(p.originalAtAllocated),
+      originalAtMonetaryValuePkr:
+        p.originalAtMonetaryValuePkr === undefined || p.originalAtMonetaryValuePkr === null
+          ? undefined
+          : Number(p.originalAtMonetaryValuePkr),
       participationStatus: p.participationStatus,
       tradeStartTime: p.tradeStartTime,
       tradeEndTime: p.tradeEndTime,
@@ -492,6 +509,7 @@ export const marketplaceService = {
       availableAt: Number(token.availableAt || 0),
       unavailableAt: Number(token.unavailableAt || 0),
       availabilityStatus: token.availabilityStatus as 'WITH_PATIENT' | 'AVAILABLE' | 'UNAVAILABLE' | 'PENDING_BANK_APPROVAL',
+      tradingOptOut: Boolean(token.tradingOptOut),
       monetaryValuePkr: Number(token.monetaryValuePkr || 0),
       availableMonetaryValuePkr: Number(token.availableMonetaryValuePkr || 0),
       unavailableMonetaryValuePkr: Number(token.unavailableMonetaryValuePkr || 0),

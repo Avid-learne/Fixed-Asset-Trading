@@ -8,7 +8,9 @@ import com.SehatVault.SehatVaultBackend.marketplace.repository.*;
 import com.SehatVault.SehatVaultBackend.wallet.service.TokenPriceService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -61,6 +63,14 @@ public class AtTradingService {
 
         @Autowired
         private HospitalAtPoolEntryRepository hospitalAtPoolEntryRepository;
+
+        // Self-proxy reference: needed so per-participation @Transactional(REQUIRES_NEW) actually
+        // takes effect when called from within this service. Direct `this.` calls bypass Spring AOP
+        // and would re-use the outer transaction, which is exactly the bug that left multi-participant
+        // settles all-or-nothing.
+        @Lazy
+        @Autowired
+        private AtTradingService self;
 
         /**
          * Initialize AT assignment when patient deposits assets — DEFAULT into Pool 2.
@@ -123,6 +133,9 @@ public class AtTradingService {
 
                 if (assignment.getAvailabilityStatus() != PatientAtAssignment.AvailabilityStatus.WITH_PATIENT) {
                         throw new RuntimeException("AT is already in the Trading Pool or in an active trade");
+                }
+                if (Boolean.TRUE.equals(assignment.getTradingOptOut())) {
+                        throw new RuntimeException("Patient has blocked this asset from trading; cannot move to Pool 2");
                 }
 
                 assignment.setAvailabilityStatus(PatientAtAssignment.AvailabilityStatus.AVAILABLE);
@@ -310,14 +323,17 @@ public class AtTradingService {
         }
 
         /**
-         * Settle trade and return AT to patient
-         * - Calculate profit/loss
-         * - Issue HT based on profit
-         * - Mark AT as available again
-         * - Process any pending withdrawal requests
+         * Settle trade and return AT to patients.
+         *
+         * Per-participation work runs in its own REQUIRES_NEW transaction (via the self proxy),
+         * so a failure on one patient's settlement no longer rolls back the others — the bug
+         * that left multi-participant trades stuck in Pool 2.
+         *
+         * Loss distribution: shares are proportional to atAllocated (biggest allocation =
+         * biggest share of loss). The last participant absorbs any rounding remainder so the
+         * sum of per-patient losses equals the trade's total loss exactly.
          */
-        // REQUIRES_NEW so a settlement failure can't poison an outer transaction (e.g. closeTrade).
-        @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+        // No outer @Transactional — each participation owns its own transaction.
         public TradeAtSettlement settleTrade(UUID tradeId, BigDecimal profitLoss) {
                 log.info("Settling trade {} with profit/loss {}", tradeId, profitLoss);
 
@@ -329,7 +345,6 @@ public class AtTradingService {
                         return null;
                 }
 
-                // Total AT locked across all participants — used to share P/L proportionally.
                 BigDecimal totalAllocatedAt = participations.stream()
                                 .map(TradeParticipation::getAtAllocated)
                                 .map(v -> v == null ? BigDecimal.ZERO : v)
@@ -337,98 +352,188 @@ public class AtTradingService {
 
                 BigDecimal pl = profitLoss == null ? BigDecimal.ZERO : profitLoss;
 
-                for (TradeParticipation participation : participations) {
-                        settleTradeParticipation(tradeId, participation, pl, totalAllocatedAt);
+                int succeeded = 0;
+                int failed = 0;
+                BigDecimal cumulativeShare = BigDecimal.ZERO;
+
+                for (int i = 0; i < participations.size(); i++) {
+                        TradeParticipation p = participations.get(i);
+                        boolean isLast = i == participations.size() - 1;
+
+                        BigDecimal share;
+                        if (totalAllocatedAt.compareTo(BigDecimal.ZERO) <= 0) {
+                                share = BigDecimal.ZERO;
+                        } else if (isLast) {
+                                // Last participant absorbs the rounding remainder so the sum of shares
+                                // equals the trade's total P/L exactly.
+                                share = pl.subtract(cumulativeShare).setScale(SCALE, RoundingMode.HALF_UP);
+                        } else {
+                                BigDecimal allocated = p.getAtAllocated() == null ? BigDecimal.ZERO : p.getAtAllocated();
+                                share = pl.multiply(allocated)
+                                                .divide(totalAllocatedAt, 10, RoundingMode.HALF_UP)
+                                                .setScale(SCALE, RoundingMode.HALF_UP);
+                                cumulativeShare = cumulativeShare.add(share);
+                        }
+
+                        // Capture pre-shrink amounts BEFORE release runs — we need these to write
+                        // the settlement record's "originalAtAllocated" correctly. Once release
+                        // commits, participation.atAllocated holds the post-loss value.
+                        BigDecimal originalAtSnapshot = p.getAtAllocated() == null
+                                        ? BigDecimal.ZERO : p.getAtAllocated();
+
+                        // Step 1 (CRITICAL, own committed transaction): release the asset back to
+                        // Pool 1 with the loss applied. If this succeeds, the patient's asset is
+                        // out of Pool 2 even if every later side-effect blows up.
+                        boolean released = false;
+                        try {
+                                self.releaseParticipationToPool1(p.getParticipationId(), share);
+                                released = true;
+                        } catch (Exception ex) {
+                                log.error("Critical release failed for participation {} of trade {}: {} — falling back to force-release",
+                                                p.getParticipationId(), tradeId, ex.getMessage(), ex);
+                                try {
+                                        self.forceReleaseStuckParticipation(p.getParticipationId());
+                                        released = true;
+                                } catch (Exception ex2) {
+                                        failed++;
+                                        log.error("Force-release also failed for participation {}: {}",
+                                                        p.getParticipationId(), ex2.getMessage(), ex2);
+                                }
+                        }
+
+                        // Step 2 (BEST-EFFORT, own committed transaction): settlement record, HT,
+                        // wallet balance, hospital pool entry burn, withdrawal processing. If any
+                        // of this throws it ONLY rolls back its own bookkeeping — the asset is
+                        // already back in Pool 1 from step 1.
+                        if (released) {
+                                try {
+                                        self.recordParticipationSettlement(tradeId, p.getParticipationId(), share, originalAtSnapshot);
+                                        succeeded++;
+                                } catch (Exception ex) {
+                                        log.warn("Side-effects failed for participation {} of trade {} (asset is in Pool 1): {}",
+                                                        p.getParticipationId(), tradeId, ex.getMessage(), ex);
+                                        succeeded++;
+                                }
+                        }
                 }
 
-                log.info("Trade {} settlement completed", tradeId);
+                // Defensive cleanup: any participation still ACTIVE means the proportional settle
+                // threw above. We can't redo the math safely, but we MUST unstick the asset so it
+                // doesn't sit forever in Pool 2 (UNAVAILABLE). Force-flip the assignment back to
+                // WITH_PATIENT and mark the participation SETTLED — without changing AT amounts.
+                List<TradeParticipation> stillActive = tradeParticipationRepository
+                                .findActiveParticipationsByTradeId(tradeId);
+                for (TradeParticipation p : stillActive) {
+                        try {
+                                self.forceReleaseStuckParticipation(p.getParticipationId());
+                                log.warn("Force-released stuck participation {} of trade {} (assignment returned to Pool 1 without P/L applied)",
+                                                p.getParticipationId(), tradeId);
+                        } catch (Exception ex) {
+                                log.error("Force-release failed for participation {} of trade {}: {}",
+                                                p.getParticipationId(), tradeId, ex.getMessage(), ex);
+                        }
+                }
+
+                log.info("Trade {} settlement: {} succeeded, {} failed, {} force-released (out of {} participations)",
+                                tradeId, succeeded, failed, stillActive.size(), participations.size());
                 return null;
         }
 
         /**
-         * Settle individual trade participation
+         * Last-resort recovery: an ACTIVE participation whose proportional settlement failed.
+         * Marks it SETTLED and flips its assignment back to WITH_PATIENT so the asset is no
+         * longer stuck in Pool 2. AT amounts are NOT changed — the patient gets back exactly
+         * what was locked. Use only when {@link #releaseParticipationToPool1} threw.
          */
-        @Transactional
-        private TradeAtSettlement settleTradeParticipation(UUID tradeId, TradeParticipation participation,
-                        BigDecimal profitLoss, BigDecimal totalAllocatedAt) {
-                log.info("Settling participation {} for patient {}", participation.getParticipationId(),
-                                participation.getPatientId());
+        @Transactional(propagation = Propagation.REQUIRES_NEW)
+        public void forceReleaseStuckParticipation(UUID participationId) {
+                TradeParticipation participation = tradeParticipationRepository.findById(participationId)
+                                .orElseThrow(() -> new RuntimeException("Participation not found: " + participationId));
 
-                List<MonthlyHtDistribution> monthlyDistributions = monthlyHtDistributionRepository
-                                .findByParticipationId(participation.getParticipationId());
-
-                BigDecimal totalMonthlyHt = monthlyDistributions.stream()
-                                .map(MonthlyHtDistribution::getCalculatedHtAmount)
-                                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-                // Proportional P/L = total profitLoss × (this participant's AT / total AT in trade).
-                // Guards against divide-by-zero when totalAllocatedAt is 0 (no participants funded).
-                BigDecimal participationProfitLoss;
-                if (totalAllocatedAt == null || totalAllocatedAt.compareTo(BigDecimal.ZERO) <= 0) {
-                        participationProfitLoss = BigDecimal.ZERO;
-                } else {
-                        participationProfitLoss = profitLoss
-                                        .multiply(participation.getAtAllocated())
-                                        .divide(totalAllocatedAt, SCALE, RoundingMode.HALF_UP);
+                if (participation.getParticipationStatus() != TradeParticipation.ParticipationStatus.ACTIVE) {
+                        return;
                 }
 
-                BigDecimal profitHtIssued = calculateProfitHt(participationProfitLoss);
+                BigDecimal lockedAt = participation.getAtAllocated() == null
+                                ? BigDecimal.ZERO : participation.getAtAllocated();
 
-                // Profit percentage relative to this participant's monetary value, guarded against zero.
-                BigDecimal monetaryValue = participation.getAtMonetaryValuePkr() == null
+                participation.setParticipationStatus(TradeParticipation.ParticipationStatus.SETTLED);
+                participation.setTradeEndTime(LocalDateTime.now());
+                tradeParticipationRepository.save(participation);
+
+                if (participation.getAssignmentId() == null) {
+                        return;
+                }
+                patientAtAssignmentRepository.findById(participation.getAssignmentId()).ifPresent(assignment -> {
+                        BigDecimal currUnavailable = assignment.getUnavailableAt() == null
+                                        ? BigDecimal.ZERO : assignment.getUnavailableAt();
+                        BigDecimal currAvailable = assignment.getAvailableAt() == null
+                                        ? BigDecimal.ZERO : assignment.getAvailableAt();
+                        // Move the locked AT from unavailable → available without applying any P/L,
+                        // then return the asset to Pool 1.
+                        assignment.setUnavailableAt(currUnavailable.subtract(lockedAt).max(BigDecimal.ZERO));
+                        assignment.setAvailableAt(currAvailable.add(lockedAt));
+                        assignment.setAvailabilityStatus(PatientAtAssignment.AvailabilityStatus.WITH_PATIENT);
+                        patientAtAssignmentRepository.save(assignment);
+                });
+        }
+
+        /**
+         * STEP 1 (CRITICAL): Move the patient's AT back to Pool 1 with the loss applied,
+         * and mark the participation SETTLED. Runs in its own committed transaction so a
+         * failure later (settlement record, HT, wallet) cannot undo this.
+         *
+         * After this method commits, the patient's asset is OUT of Pool 2 — which is the
+         * single most important invariant for a multi-user trade close.
+         *
+         * Caller must use the proxied {@code self} reference for REQUIRES_NEW to take effect.
+         */
+        @Transactional(propagation = Propagation.REQUIRES_NEW)
+        public void releaseParticipationToPool1(UUID participationId, BigDecimal participationProfitLoss) {
+                TradeParticipation participation = tradeParticipationRepository.findById(participationId)
+                                .orElseThrow(() -> new RuntimeException("Participation not found: " + participationId));
+
+                if (participation.getParticipationStatus() != TradeParticipation.ParticipationStatus.ACTIVE) {
+                        log.info("Participation {} already settled, skipping release", participationId);
+                        return;
+                }
+
+                BigDecimal originalAt = participation.getAtAllocated() == null
+                                ? BigDecimal.ZERO : participation.getAtAllocated();
+                BigDecimal originalValuePkr = participation.getAtMonetaryValuePkr() == null
                                 ? BigDecimal.ZERO : participation.getAtMonetaryValuePkr();
-                BigDecimal profitPercentage = monetaryValue.compareTo(BigDecimal.ZERO) > 0
-                                ? participationProfitLoss.divide(monetaryValue, SCALE, RoundingMode.HALF_UP)
-                                : BigDecimal.ZERO;
 
-                // Settlement rules (per spec):
-                //   • Loss  → AT shrinks proportionally; the reduced amount returns to Pool 1.
-                //   • Profit → AT returns to Pool 1 unchanged. Profit value is captured by
-                //     ProfitAllocationService.calculateAvailableProfit and the hospital admin
-                //     distributes it to participants as HT via the Profit Allocation page.
-                PatientAtAssignment assignment = patientAtAssignmentRepository.findById(participation.getAssignmentId())
-                                .orElseThrow(() -> new RuntimeException("Assignment not found"));
-
-                BigDecimal originalAt = participation.getAtAllocated();
-                BigDecimal originalValuePkr = participation.getAtMonetaryValuePkr();
                 BigDecimal adjustedAt;
-                BigDecimal profitRatio;
-                if (participationProfitLoss.compareTo(BigDecimal.ZERO) < 0) {
-                        // Loss — AT returned scales with the trade's closing value:
-                        //   adjustedAt = originalAt × (close PKR / start PKR)
-                        // Equivalent to (originalValuePkr + participationProfitLoss) / atPrice.
-                        profitRatio = originalValuePkr.compareTo(BigDecimal.ZERO) > 0
-                                        ? participationProfitLoss.divide(originalValuePkr, 8, RoundingMode.HALF_UP)
-                                        : BigDecimal.ZERO;
+                if (participationProfitLoss.compareTo(BigDecimal.ZERO) < 0
+                                && originalValuePkr.compareTo(BigDecimal.ZERO) > 0) {
+                        // Loss: scale AT down by (1 + profitRatio). adjustedAt = originalAt × (close/start).
+                        BigDecimal profitRatio = participationProfitLoss.divide(originalValuePkr, 8, RoundingMode.HALF_UP);
                         adjustedAt = originalAt.add(originalAt.multiply(profitRatio))
-                                        .setScale(2, RoundingMode.HALF_UP);
+                                        .setScale(SCALE, RoundingMode.HALF_UP);
                         if (adjustedAt.compareTo(BigDecimal.ZERO) < 0) adjustedAt = BigDecimal.ZERO;
                 } else {
-                        // Break-even or profit — AT unchanged. Profit handled separately as HT.
-                        profitRatio = BigDecimal.ZERO;
+                        // Profit / break-even: AT unchanged. Profit is handled as HT separately.
                         adjustedAt = originalAt;
                 }
-                BigDecimal atDelta = adjustedAt.subtract(originalAt); // <= 0 on loss, 0 otherwise
+                BigDecimal atDelta = adjustedAt.subtract(originalAt);
 
-                TradeAtSettlement settlement = TradeAtSettlement.builder()
-                                .tradeId(tradeId)
-                                .participationId(participation.getParticipationId())
-                                .patientId(participation.getPatientId())
-                                .originalAtAllocated(originalAt)
-                                .tradeProfitLoss(participationProfitLoss)
-                                .atReturnedAvailable(adjustedAt)
-                                .profitPercentage(profitPercentage)
-                                .profitHtIssued(profitHtIssued)
-                                .totalMonthlyHtIssued(totalMonthlyHt)
-                                .tradeEndTime(LocalDateTime.now())
-                                .settledAt(LocalDateTime.now())
-                                .build();
+                // Flip assignment back to Pool 1 with the post-loss AT.
+                PatientAtAssignment assignment = patientAtAssignmentRepository.findById(participation.getAssignmentId())
+                                .orElseThrow(() -> new RuntimeException("Assignment not found: " + participation.getAssignmentId()));
+                BigDecimal currUnavailable = assignment.getUnavailableAt() == null
+                                ? BigDecimal.ZERO : assignment.getUnavailableAt();
+                BigDecimal currTotal = assignment.getTotalAtAssigned() == null
+                                ? BigDecimal.ZERO : assignment.getTotalAtAssigned();
+                BigDecimal currAvailable = assignment.getAvailableAt() == null
+                                ? BigDecimal.ZERO : assignment.getAvailableAt();
+                assignment.setUnavailableAt(currUnavailable.subtract(originalAt).max(BigDecimal.ZERO));
+                assignment.setTotalAtAssigned(currTotal.subtract(originalAt).add(adjustedAt).max(BigDecimal.ZERO));
+                assignment.setAvailableAt(currAvailable.add(adjustedAt));
+                assignment.setAvailabilityStatus(PatientAtAssignment.AvailabilityStatus.WITH_PATIENT);
+                patientAtAssignmentRepository.save(assignment);
 
-                TradeAtSettlement savedSettlement = tradeAtSettlementRepository.save(settlement);
-
-                // Update participation status. On loss, also shrink atAllocated to the
-                // post-settlement amount so downstream views (history, dashboards) reflect
-                // what actually came back rather than the pre-loss allocation.
+                // Mark participation SETTLED. On loss, shrink atAllocated to the post-loss amount
+                // so downstream views show what actually came back, not the pre-loss allocation.
                 participation.setParticipationStatus(TradeParticipation.ParticipationStatus.SETTLED);
                 participation.setTradeEndTime(LocalDateTime.now());
                 if (atDelta.signum() < 0) {
@@ -439,47 +544,114 @@ public class AtTradingService {
                 }
                 tradeParticipationRepository.save(participation);
 
-                // Subtract the original locked AT, then add back the adjusted AT into Pool 1.
-                assignment.setUnavailableAt(assignment.getUnavailableAt().subtract(originalAt));
-                assignment.setTotalAtAssigned(assignment.getTotalAtAssigned().subtract(originalAt).add(adjustedAt));
-                assignment.setAvailableAt(assignment.getAvailableAt().add(adjustedAt));
-                assignment.setAvailabilityStatus(PatientAtAssignment.AvailabilityStatus.WITH_PATIENT);
-                patientAtAssignmentRepository.save(assignment);
+                log.info("Released participation {} to Pool 1: original={} AT, adjusted={} AT (delta={})",
+                                participationId, originalAt, adjustedAt, atDelta);
+        }
 
-                // Update wallet total AT to match the new total assigned.
-                patientTokenBalanceRepository.findByPatientId(participation.getPatientId()).ifPresent(b -> {
-                        BigDecimal current = b.getTotalAt() == null ? BigDecimal.ZERO : b.getTotalAt();
-                        b.setTotalAt(current.add(atDelta).max(BigDecimal.ZERO));
-                        b.setLastUpdated(LocalDateTime.now());
-                        patientTokenBalanceRepository.save(b);
-                });
+        /**
+         * STEP 2 (BEST-EFFORT): Bookkeeping after the asset is already back in Pool 1.
+         * Records the settlement, updates wallet balance, burns the hospital pool entry,
+         * processes pending withdrawals. Each side-effect is wrapped — a failure of one
+         * MUST NOT prevent the others from running, because the asset return is already
+         * committed by {@link #releaseParticipationToPool1}.
+         */
+        @Transactional(propagation = Propagation.REQUIRES_NEW)
+        public TradeAtSettlement recordParticipationSettlement(UUID tradeId, UUID participationId,
+                        BigDecimal participationProfitLoss, BigDecimal originalAtBeforeRelease) {
+                TradeParticipation participation = tradeParticipationRepository.findById(participationId)
+                                .orElseThrow(() -> new RuntimeException("Participation not found: " + participationId));
 
-                // Burn the AT from the hospital trading pool entry — it's no longer in Pool 2.
-                hospitalAtPoolEntryRepository
-                                .findByHospitalIdAndPatientIdAndAssetId(
-                                                assignment.getHospitalId(),
-                                                participation.getPatientId(),
-                                                participation.getAssetId())
-                                .ifPresent(entry -> {
-                                        BigDecimal avail = entry.getAvailableAt() == null ? BigDecimal.ZERO : entry.getAvailableAt();
-                                        BigDecimal toBurn = avail.min(originalAt);
-                                        entry.setAvailableAt(avail.subtract(toBurn));
-                                        entry.setTotalAtBurned(
-                                                        (entry.getTotalAtBurned() == null ? BigDecimal.ZERO : entry.getTotalAtBurned())
-                                                                        .add(toBurn));
-                                        entry.setActive(entry.getAvailableAt().compareTo(BigDecimal.ZERO) > 0);
-                                        entry.setUpdatedAt(LocalDateTime.now());
-                                        hospitalAtPoolEntryRepository.save(entry);
-                                });
+                BigDecimal currentAt = participation.getAtAllocated() == null
+                                ? BigDecimal.ZERO : participation.getAtAllocated();
 
-                log.info("Settled participation {}: original={} AT, profitRatio={}, adjusted={} AT (delta={}), returned to Pool 1",
-                                participation.getParticipationId(), originalAt, profitRatio, adjustedAt, atDelta);
+                // The pre-release allocation is supplied by the caller (settleTrade captured it
+                // before releaseParticipationToPool1 shrunk participation.atAllocated). Falling
+                // back to currentAt keeps callers without the snapshot working — but the
+                // settlement record's "before" P/L will then read as zero.
+                BigDecimal originalAt = originalAtBeforeRelease == null
+                                ? currentAt : originalAtBeforeRelease;
 
-                // Process any pending withdrawal requests for this trade
-                processPendingWithdrawals(tradeId, participation.getPatientId());
+                BigDecimal atPrice = tokenPriceService.getAtPricePkr();
+                BigDecimal originalValuePkr = originalAt.multiply(atPrice).setScale(SCALE, RoundingMode.HALF_UP);
+                BigDecimal profitPercentage = originalValuePkr.compareTo(BigDecimal.ZERO) > 0
+                                ? participationProfitLoss.divide(originalValuePkr, SCALE, RoundingMode.HALF_UP)
+                                : BigDecimal.ZERO;
 
-                log.info("Trade participation settlement completed with total HT: {}",
-                                savedSettlement.getTotalHtIssued());
+                BigDecimal profitHtIssued = calculateProfitHt(participationProfitLoss);
+
+                BigDecimal totalMonthlyHt = monthlyHtDistributionRepository
+                                .findByParticipationId(participationId).stream()
+                                .map(MonthlyHtDistribution::getCalculatedHtAmount)
+                                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                TradeAtSettlement savedSettlement = null;
+                try {
+                        TradeAtSettlement settlement = TradeAtSettlement.builder()
+                                        .tradeId(tradeId)
+                                        .participationId(participationId)
+                                        .patientId(participation.getPatientId())
+                                        .originalAtAllocated(originalAt)
+                                        .tradeProfitLoss(participationProfitLoss)
+                                        .atReturnedAvailable(currentAt)
+                                        .profitPercentage(profitPercentage)
+                                        .profitHtIssued(profitHtIssued)
+                                        .totalMonthlyHtIssued(totalMonthlyHt)
+                                        .tradeEndTime(LocalDateTime.now())
+                                        .settledAt(LocalDateTime.now())
+                                        .build();
+                        savedSettlement = tradeAtSettlementRepository.save(settlement);
+                } catch (Exception ex) {
+                        log.warn("Settlement record save failed for participation {}: {}",
+                                        participationId, ex.getMessage());
+                }
+
+                // atDelta = currentAt - originalAt (≤ 0 on loss, 0 on profit/break-even).
+                final BigDecimal atDeltaFinal = currentAt.subtract(originalAt);
+
+                try {
+                        patientTokenBalanceRepository.findByPatientId(participation.getPatientId()).ifPresent(b -> {
+                                BigDecimal current = b.getTotalAt() == null ? BigDecimal.ZERO : b.getTotalAt();
+                                b.setTotalAt(current.add(atDeltaFinal).max(BigDecimal.ZERO));
+                                b.setLastUpdated(LocalDateTime.now());
+                                patientTokenBalanceRepository.save(b);
+                        });
+                } catch (Exception ex) {
+                        log.warn("Token balance update failed for participation {}: {}",
+                                        participationId, ex.getMessage());
+                }
+
+                try {
+                        UUID hospitalId = patientAtAssignmentRepository.findById(participation.getAssignmentId())
+                                        .map(PatientAtAssignment::getHospitalId).orElse(null);
+                        if (hospitalId != null) {
+                                hospitalAtPoolEntryRepository
+                                                .findByHospitalIdAndPatientIdAndAssetId(
+                                                                hospitalId,
+                                                                participation.getPatientId(),
+                                                                participation.getAssetId())
+                                                .ifPresent(entry -> {
+                                                        BigDecimal avail = entry.getAvailableAt() == null ? BigDecimal.ZERO : entry.getAvailableAt();
+                                                        BigDecimal toBurn = avail.min(currentAt);
+                                                        entry.setAvailableAt(avail.subtract(toBurn));
+                                                        entry.setTotalAtBurned(
+                                                                        (entry.getTotalAtBurned() == null ? BigDecimal.ZERO : entry.getTotalAtBurned())
+                                                                                        .add(toBurn));
+                                                        entry.setActive(entry.getAvailableAt().compareTo(BigDecimal.ZERO) > 0);
+                                                        entry.setUpdatedAt(LocalDateTime.now());
+                                                        hospitalAtPoolEntryRepository.save(entry);
+                                                });
+                        }
+                } catch (Exception ex) {
+                        log.warn("Hospital pool entry burn failed for participation {}: {}",
+                                        participationId, ex.getMessage());
+                }
+
+                try {
+                        processPendingWithdrawals(tradeId, participation.getPatientId());
+                } catch (Exception ex) {
+                        log.warn("Pending withdrawals processing failed for trade {} patient {}: {}",
+                                        tradeId, participation.getPatientId(), ex.getMessage());
+                }
 
                 return savedSettlement;
         }
@@ -592,6 +764,7 @@ public class AtTradingService {
                                                         .availabilityStatus(
                                                                         assignment.getAvailabilityStatus().toString())
                                                         .assignedAt(assignment.getCreatedAt())
+                                                        .tradingOptOut(Boolean.TRUE.equals(assignment.getTradingOptOut()))
                                                         .monetaryValuePkr(assignment.getTotalAtAssigned()
                                                                         .multiply(tokenPriceService.getAtPricePkr()))
                                                         .availableMonetaryValuePkr(

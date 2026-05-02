@@ -151,7 +151,9 @@ export default function HospitalAdminMarketplace() {
     resolveHospitalId()
   }, [])
 
-  const loadMarketplaceData = async () => {
+  // showSpinner=true on initial load and after admin actions; false for background polling
+  // so the table doesn't flash a loader every tick while the admin is reading it.
+  const loadMarketplaceData = async (showSpinner = true) => {
     if (!isUuid(hospitalId)) {
       setError('Hospital account link is missing or invalid. Please sign in again.')
       setLoading(false)
@@ -160,9 +162,11 @@ export default function HospitalAdminMarketplace() {
     }
 
     try {
-      setLoading(true)
-      setPoolLoading(true)
-      setError('')
+      if (showSpinner) {
+        setLoading(true)
+        setPoolLoading(true)
+      }
+      if (showSpinner) setError('')
       const [data, pool, p2, prices] = await Promise.all([
         marketplaceService.getHospitalTrades(hospitalId),
         marketplaceService.getHospitalAtPool(hospitalId),
@@ -171,20 +175,42 @@ export default function HospitalAdminMarketplace() {
       ])
       setTrades(data)
       setAtPool(pool)
+      // Only show assets that are actually free to fund a new trade. UNAVAILABLE means
+      // the asset is already locked into a live trade — picking it again would double-spend.
       setPool2Assets(
-        (p2 || []).filter((row) => Number(row.currentPool1At ?? row.expectedTokens ?? 0) > 0),
+        (p2 || []).filter(
+          (row) =>
+            Number(row.currentPool1At ?? row.expectedTokens ?? 0) > 0 &&
+            row.availabilityStatus !== 'UNAVAILABLE',
+        ),
       )
       setAssetPrices(prices)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load trades')
+      // Background refresh failures stay silent — only user-initiated loads surface errors.
+      if (showSpinner) {
+        setError(err instanceof Error ? err.message : 'Failed to load trades')
+      }
     } finally {
-      setLoading(false)
-      setPoolLoading(false)
+      if (showSpinner) {
+        setLoading(false)
+        setPoolLoading(false)
+      }
     }
   }
 
   useEffect(() => {
     loadMarketplaceData()
+    if (!isUuid(hospitalId)) return
+    // Silent refresh every 10s. Keeps trade rows, AT pool KPIs, and the Pool 2
+    // allocation picker in sync with settlements / patient opt-out / new deposits
+    // without forcing the admin to refresh manually.
+    const id = window.setInterval(() => loadMarketplaceData(false), 10000)
+    const onFocus = () => loadMarketplaceData(false)
+    window.addEventListener('focus', onFocus)
+    return () => {
+      window.clearInterval(id)
+      window.removeEventListener('focus', onFocus)
+    }
   }, [hospitalId])
 
   const portfolio = useMemo(() => {
@@ -391,8 +417,9 @@ export default function HospitalAdminMarketplace() {
 
       {error && <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card className="shadow-sm"><CardHeader className="pb-2"><CardTitle className="text-xs font-medium uppercase tracking-wide text-slate-500">AT Pool Available</CardTitle></CardHeader><CardContent><p className="text-xl font-semibold text-emerald-700">{poolLoading ? '...' : formatATCompact(atPool.availablePkr)}</p><p className="mt-1 text-xs text-slate-500">{poolLoading ? 'Loading pool' : `${atPool.patientCount} patients pooled`}</p></CardContent></Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+        <Card className="shadow-sm"><CardHeader className="pb-2"><CardTitle className="text-xs font-medium uppercase tracking-wide text-slate-500">AT in Pool 2</CardTitle></CardHeader><CardContent><p className="text-xl font-semibold text-emerald-700">{poolLoading ? '...' : formatATCompact(atPool.totalAtPoolPkr)}</p><p className="mt-1 text-xs text-slate-500">{poolLoading ? 'Loading pool' : `${atPool.patientCount} patients pooled`}</p></CardContent></Card>
+        <Card className="shadow-sm"><CardHeader className="pb-2"><CardTitle className="text-xs font-medium uppercase tracking-wide text-slate-500">AT Locked in Trades</CardTitle></CardHeader><CardContent><p className="text-xl font-semibold text-amber-600">{poolLoading ? '...' : formatATCompact(atPool.allocatedPkr)}</p><p className="mt-1 text-xs text-slate-500">{poolLoading ? 'Loading' : `${atPool.openTrades} active ${atPool.openTrades === 1 ? 'trade' : 'trades'}`}</p></CardContent></Card>
         <Card className="shadow-sm"><CardHeader className="pb-2"><CardTitle className="text-xs font-medium uppercase tracking-wide text-slate-500">Total Invested</CardTitle></CardHeader><CardContent><p className="text-xl font-semibold text-slate-900">{formatATCompact(portfolio.totalInvested)}</p><p className="mt-1 text-xs text-slate-500">{formatAT(portfolio.totalInvested)}</p></CardContent></Card>
         <Card className="shadow-sm"><CardHeader className="pb-2"><CardTitle className="text-xs font-medium uppercase tracking-wide text-slate-500">Total Current Value</CardTitle></CardHeader><CardContent><p className="text-xl font-semibold text-slate-900">{formatATCompact(portfolio.totalCurrent)}</p><p className="mt-1 text-xs text-slate-500">{formatAT(portfolio.totalCurrent)}</p></CardContent></Card>
         <Card className="shadow-sm"><CardHeader className="pb-2"><CardTitle className="text-xs font-medium uppercase tracking-wide text-slate-500">Total Realized P&amp;L</CardTitle></CardHeader><CardContent><p className={`text-xl font-semibold ${portfolio.totalRealized >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{portfolio.totalRealized >= 0 ? '+' : '-'}{formatATCompact(Math.abs(portfolio.totalRealized))}</p><p className="mt-1 text-xs text-slate-500">{formatAT(Math.abs(portfolio.totalRealized))}</p></CardContent></Card>
@@ -548,17 +575,26 @@ export default function HospitalAdminMarketplace() {
                             return <p className="text-sm text-slate-500">No participants recorded for this trade.</p>
                           }
                           const totalAt = rows.reduce((sum, r) => sum + asNumber(r.atAllocated), 0)
-                          const totalPkr = rows.reduce((sum, r) => sum + asNumber(r.atMonetaryValuePkr), 0)
+                          const totalPkrAfter = rows.reduce((sum, r) => sum + asNumber(r.atMonetaryValuePkr), 0)
+                          const totalPkrBefore = rows.reduce((sum, r) => {
+                            const before = r.originalAtMonetaryValuePkr !== undefined
+                              ? asNumber(r.originalAtMonetaryValuePkr)
+                              : asNumber(r.atMonetaryValuePkr)
+                            return sum + before
+                          }, 0)
+                          const totalPl = totalPkrAfter - totalPkrBefore
                           return (
                             <div className="space-y-3">
                               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
                                 <p className="font-semibold text-slate-900">
                                   {rows.length} {rows.length === 1 ? 'patient funded' : 'patients funded'} this trade
                                 </p>
-                                <p>
-                                  Total AT used: <span className="font-semibold text-emerald-700">{totalAt.toLocaleString(undefined, { maximumFractionDigits: 2 })} AT</span>
-                                  {' · '}
-                                  {formatPKR(totalPkr)}
+                                <p className="space-x-3">
+                                  <span>Before: <span className="font-semibold text-slate-900">{formatPKR(totalPkrBefore)}</span></span>
+                                  <span>After: <span className="font-semibold text-slate-900">{formatPKR(totalPkrAfter)}</span></span>
+                                  <span className={totalPl > 0 ? 'text-emerald-600' : totalPl < 0 ? 'text-rose-600' : 'text-slate-500'}>
+                                    P/L: <span className="font-semibold">{totalPl > 0 ? '+' : ''}{formatPKR(totalPl)}</span>
+                                  </span>
                                 </p>
                               </div>
                               <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
@@ -568,7 +604,9 @@ export default function HospitalAdminMarketplace() {
                                       <th className="px-3 py-2 text-left font-medium">Patient</th>
                                       <th className="px-3 py-2 text-left font-medium">Asset</th>
                                       <th className="px-3 py-2 text-right font-medium">AT Used</th>
-                                      <th className="px-3 py-2 text-right font-medium">PKR Value</th>
+                                      <th className="px-3 py-2 text-right font-medium">PKR Before</th>
+                                      <th className="px-3 py-2 text-right font-medium">PKR After</th>
+                                      <th className="px-3 py-2 text-right font-medium">P/L</th>
                                       <th className="px-3 py-2 text-right font-medium">% of Trade</th>
                                       <th className="px-3 py-2 text-left font-medium">Status</th>
                                     </tr>
@@ -576,7 +614,11 @@ export default function HospitalAdminMarketplace() {
                                   <tbody>
                                     {rows.map((r) => {
                                       const at = asNumber(r.atAllocated)
-                                      const pkr = asNumber(r.atMonetaryValuePkr)
+                                      const pkrAfter = asNumber(r.atMonetaryValuePkr)
+                                      const pkrBefore = r.originalAtMonetaryValuePkr !== undefined
+                                        ? asNumber(r.originalAtMonetaryValuePkr)
+                                        : pkrAfter
+                                      const pl = pkrAfter - pkrBefore
                                       const share = totalAt > 0 ? (at / totalAt) * 100 : 0
                                       return (
                                         <tr key={r.participationId} className="border-t border-slate-200">
@@ -596,7 +638,18 @@ export default function HospitalAdminMarketplace() {
                                             {at.toLocaleString(undefined, { maximumFractionDigits: 2 })} AT
                                           </td>
                                           <td className="px-3 py-2 text-right text-slate-700">
-                                            {formatPKR(pkr)}
+                                            {formatPKR(pkrBefore)}
+                                          </td>
+                                          <td className="px-3 py-2 text-right text-slate-700">
+                                            {formatPKR(pkrAfter)}
+                                          </td>
+                                          <td
+                                            className={`px-3 py-2 text-right font-medium ${
+                                              pl > 0 ? 'text-emerald-600' : pl < 0 ? 'text-rose-600' : 'text-slate-500'
+                                            }`}
+                                          >
+                                            {pl > 0 ? '+' : ''}
+                                            {formatPKR(pl)}
                                           </td>
                                           <td className="px-3 py-2 text-right text-slate-700">
                                             {share.toFixed(2)}%

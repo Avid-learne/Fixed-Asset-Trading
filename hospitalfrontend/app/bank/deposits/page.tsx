@@ -408,7 +408,7 @@ export default function BankDepositsPage() {
               ) : (
                 <ShieldCheck className="h-4 w-4 mr-1" />
               )}
-              Confirm & Mint AT
+              Confirm Deposit
             </Button>
           </DialogFooter>
         </DialogContent>

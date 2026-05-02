@@ -9,9 +9,11 @@ import com.SehatVault.SehatVaultBackend.fractionalization.dto.RevokeAllocationRe
 import com.SehatVault.SehatVaultBackend.fractionalization.service.FractionalizationService;
 import com.SehatVault.SehatVaultBackend.subscription.dto.ApiResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -26,9 +28,28 @@ import java.util.UUID;
 @RequestMapping("/api/fractionalization")
 @CrossOrigin(originPatterns = "http://localhost:*")
 @RequiredArgsConstructor
+@Slf4j
 public class FractionalizationController {
 
     private final FractionalizationService fractionalizationService;
+
+    /**
+     * Without these handlers, a service-thrown IllegalArgumentException would bubble up
+     * to Spring's default 500 page (HTML or empty body), causing the frontend's
+     * `await res.json()` to die with "Unexpected end of JSON input" — hiding the real
+     * error from the user. Always return JSON ApiResponse so the UI can show the message.
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Object>> handleBadRequest(IllegalArgumentException ex) {
+        return ResponseEntity.badRequest().body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiResponse<Object>> handleUnexpected(Exception ex) {
+        log.error("Unexpected error in FractionalizationController", ex);
+        return ResponseEntity.status(500)
+                .body(ApiResponse.error("Server error: " + ex.getMessage()));
+    }
 
     @PostMapping("/requests")
     public ResponseEntity<ApiResponse<FractionalizationRequestView>> submitRequest(
