@@ -6,7 +6,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Modal, ModalContent, ModalFooter, ModalHeader, ModalTitle, ModalClose } from '@/components/ui/Modal'
+import { FileBadge2 } from 'lucide-react'
 import { fractionalizationService, FractionalAllocationView, FractionalizationRequestView } from '@/services/fractionalizationService'
+import { NocCertificate } from '@/components/shared/NocCertificate'
 
 type BeneficiaryDraft = { beneficiaryUserId: string; fractionPercent: string }
 
@@ -23,6 +26,9 @@ export default function PatientFractionalizationPage() {
 
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+
+  // The NOC the patient is currently viewing (opened via "View NOC" button on an ACTIVE row).
+  const [viewingNoc, setViewingNoc] = useState<FractionalizationRequestView | null>(null)
 
   const totalPercent = useMemo(
     () => beneficiaries.reduce((s, b) => s + (Number(b.fractionPercent) || 0), 0),
@@ -225,6 +231,7 @@ export default function PatientFractionalizationPage() {
                   <TableHead>Source</TableHead>
                   <TableHead>HT</TableHead>
                   <TableHead>NOC</TableHead>
+                  <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -234,7 +241,15 @@ export default function PatientFractionalizationPage() {
                     <TableCell>{r.status}</TableCell>
                     <TableCell>{r.source}</TableCell>
                     <TableCell>{r.fractionalizeHtAmount}</TableCell>
-                    <TableCell>{r.nocNumber || '-'}</TableCell>
+                    <TableCell className="font-mono text-xs">{r.nocNumber || '-'}</TableCell>
+                    <TableCell>
+                      {r.status === 'ACTIVE' && r.nocNumber && (
+                        <Button size="sm" variant="outline" onClick={() => setViewingNoc(r)}>
+                          <FileBadge2 className="h-3 w-3 mr-1" />
+                          View NOC
+                        </Button>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -336,6 +351,28 @@ export default function PatientFractionalizationPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* NOC certificate viewer — opened from a "View NOC" button on an ACTIVE request row. */}
+      <Modal open={!!viewingNoc} onOpenChange={(o) => !o && setViewingNoc(null)}>
+        <ModalContent className="max-w-2xl">
+          <ModalHeader>
+            <ModalTitle className="flex items-center gap-2 text-emerald-700">
+              <FileBadge2 className="h-5 w-5" />
+              Your NOC Certificate
+            </ModalTitle>
+          </ModalHeader>
+          {viewingNoc && (
+            <div className="p-4">
+              <NocCertificate request={viewingNoc} />
+            </div>
+          )}
+          <ModalFooter>
+            <ModalClose asChild>
+              <Button variant="outline">Close</Button>
+            </ModalClose>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   )
 }

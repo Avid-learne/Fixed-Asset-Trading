@@ -126,6 +126,17 @@ export const fractionalizationService = {
     return mapReq(json.data)
   },
 
+  /** Admin approves the request directly and the backend auto-issues the NOC.
+   *  The returned request contains the auto-generated NOC number, insurer label
+   *  ("Hospital Direct Authorization"), and 1-year validity window. */
+  async adminApproveAndIssueNoc(requestId: string): Promise<FractionalizationRequestView> {
+    const res = await fetch(`${API_URL}/admin/requests/${requestId}/approve`, {
+      method: 'POST',
+      headers: getHeaders(),
+    })
+    return mapReq(await parseApi<FractionalizationRequestView>(res, 'Approve failed'))
+  },
+
   async pendingForInsurer(): Promise<FractionalizationRequestView[]> {
     const res = await fetch(`${API_URL}/insurer/requests/pending`, { headers: getHeaders() })
     const json: ApiResponse<FractionalizationRequestView[]> = await res.json()

@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Modal, ModalContent, ModalFooter, ModalHeader, ModalTitle, ModalClose } from '@/components/ui/Modal'
+import { ShieldCheck, FileBadge2 } from 'lucide-react'
 import { fractionalizationService, FractionalizationRequestView } from '@/services/fractionalizationService'
+import { NocCertificate } from '@/components/shared/NocCertificate'
 
 export default function HospitalAdminFractionalizationPage() {
   const [requests, setRequests] = useState<FractionalizationRequestView[]>([])
@@ -15,6 +17,9 @@ export default function HospitalAdminFractionalizationPage() {
   const [open, setOpen] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [rejectionReason, setRejectionReason] = useState('')
+
+  // Post-approval certificate modal — shows the NOC the backend just generated.
+  const [issuedNoc, setIssuedNoc] = useState<FractionalizationRequestView | null>(null)
 
   const load = async () => {
     setLoading(true)
@@ -37,17 +42,17 @@ export default function HospitalAdminFractionalizationPage() {
     setOpen(true)
   }
 
-  const forward = async () => {
+  const approveAndIssueNoc = async () => {
     if (!selected) return
     setProcessing(true)
     try {
-      await fractionalizationService.forwardToInsurer(selected.requestId)
+      const issued = await fractionalizationService.adminApproveAndIssueNoc(selected.requestId)
       setOpen(false)
       setSelected(null)
+      setIssuedNoc(issued)
       await load()
-      alert('Request forwarded to insurer')
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Forward failed')
+      alert(e instanceof Error ? e.message : 'Approve failed')
     } finally {
       setProcessing(false)
     }
@@ -77,13 +82,19 @@ export default function HospitalAdminFractionalizationPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Fractionalization Review</h1>
-        <p className="text-muted-foreground">Hospital admin review + insurance NOC activation.</p>
+        <p className="text-muted-foreground">
+          Hospital admin approves the request directly. The backend auto-issues the NOC certificate
+          to the patient and to all beneficiaries — no separate insurer step.
+        </p>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Pending Requests</CardTitle>
-          <CardDescription>Review eligibility, then forward the request to the insurance company for NOC issuance.</CardDescription>
+          <CardDescription>
+            Review eligibility, then approve to issue the NOC. Approval immediately deducts the
+            primary patient&apos;s HT and credits each beneficiary&apos;s allocation.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -121,6 +132,7 @@ export default function HospitalAdminFractionalizationPage() {
         </CardContent>
       </Card>
 
+      {/* Review + decide modal */}
       <Modal open={open} onOpenChange={setOpen}>
         <ModalContent className="max-w-2xl">
           <ModalHeader>
@@ -138,6 +150,14 @@ export default function HospitalAdminFractionalizationPage() {
                   <p className="text-xs text-muted-foreground">Primary User</p>
                   <p className="font-mono text-xs">{selected.primaryUserId}</p>
                 </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Source</p>
+                  <p className="text-sm font-medium">{selected.source}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">HT to fractionalize</p>
+                  <p className="text-sm font-medium">{selected.fractionalizeHtAmount} HT</p>
+                </div>
               </div>
 
               <div>
@@ -145,19 +165,44 @@ export default function HospitalAdminFractionalizationPage() {
                 <div className="space-y-1 mt-1">
                   {selected.beneficiaries.map((b) => (
                     <div key={b.beneficiaryUserId} className="text-sm">
-                      {b.beneficiaryUserId} - {b.fractionPercent}% ({b.allocatedHt} HT)
+                      <span className="font-mono text-xs">{b.beneficiaryUserId}</span>
+                      {' — '}
+                      {b.fractionPercent}% ({b.allocatedHt} HT)
                     </div>
                   ))}
                 </div>
               </div>
 
+              <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
+                <p className="font-semibold">Approving will:</p>
+                <ul className="list-disc list-inside mt-1 space-y-0.5">
+                  <li>Deduct {selected.fractionalizeHtAmount} HT from the primary patient&apos;s {selected.source.toLowerCase()} pool.</li>
+                  <li>Issue a NOC certificate (1-year validity) under &quot;Hospital Direct Authorization&quot;.</li>
+                  <li>Credit each beneficiary with their fractional HT allocation.</li>
+                </ul>
+              </div>
+
               <div className="space-y-2">
-                <Input placeholder="Rejection reason" value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} />
+                <p className="text-xs text-muted-foreground">To reject instead, enter a reason:</p>
+                <Input
+                  placeholder="Rejection reason (required only if rejecting)"
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                />
               </div>
 
               <div className="flex gap-2">
-                <Button onClick={forward} disabled={processing}>{processing ? 'Processing...' : 'Forward to Insurer'}</Button>
-                <Button variant="destructive" onClick={reject} disabled={processing}>Reject</Button>
+                <Button
+                  className="bg-emerald-600 hover:bg-emerald-700"
+                  onClick={approveAndIssueNoc}
+                  disabled={processing}
+                >
+                  <ShieldCheck className="h-4 w-4 mr-1" />
+                  {processing ? 'Issuing NOC...' : 'Approve & Issue NOC'}
+                </Button>
+                <Button variant="destructive" onClick={reject} disabled={processing}>
+                  Reject
+                </Button>
               </div>
             </div>
           )}
@@ -169,6 +214,29 @@ export default function HospitalAdminFractionalizationPage() {
           </ModalFooter>
         </ModalContent>
       </Modal>
+
+      {/* NOC certificate — shown right after a successful approval */}
+      <Modal open={!!issuedNoc} onOpenChange={(o) => !o && setIssuedNoc(null)}>
+        <ModalContent className="max-w-2xl">
+          <ModalHeader>
+            <ModalTitle className="flex items-center gap-2 text-emerald-700">
+              <FileBadge2 className="h-5 w-5" />
+              NOC Certificate Issued
+            </ModalTitle>
+          </ModalHeader>
+          {issuedNoc && (
+            <div className="p-4">
+              <NocCertificate request={issuedNoc} />
+            </div>
+          )}
+          <ModalFooter>
+            <ModalClose asChild>
+              <Button variant="outline">Done</Button>
+            </ModalClose>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   )
 }
+

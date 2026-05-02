@@ -76,6 +76,24 @@ public class FractionalizationController {
         ));
     }
 
+    /**
+     * Hospital admin directly approves a request and the backend auto-issues the NOC.
+     * Replaces the two-step admin-forwards-then-insurer-approves flow with a single click.
+     * The patient and beneficiaries see the resulting NOC certificate on their pages.
+     */
+    @PostMapping("/admin/requests/{requestId}/approve")
+    public ResponseEntity<ApiResponse<FractionalizationRequestView>> adminApproveAndIssueNoc(
+            Authentication authentication,
+            @PathVariable UUID requestId
+    ) {
+        if (authentication == null || authentication.getName() == null) {
+            return ResponseEntity.status(401).body(ApiResponse.error("Unauthorized"));
+        }
+        return ResponseEntity.ok(ApiResponse.success(
+                fractionalizationService.adminApproveAndIssueNoc(authentication.getName(), requestId)
+        ));
+    }
+
     @GetMapping("/insurer/requests/pending")
     public ResponseEntity<ApiResponse<List<FractionalizationRequestView>>> pendingForInsurer(Authentication authentication) {
         if (authentication == null || authentication.getName() == null) {

@@ -36,6 +36,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -295,6 +296,10 @@ public class FractionalizationService {
             a.setNocDocument(req.getNocDocument());
             allocationRepository.save(a);
 
+            // Same wallet credit as the admin-direct path — keeps both flows consistent.
+            Patient beneficiaryPatient = patientRepository.findById(b.getBeneficiaryPatientId()).orElse(null);
+            creditBeneficiaryHt(beneficiaryPatient, nz(b.getAllocatedHt()), request.getSource(), req.getNocNumber().trim());
+
             notificationService.notifyUser(
                     insurer.getUserId(),
                     b.getBeneficiaryUserId(),
@@ -434,6 +439,12 @@ public class FractionalizationService {
         allocation.setRemainingHt(nz(allocation.getRemainingHt()).subtract(amount));
         allocationRepository.save(allocation);
 
+        // Wallet + health card now hold the fractional HT (credited at NOC issuance), so
+        // a redemption must drain them by the same amount — otherwise the wallet balance
+        // would only ever grow.
+        Patient beneficiaryPatient = patientRepository.findByUserId(allocation.getBeneficiaryUserId()).orElse(null);
+        deductBeneficiaryHt(beneficiaryPatient, amount, allocation.getSource());
+
         UUID htTokenId = walletTransactionRepository.findTokenIdBySymbol("HT");
         if (htTokenId == null) {
             throw new IllegalStateException("HT token not configured in tokens table");
@@ -506,6 +517,11 @@ public class FractionalizationService {
 
         allocation.setRemainingHt(nz(allocation.getRemainingHt()).subtract(amount));
         allocationRepository.save(allocation);
+
+        // Drain the beneficiary's wallet + health card by the same amount — the HT was
+        // credited to them at NOC issuance, so a redemption has to take it out again.
+        Patient beneficiaryPatient = patientRepository.findByUserId(allocation.getBeneficiaryUserId()).orElse(null);
+        deductBeneficiaryHt(beneficiaryPatient, amount, allocation.getSource());
 
         UUID htTokenId = walletTransactionRepository.findTokenIdBySymbol("HT");
         if (htTokenId == null) {
@@ -759,6 +775,208 @@ public class FractionalizationService {
             tx.setTimestamp(LocalDateTime.now());
             walletTransactionRepository.save(tx);
         }
+    }
+
+    /**
+     * Credit a beneficiary's wallet (PatientTokenBalance + matching Health Card) when their
+     * fractional allocation is created. Without this, the fractional HT lives only on the
+     * allocation row — the beneficiary's dashboard and wallet would show 0.
+     *
+     * Mirrors {@link #deductPrimarySourceHt} on the deduction side: the source pool the
+     * primary lost the HT from (Subscription / Asset card) is the same card the beneficiary
+     * gets credited on, so the audit trail is consistent end-to-end.
+     */
+    private void creditBeneficiaryHt(Patient beneficiaryPatient, BigDecimal amount, String source, String nocNumber) {
+        if (beneficiaryPatient == null || amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+
+        // Health card credit on the same source-pool card as the primary's deduction.
+        String cardName = "SUBSCRIPTION".equals(source) ? "Subscription Card" : "Asset Health Card";
+        HealthCard targetCard = getOrCreateHealthCard(beneficiaryPatient.getId(), cardName);
+        targetCard.setHtBalance(nz(targetCard.getHtBalance()).add(amount));
+        healthCardRepository.save(targetCard);
+
+        // Wallet (PatientTokenBalance) credit — surfaces on the dashboard HT Balance KPI.
+        PatientTokenBalance balance = patientTokenBalanceRepository.findByPatientId(beneficiaryPatient.getId())
+                .orElseGet(() -> {
+                    PatientTokenBalance created = new PatientTokenBalance();
+                    created.setPatientId(beneficiaryPatient.getId());
+                    created.setTotalAt(BigDecimal.ZERO);
+                    created.setTotalHt(BigDecimal.ZERO);
+                    created.setLastUpdated(LocalDateTime.now());
+                    return created;
+                });
+        balance.setTotalHt(nz(balance.getTotalHt()).add(amount));
+        balance.setLastUpdated(LocalDateTime.now());
+        patientTokenBalanceRepository.save(balance);
+
+        UUID htTokenId = walletTransactionRepository.findTokenIdBySymbol("HT");
+        if (htTokenId != null) {
+            Transaction tx = new Transaction();
+            tx.setUserId(beneficiaryPatient.getUserId());
+            tx.setTokenId(htTokenId);
+            tx.setType(Transaction.TransactionType.HT_MINT);
+            tx.setAmount(amount);
+            tx.setDescription("Fractional HT received under NOC " + (nocNumber == null ? "" : nocNumber));
+            tx.setSenderWalletAddress("FRACTIONALIZATION_POOL");
+            tx.setReceiverWalletAddress(beneficiaryPatient.getWalletAddress() == null ? "" : beneficiaryPatient.getWalletAddress());
+            tx.setTransactionHash("0x" + String.format("%064x", System.currentTimeMillis()));
+            tx.setStatus("CONFIRMED");
+            tx.setTimestamp(LocalDateTime.now());
+            walletTransactionRepository.save(tx);
+        }
+    }
+
+    /**
+     * Deduct from a beneficiary's wallet when they redeem against a fractional allocation.
+     * Pairs with {@link #creditBeneficiaryHt} — the credit happens at NOC issuance, the
+     * deduct happens at each redemption, so the wallet stays in sync with allocation usage.
+     */
+    private void deductBeneficiaryHt(Patient beneficiaryPatient, BigDecimal amount, String source) {
+        if (beneficiaryPatient == null || amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+
+        String cardName = "SUBSCRIPTION".equals(source) ? "Subscription Card" : "Asset Health Card";
+        HealthCard sourceCard = getOrCreateHealthCard(beneficiaryPatient.getId(), cardName);
+        // Cap at zero — defensive against state drift (e.g. health card was never credited
+        // because this is a legacy allocation from before this fix).
+        BigDecimal newCard = nz(sourceCard.getHtBalance()).subtract(amount);
+        sourceCard.setHtBalance(newCard.signum() < 0 ? BigDecimal.ZERO : newCard);
+        healthCardRepository.save(sourceCard);
+
+        patientTokenBalanceRepository.findByPatientId(beneficiaryPatient.getId()).ifPresent(balance -> {
+            BigDecimal newWallet = nz(balance.getTotalHt()).subtract(amount);
+            balance.setTotalHt(newWallet.signum() < 0 ? BigDecimal.ZERO : newWallet);
+            balance.setLastUpdated(LocalDateTime.now());
+            patientTokenBalanceRepository.save(balance);
+        });
+    }
+
+    /**
+     * Hospital admin directly approves a fractionalization request and the system auto-issues
+     * the NOC. No separate insurer portal — the admin's "Approve" action both authorises the
+     * request and stamps it with a NOC number, default insurer label, and a 1-year validity
+     * window. After this commits, the patient and beneficiaries see the NOC certificate on
+     * their fractionalization page.
+     *
+     * Allowed from PENDING_ADMIN or PENDING_INSURER (covers the case where the admin had
+     * earlier forwarded to insurer using the legacy flow and now wants to approve directly).
+     */
+    @Transactional
+    public FractionalizationRequestView adminApproveAndIssueNoc(String adminEmail, UUID requestId) {
+        User admin = userRepository.findByEmail(adminEmail)
+                .orElseThrow(() -> new IllegalArgumentException("Admin user not found"));
+        requireHospitalAdmin(admin);
+
+        FractionalizationRequest request = requestRepository.findById(requestId)
+                .orElseThrow(() -> new IllegalArgumentException("Request not found"));
+        if (!admin.getHospitalId().equals(request.getHospitalId())) {
+            throw new IllegalArgumentException("Cannot approve a request from another hospital");
+        }
+        if (request.getStatus() == FractionalizationRequest.Status.ACTIVE) {
+            throw new IllegalArgumentException("Request is already active");
+        }
+        if (request.getStatus() == FractionalizationRequest.Status.REJECTED) {
+            throw new IllegalArgumentException("Request was rejected and cannot be approved");
+        }
+
+        // Auto-generate NOC fields. Insurer name defaults to a hospital-direct label so it
+        // is obvious this NOC was self-issued by the hospital admin (not by an external
+        // insurance company through the legacy insurer endpoint).
+        // Entity setters expect LocalDateTime, so we use LocalDateTime throughout and only
+        // drop to LocalDate for the human-readable date in the NOC number / messages.
+        LocalDateTime today = LocalDateTime.now();
+        LocalDateTime expiry = today.plusYears(1);
+        String nocNumber = generateNocNumber(admin.getHospitalId());
+        String insurerName = "Hospital Direct Authorization";
+
+        Patient primary = patientRepository.findById(request.getPrimaryPatientId())
+                .orElseThrow(() -> new IllegalArgumentException("Primary patient not found"));
+        User primaryUser = userRepository.findById(primary.getUserId())
+                .orElseThrow(() -> new IllegalArgumentException("Primary user not found"));
+
+        validatePrimaryPatientEligibility(primaryUser, primary);
+        ensurePrimaryHasSufficientSourceHt(primary, request.getFractionalizeHtAmount(), request.getSource());
+        deductPrimarySourceHt(primary, request.getFractionalizeHtAmount(), request.getSource());
+
+        List<FractionalizationBeneficiary> beneficiaries = beneficiaryRepository.findByRequestId(request.getRequestId());
+        if (beneficiaries.isEmpty()) {
+            throw new IllegalArgumentException("Request has no beneficiaries");
+        }
+
+        for (FractionalizationBeneficiary b : beneficiaries) {
+            FractionalHtAllocation a = new FractionalHtAllocation();
+            a.setRequestId(request.getRequestId());
+            a.setPrimaryPatientId(request.getPrimaryPatientId());
+            a.setPrimaryUserId(request.getPrimaryPatientUserId());
+            a.setBeneficiaryPatientId(b.getBeneficiaryPatientId());
+            a.setBeneficiaryUserId(b.getBeneficiaryUserId());
+            a.setHospitalId(request.getHospitalId());
+            a.setSource(request.getSource());
+            a.setTotalAllocatedHt(nz(b.getAllocatedHt()));
+            a.setRemainingHt(nz(b.getAllocatedHt()));
+            a.setStatus(FractionalHtAllocation.Status.ACTIVE);
+            a.setNocNumber(nocNumber);
+            a.setInsurerName(insurerName);
+            a.setNocIssuedAt(today);
+            a.setNocExpiresAt(expiry);
+            allocationRepository.save(a);
+
+            // Credit the beneficiary's wallet + matching health card so the HT actually
+            // shows up on their dashboard immediately. Without this, the allocation row
+            // exists but PatientTokenBalance.totalHt stays at 0 — which is what the user
+            // saw before this fix.
+            Patient beneficiaryPatient = patientRepository.findById(b.getBeneficiaryPatientId()).orElse(null);
+            creditBeneficiaryHt(beneficiaryPatient, nz(b.getAllocatedHt()), request.getSource(), nocNumber);
+
+            notificationService.notifyUser(
+                    admin.getUserId(),
+                    b.getBeneficiaryUserId(),
+                    "Fractional HT Allocated",
+                    "You received a fractional HT allocation under NOC " + nocNumber
+                            + " (valid until " + expiry.toLocalDate() + ")"
+            );
+        }
+
+        request.setStatus(FractionalizationRequest.Status.ACTIVE);
+        request.setNocNumber(nocNumber);
+        request.setInsurerName(insurerName);
+        request.setNocIssuedAt(today);
+        request.setNocExpiresAt(expiry);
+        request.setReviewedBy(admin.getUserId());
+        request.setReviewedAt(LocalDateTime.now());
+        request.setRejectionReason(null);
+
+        FractionalizationRequest saved = requestRepository.save(request);
+
+        notificationService.notifyUser(
+                admin.getUserId(),
+                primary.getUserId(),
+                "Fractionalization Approved — NOC Issued",
+                "Your HT fractionalization is active under NOC " + nocNumber
+                        + " (valid until " + expiry.toLocalDate() + ")"
+        );
+
+        ActivityLog activity = new ActivityLog();
+        activity.setUserId(primary.getUserId());
+        activity.setActivityName("HT Fractionalization Activated");
+        activity.setDescription("Approved and NOC " + nocNumber + " issued by hospital admin");
+        activity.setType(ActivityLog.ActivityType.ACTION);
+        activity.setStatus("SUCCESS");
+        activity.setTimestamp(LocalDateTime.now());
+        activityLogRepository.save(activity);
+
+        return mapRequestView(saved);
+    }
+
+    /** Build a NOC number unique enough for human reference: NOC-YYYYMMDD-{hosp4}-{rand4}. */
+    private String generateNocNumber(UUID hospitalId) {
+        String date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String hospShort = hospitalId.toString().substring(0, 4).toUpperCase();
+        String random = String.format("%04d", new Random().nextInt(10000));
+        return "NOC-" + date + "-" + hospShort + "-" + random;
     }
 
     private void requireHospitalAdmin(User admin) {
