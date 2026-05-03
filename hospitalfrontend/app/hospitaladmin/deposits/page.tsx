@@ -15,6 +15,21 @@ import { DocumentViewer } from '@/components/DocumentViewer'
 
 const toNumber = (value: number | string | undefined | null) => Number(value || 0)
 
+/** Pull the friendly filename out of an uploaded document value (data URL or plain string). */
+const friendlyDocumentName = (value: string | undefined | null): string => {
+  if (!value) return ''
+  const fragMatch = value.match(/#filename=([^&]+)/)
+  if (fragMatch) {
+    try {
+      return decodeURIComponent(fragMatch[1])
+    } catch {
+      return fragMatch[1]
+    }
+  }
+  if (value.startsWith('data:')) return 'Uploaded file'
+  return value.split('/').pop() || value
+}
+
 export default function DepositsPage() {
   const [rows, setRows] = useState<AssetDepositItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -118,6 +133,19 @@ export default function DepositsPage() {
       await loadRequests(statusFilter)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to approve request')
+    } finally {
+      setActionLoadingId(null)
+    }
+  }
+
+  const mintTokens = async (row: AssetDepositItem) => {
+    try {
+      setActionLoadingId(row.assetId)
+      setError('')
+      await depositRequestService.mintTokens(row.assetId)
+      await loadRequests(statusFilter)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to mint AT')
     } finally {
       setActionLoadingId(null)
     }
@@ -244,6 +272,7 @@ export default function DepositsPage() {
                 ) : (
                   filtered.map((row) => {
                     const isPending = row.status.toLowerCase() === 'pending'
+                    const isCustodyConfirmed = row.status.toLowerCase() === 'custody_confirmed'
                     return (
                       <TableRow key={row.assetId}>
                         <TableCell className="font-mono text-xs">{row.assetId.slice(0, 8)}</TableCell>
@@ -259,21 +288,21 @@ export default function DepositsPage() {
                           <div className="space-y-1 text-xs text-slate-600">
                             {row.assetReceipt ? (
                               <div className="flex items-center justify-between">
-                                <div>Receipt: {row.assetReceipt.split('/').pop()?.slice(0, 20)}</div>
+                                <div>Receipt: {friendlyDocumentName(row.assetReceipt).slice(0, 20)}</div>
                                 <button onClick={() => openDocument(row.assetReceipt, 'Asset Receipt')} className="text-sm text-primary hover:underline cursor-pointer">View</button>
                               </div>
                             ) : null}
 
                             {row.purityCertificate ? (
                               <div className="flex items-center justify-between">
-                                <div>Purity: {row.purityCertificate.split('/').pop()?.slice(0, 20)}</div>
+                                <div>Purity: {friendlyDocumentName(row.purityCertificate).slice(0, 20)}</div>
                                 <button onClick={() => openDocument(row.purityCertificate, 'Purity Certificate')} className="text-sm text-primary hover:underline cursor-pointer">View</button>
                               </div>
                             ) : null}
 
                             {row.supportingDocuments ? (
                               <div className="flex items-center justify-between">
-                                <div>Support: {row.supportingDocuments.split('/').pop()?.slice(0, 20)}</div>
+                                <div>Support: {friendlyDocumentName(row.supportingDocuments).slice(0, 20)}</div>
                                 <button onClick={() => openDocument(row.supportingDocuments, 'Supporting Document')} className="text-sm text-primary hover:underline cursor-pointer">View</button>
                               </div>
                             ) : null}
@@ -305,6 +334,16 @@ export default function DepositsPage() {
                                 Reject
                               </Button>
                             </div>
+                          ) : isCustodyConfirmed ? (
+                            <Button
+                              size="sm"
+                              className="bg-indigo-600 hover:bg-indigo-700"
+                              disabled={actionLoadingId === row.assetId}
+                              onClick={() => mintTokens(row)}
+                            >
+                              {actionLoadingId === row.assetId ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                              Mint AT
+                            </Button>
                           ) : (
                             <span className="text-xs text-slate-500">Completed</span>
                           )}

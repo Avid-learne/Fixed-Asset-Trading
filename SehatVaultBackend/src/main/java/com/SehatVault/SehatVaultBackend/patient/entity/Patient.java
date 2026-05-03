@@ -57,13 +57,14 @@ public class Patient {
     @Column(name = "kyc_rejection_reason")
     private String kycRejectionReason;
 
-    @Column(name = "kyc_document_front")
+    // TEXT — KYC images are uploaded as base64 data URLs, far longer than 255 chars.
+    @Column(name = "kyc_document_front", columnDefinition = "TEXT")
     private String kycDocumentFront;
 
-    @Column(name = "kyc_document_back")
+    @Column(name = "kyc_document_back", columnDefinition = "TEXT")
     private String kycDocumentBack;
 
-    @Column(name = "kyc_selfie")
+    @Column(name = "kyc_selfie", columnDefinition = "TEXT")
     private String kycSelfie;
 
     @Column(name = "registration_id", unique = true)

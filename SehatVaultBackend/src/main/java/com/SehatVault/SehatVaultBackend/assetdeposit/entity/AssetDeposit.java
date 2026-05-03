@@ -39,13 +39,15 @@ public class AssetDeposit {
     @Column(name = "asset_value", nullable = false)
     private BigDecimal assetValue;
 
-    @Column(name = "asset_receipt")
+    // TEXT instead of default VARCHAR(255) — receipts/certs/docs are uploaded as
+    // base64 data URLs from the patient deposit form, which easily exceeds 255 chars.
+    @Column(name = "asset_receipt", columnDefinition = "TEXT")
     private String assetReceipt;
 
-    @Column(name = "purity_certificate")
+    @Column(name = "purity_certificate", columnDefinition = "TEXT")
     private String purityCertificate;
 
-    @Column(name = "supporting_documents")
+    @Column(name = "supporting_documents", columnDefinition = "TEXT")
     private String supportingDocuments;
 
     @Column(name = "weight")

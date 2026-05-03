@@ -112,10 +112,16 @@ public class AuthService {
                     .ifPresent(hospital -> response.setHospitalName(hospital.getHospitalName()));
         }
 
-        // Set patientId if user is a patient
+        // Set patientId + wallet address if user is a patient (wallet lives on Patient row)
         if ("PATIENT".equalsIgnoreCase(role)) {
             patientRepository.findByUserId(user.getUserId())
-                    .ifPresent(patient -> response.setPatientId(patient.getId()));
+                    .ifPresent(patient -> {
+                        response.setPatientId(patient.getId());
+                        response.setWalletAddress(patient.getWalletAddress());
+                    });
+        } else {
+            // For non-patient roles wallet is stored directly on the User entity.
+            response.setWalletAddress(user.getWalletAddress());
         }
 
         return response;
@@ -281,9 +287,20 @@ public class AuthService {
             settings.setNotificationEnabled(true);
             settingsRepository.save(settings);
 
-            // Create patient record if patient signup
+            // Create patient record if patient signup (allocates wallet on Patient entity)
             if (roleType == Role.RoleType.patient) {
                 ensurePatientRecordWithWallet(savedUser, hospitalId);
+            } else {
+                // Hospital admin / hospital staff / bank staff — assign a wallet directly
+                // to the User entity from the same Hardhat pool. Best-effort: a missing
+                // pool or exhaustion logs an error but does not block signup.
+                try {
+                    String allocated = patientWalletAllocatorService.assignWalletToUser(savedUser);
+                    System.out.println("Allocated wallet " + allocated + " to user " + savedUser.getEmail());
+                } catch (Exception walletErr) {
+                    System.err.println("Wallet allocation failed for " + savedUser.getEmail()
+                            + ": " + walletErr.getMessage());
+                }
             }
 
             // Generate JWT token

@@ -39,4 +39,8 @@ public class AssetDepositDto {
     private LocalDateTime custodyConfirmedAt;
     private BigDecimal baselineHtPerMonth;
     private LocalDateTime lastBaselineHtAt;
+
+    /** Total AT actually minted for this asset so far (sum of all MintRecord rows).
+     *  0 means custody-confirmed but not yet minted by hospital admin. */
+    private BigDecimal tokensMinted;
 }

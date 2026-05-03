@@ -68,4 +68,13 @@ public class TokenContractGateway {
         );
         return blockchain.sendContractCall(props.getContracts().getHospitalFinancials(), fn);
     }
+
+    public BlockchainTxRef recordTradeOnChain(BigInteger investedAT, BigInteger profit) {
+        Function fn = new Function(
+                "recordTrade",
+                List.of(new Uint256(investedAT), new Uint256(profit)),
+                List.of()
+        );
+        return blockchain.sendContractCall(props.getContracts().getHospitalFinancials(), fn);
+    }
 }

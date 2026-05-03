@@ -553,6 +553,48 @@ public class AtTradingService {
                         patientTokenBalanceRepository.save(b);
                 });
 
+                // Mirror the AT shrink on-chain: a loss reduces the patient's AT off-chain,
+                // so the same amount is burned from the patient wallet on-chain to keep
+                // the on-chain balance consistent with the off-chain ledger.
+                if (atDelta.signum() < 0) {
+                        BigDecimal burnAmount = atDelta.abs();
+                        patientRepository.findById(participation.getPatientId()).ifPresent(p -> {
+                                if (p.getWalletAddress() == null || p.getWalletAddress().isBlank()) {
+                                        log.warn("Skipping on-chain AT burn for patient {} — wallet address missing", p.getId());
+                                        return;
+                                }
+                                try {
+                                        BlockchainTxRef burnRef = tokenContractGateway.burnAT(
+                                                        p.getWalletAddress(),
+                                                        TokenUnitConverter.toBaseUnits(burnAmount, 18)
+                                        );
+                                        log.info("Burned {} AT on-chain for patient {} after trade {} loss (tx={}, block={})",
+                                                        burnAmount, p.getId(), tradeId,
+                                                        burnRef.getTransactionHash(), burnRef.getBlockNumber());
+
+                                        UUID atTokenId = walletTransactionRepository.findTokenIdBySymbol("AT");
+                                        if (atTokenId != null) {
+                                                Transaction burnTx = new Transaction();
+                                                burnTx.setUserId(p.getUserId());
+                                                burnTx.setTokenId(atTokenId);
+                                                burnTx.setType(Transaction.TransactionType.AT_BURN);
+                                                burnTx.setAmount(burnAmount);
+                                                burnTx.setDescription("AT burned after loss on trade " + tradeId);
+                                                burnTx.setSenderWalletAddress(p.getWalletAddress());
+                                                burnTx.setReceiverWalletAddress("TRADE_LOSS_BURN");
+                                                burnTx.setTransactionHash(burnRef.getTransactionHash());
+                                                burnTx.setBlockNumber(burnRef.getBlockNumber());
+                                                burnTx.setStatus("CONFIRMED");
+                                                burnTx.setTimestamp(LocalDateTime.now());
+                                                walletTransactionRepository.save(burnTx);
+                                        }
+                                } catch (Exception ex) {
+                                        log.warn("On-chain AT burn failed for trade {} patient {}: {}",
+                                                        tradeId, p.getId(), ex.getMessage());
+                                }
+                        });
+                }
+
                 // Burn the AT from the hospital trading pool entry — it's no longer in Pool 2.
                 hospitalAtPoolEntryRepository
                                 .findByHospitalIdAndPatientIdAndAssetId(

@@ -3,8 +3,6 @@
 /* eslint-disable */
 import type * as openzeppelin from "./@openzeppelin";
 export type { openzeppelin };
-import type * as contracts from "./contracts";
-export type { contracts };
 import type * as src from "./src";
 export type { src };
 export * as factories from "./factories";
@@ -30,9 +28,9 @@ export type { IERC165 } from "./@openzeppelin/contracts/utils/introspection/IERC
 export { IERC165__factory } from "./factories/@openzeppelin/contracts/utils/introspection/IERC165__factory";
 export type { ReentrancyGuard } from "./@openzeppelin/contracts/utils/ReentrancyGuard";
 export { ReentrancyGuard__factory } from "./factories/@openzeppelin/contracts/utils/ReentrancyGuard__factory";
-export type { AssetToken } from "./contracts/AssetToken";
-export { AssetToken__factory } from "./factories/contracts/AssetToken__factory";
-export type { HealthToken } from "./contracts/HealthToken";
-export { HealthToken__factory } from "./factories/contracts/HealthToken__factory";
-export type { HospitalFinancials } from "./contracts/HospitalFinancials";
-export { HospitalFinancials__factory } from "./factories/contracts/HospitalFinancials__factory";
+export type { AssetToken } from "./src/AssetToken";
+export { AssetToken__factory } from "./factories/src/AssetToken__factory";
+export type { HealthToken } from "./src/HealthToken";
+export { HealthToken__factory } from "./factories/src/HealthToken__factory";
+export type { HospitalFinancials } from "./src/HospitalFinancials";
+export { HospitalFinancials__factory } from "./factories/src/HospitalFinancials__factory";

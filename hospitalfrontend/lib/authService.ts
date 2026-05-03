@@ -399,17 +399,22 @@ export const authService = {
   },
 
   /**
-   * Get role redirects path
+   * Get role redirects path. Accepts every shape the role string can arrive as:
+   * backend lowercase ("hospital_admin"), normalized frontend ("HospitalAdmin",
+   * "Bank_Officer", "Super_Admin"), or uppercased ("HOSPITAL_ADMIN").
    */
   getRoleRedirectPath(role: string): string {
-    const roleRedirects: { [key: string]: string } = {
-      'PATIENT': '/patient',
-      'HOSPITAL_STAFF': '/hospital',
-      'HOSPITAL_ADMIN': '/hospitaladmin',
-      'BANK_STAFF': '/bank',
-      'ADMIN': '/admin',
+    const normalized = (role || '').replace(/_/g, '').toLowerCase();
+    const map: { [key: string]: string } = {
+      patient: '/patient',
+      hospitalstaff: '/hospital',
+      hospitaladmin: '/hospitaladmin',
+      bankstaff: '/bank',
+      bankofficer: '/bank',
+      admin: '/admin',
+      superadmin: '/admin',
     };
-    return roleRedirects[role?.toUpperCase()] || '/patient';
+    return map[normalized] || '/patient';
   },
 
   /**

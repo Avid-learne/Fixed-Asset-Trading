@@ -336,67 +336,110 @@ public class AssetDepositService {
 
            BankCustodyVerification savedVerification = bankCustodyVerificationRepository.save(verification);
 
-           // Update deposit status — mark as fully custody-confirmed
+           // Update deposit status — mark as fully custody-confirmed.
+           // NOTE: AT minting is no longer done here. Bank confirms physical custody only;
+           // the hospital admin then mints AT via the /mint-tokens endpoint.
            deposit.setCustodyStatus("confirmed");
            deposit.setCustodyConfirmedAt(LocalDateTime.now());
            deposit.setCustodyConfirmedBy(bankUser.getUserId());
            deposit.setStatus("custody_confirmed");
 
-           // Get patient and hospital info
+           // Get patient and hospital info for notifications
            Patient patient = patientRepository.findById(deposit.getPatientId())
                    .orElseThrow(() -> new IllegalArgumentException("Patient not found"));
            User patientUser = userRepository.findById(patient.getUserId())
                    .orElseThrow(() -> new IllegalArgumentException("Patient user not found"));
            UUID hospitalId = patient.getHospitalId() != null ? patient.getHospitalId() : patientUser.getHospitalId();
 
-           // ---- Mint AT into Pool 1 (Available Pool) ----
-           // AT lands in patient's wallet AND a WITH_PATIENT assignment row is created.
-           // It is NOT added to the hospital trading pool yet — hospital admin must
-           // explicitly move it via /asset-deposits/{id}/move-to-trading-pool.
-           BigDecimal atTokens = nzNum(deposit.getAssetValue())
-                   .divide(tokenPriceService.getAtPricePkr(), 2, RoundingMode.DOWN);
-           validateMintCap(deposit, atTokens);
-
-           patientWalletAllocatorService.assignWalletToPatient(patient);
-
-           PatientTokenBalance balance = patientTokenBalanceRepository
-                   .findByPatientId(patient.getId())
-                   .orElseGet(() -> {
-                       PatientTokenBalance b = new PatientTokenBalance();
-                       b.setPatientId(patient.getId());
-                       b.setTotalAt(BigDecimal.ZERO);
-                       b.setTotalHt(BigDecimal.ZERO);
-                       b.setLastUpdated(LocalDateTime.now());
-                       return b;
-                   });
-           balance.setTotalAt(nzNum(balance.getTotalAt()).add(atTokens));
-           balance.setLastUpdated(LocalDateTime.now());
-           patientTokenBalanceRepository.save(balance);
-
-           recordMint(deposit, patient.getId(), bankUser.getUserId(), atTokens, null);
-           atTradingService.initializeAtAssignmentWithPatient(
-                   patient.getId(), deposit.getAssetId(), hospitalId, atTokens);
-
-           // No baseline HT yet — starts when admin moves AT into Pool 2.
            deposit.setBaselineHtPerMonth(BigDecimal.ZERO);
            deposit.setLastBaselineHtAt(null);
 
            assetDepositRepository.save(deposit);
 
-           // Notify patient (keep under 255 chars — notifications.notification_text is varchar(255))
+           // Notify patient
            sendNotification(bankUser.getUserId(), patientUser.getUserId(),
-               "Custody Confirmed — AT in Pool 1",
-               atTokens.toPlainString() + " AT minted to your Pool 1 (Available). "
-                   + "Idle and redeemable now. Trading HT starts when hospital moves to Pool 2.");
+               "Custody Confirmed — Awaiting Token Mint",
+               "Bank confirmed physical custody of your " + deposit.getAssetType() + " deposit. "
+                   + "Hospital will mint your AT shortly.");
 
-           // Notify hospital admin
+           // Notify hospital admin so they can mint
            notifyHospitalAdmins(hospitalId, bankUser.getUserId(),
-               "Custody Confirmed — AT in Pool 1",
-               patientUser.getName() + ": " + atTokens.toPlainString()
-                   + " AT in Pool 1. Use Pool Management to move to Pool 2.");
+               "Custody Confirmed — Mint Required",
+               "Patient " + patientUser.getName() + " custody confirmed by bank. "
+                   + "Mint AT for this deposit from the Deposits page.");
 
            return toCustodyDto(savedVerification, deposit);
        }
+
+    /**
+     * Hospital admin mints AT for a deposit whose custody has been confirmed by the bank.
+     * Idempotent: rejects if AT was already minted for this asset (mintRecord row exists).
+     */
+    @Transactional
+    public AssetDepositDto mintTokensForDeposit(String email, UUID assetId) {
+        User admin = requireUser(email);
+        requireRole(admin, Role.RoleType.hospital_admin, "Only hospital admins can mint AT for a deposit");
+
+        AssetDeposit deposit = assetDepositRepository.findById(assetId)
+                .orElseThrow(() -> new IllegalArgumentException("Deposit not found"));
+
+        Patient patient = patientRepository.findById(deposit.getPatientId())
+                .orElseThrow(() -> new IllegalArgumentException("Patient not found"));
+
+        assertSameHospital(admin, patient);
+
+        if (!"custody_confirmed".equalsIgnoreCase(nz(deposit.getStatus()))) {
+            throw new IllegalArgumentException("Custody must be confirmed before minting AT");
+        }
+
+        BigDecimal alreadyMinted = nzNum(mintRecordRepository.sumTokensMintedByAssetId(assetId));
+        if (alreadyMinted.compareTo(BigDecimal.ZERO) > 0) {
+            throw new IllegalArgumentException("AT has already been minted for this deposit");
+        }
+
+        BigDecimal atTokens = nzNum(deposit.getAssetValue())
+                .divide(tokenPriceService.getAtPricePkr(), 2, RoundingMode.DOWN);
+        validateMintCap(deposit, atTokens);
+
+        patientWalletAllocatorService.assignWalletToPatient(patient);
+
+        PatientTokenBalance balance = patientTokenBalanceRepository
+                .findByPatientId(patient.getId())
+                .orElseGet(() -> {
+                    PatientTokenBalance b = new PatientTokenBalance();
+                    b.setPatientId(patient.getId());
+                    b.setTotalAt(BigDecimal.ZERO);
+                    b.setTotalHt(BigDecimal.ZERO);
+                    b.setLastUpdated(LocalDateTime.now());
+                    return b;
+                });
+        balance.setTotalAt(nzNum(balance.getTotalAt()).add(atTokens));
+        balance.setLastUpdated(LocalDateTime.now());
+        patientTokenBalanceRepository.save(balance);
+
+        recordMint(deposit, patient.getId(), admin.getUserId(), atTokens, null);
+
+        UUID hospitalId = admin.getHospitalId();
+        atTradingService.initializeAtAssignmentWithPatient(
+                patient.getId(), deposit.getAssetId(), hospitalId, atTokens);
+
+        User patientUser = userRepository.findById(patient.getUserId())
+                .orElseThrow(() -> new IllegalArgumentException("Patient user not found"));
+        Hospital hospital = hospitalRepository.findById(hospitalId)
+                .orElseThrow(() -> new IllegalArgumentException("Hospital not found"));
+
+        sendNotification(admin.getUserId(), patientUser.getUserId(),
+                "AT Minted — In Pool 1",
+                atTokens.toPlainString() + " AT minted to your Pool 1 (Available). "
+                    + "Idle and redeemable now. Trading HT starts when hospital moves to Pool 2.");
+
+        notifyHospitalAdmins(hospitalId, admin.getUserId(),
+                "AT Minted — Pool 1",
+                patientUser.getName() + ": " + atTokens.toPlainString()
+                    + " AT minted into Pool 1. Move to Pool 2 from Pool Management when ready.");
+
+        return toDto(deposit, patient, patientUser, hospital);
+    }
     @Transactional
     public AssetDepositDto rejectRequest(String email, UUID assetId, String reason) {
         User admin = requireUser(email);
@@ -558,58 +601,27 @@ public class AssetDepositService {
         Hospital hospital = hospitalRepository.findById(hospitalId)
             .orElseThrow(() -> new IllegalArgumentException("Hospital not found"));
 
-        // Mark custody confirmed
+        // Mark custody confirmed only — AT minting is now done by hospital admin
+        // via /asset-deposits/{id}/mint-tokens (mintTokensForDeposit).
         deposit.setCustodyStatus("confirmed");
         deposit.setCustodyConfirmedAt(LocalDateTime.now());
         deposit.setCustodyConfirmedBy(bankUser.getUserId());
         deposit.setStatus("custody_confirmed");
-
-        // Mint AT from approved asset value.
-        BigDecimal atTokens = nzNum(deposit.getAssetValue()).divide(tokenPriceService.getAtPricePkr(), 2, RoundingMode.DOWN);
-        validateMintCap(deposit, atTokens);
-
-        patientWalletAllocatorService.assignWalletToPatient(patient);
-
-        PatientTokenBalance balance = patientTokenBalanceRepository
-            .findByPatientId(patient.getId())
-            .orElseGet(() -> {
-                PatientTokenBalance b = new PatientTokenBalance();
-                b.setPatientId(patient.getId());
-                b.setTotalAt(BigDecimal.ZERO);
-                b.setTotalHt(BigDecimal.ZERO);
-                b.setLastUpdated(LocalDateTime.now());
-                return b;
-            });
-        balance.setTotalAt(nzNum(balance.getTotalAt()).add(atTokens));
-        balance.setLastUpdated(LocalDateTime.now());
-        patientTokenBalanceRepository.save(balance);
-
-        recordMint(deposit, patient.getId(), bankUser.getUserId(), atTokens, null);
-        // Dual-pool model:
-        //   AT lands in Pool 1 (Available Pool) — assignment status WITH_PATIENT,
-        //   NOT added to the hospital trading pool yet.
-        //   Hospital admin must explicitly move AT into Pool 2 (Trading Pool)
-        //   via /api/asset-deposits/{id}/move-to-trading-pool.
-        //   Until then the AT is idle, redeemable via Use Case 3, and earns no monthly HT.
-        atTradingService.initializeAtAssignmentWithPatient(patient.getId(), deposit.getAssetId(), hospitalId, atTokens);
-        // Baseline HT/month does NOT start yet — it begins when AT enters Pool 2.
         deposit.setBaselineHtPerMonth(BigDecimal.ZERO);
         deposit.setLastBaselineHtAt(null);
 
         AssetDeposit saved = assetDepositRepository.save(deposit);
 
         sendNotification(bankUser.getUserId(), patientUser.getUserId(),
-            "Asset Custody Confirmed — Tokens Minted",
+            "Asset Custody Confirmed — Awaiting Token Mint",
             "The bank confirmed physical custody of your " + saved.getAssetType() + " deposit. "
-                + atTokens + " AT tokens have been minted into your Available Pool (Pool 1). "
-                + "They are idle and can be redeemed via Emergency Redemption. "
-                + "Monthly baseline HT and profit share will start once the hospital moves them into the Trading Pool.");
+                + "Hospital admin will mint your AT shortly. "
+                + "Monthly baseline HT and profit share start once the hospital moves them into the Trading Pool.");
 
         notifyHospitalAdmins(hospitalId, bankUser.getUserId(),
-            "Tokens Minted into Pool 1 (Available)",
-            atTokens + " AT minted for patient " + patientUser.getName()
-                + " and placed in Pool 1 (Available). "
-                + "Move them to Pool 2 (Trading) from the Pool Management page when ready.");
+            "Custody Confirmed — Mint Required",
+            "Patient " + patientUser.getName() + " custody confirmed by bank. "
+                + "Mint AT from the Deposits page to make it available in Pool 1.");
 
         return toDto(saved, patient, patientUser, hospital);
         }
@@ -896,6 +908,7 @@ public class AssetDepositService {
         dto.setCustodyConfirmedAt(deposit.getCustodyConfirmedAt());
         dto.setBaselineHtPerMonth(nzNum(deposit.getBaselineHtPerMonth()));
         dto.setLastBaselineHtAt(deposit.getLastBaselineHtAt());
+        dto.setTokensMinted(nzNum(mintRecordRepository.sumTokensMintedByAssetId(deposit.getAssetId())));
         return dto;
     }
 
@@ -1054,12 +1067,18 @@ public class AssetDepositService {
                 + ",\"assetValuePkr\":\"" + nzNum(deposit.getAssetValue()).toPlainString() + "\""
                 + "}";
 
+            log.info("Minting AT on-chain — asset={}, patientWallet={}, atTokens={}",
+                    deposit.getAssetId(), patient.getWalletAddress(), atTokens);
+
             BlockchainTxRef chainTx = tokenContractGateway.mintATViaHospitalFinancials(
                 patient.getWalletAddress(),
                 UuidUint256.toUint256(deposit.getAssetId()),
                 TokenUnitConverter.toBaseUnits(nzNum(atTokens), 18),
                 metadata
             );
+
+            log.info("On-chain AT mint succeeded — asset={}, tx={}, block={}",
+                    deposit.getAssetId(), chainTx.getTransactionHash(), chainTx.getBlockNumber());
 
         MintRecord mintRecord = new MintRecord();
         mintRecord.setAssetId(deposit.getAssetId());

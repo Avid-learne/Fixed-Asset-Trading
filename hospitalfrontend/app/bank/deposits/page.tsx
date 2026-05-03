@@ -319,7 +319,7 @@ export default function BankDepositsPage() {
           <DialogHeader>
             <DialogTitle>Confirm Physical Deposit</DialogTitle>
             <DialogDescription>
-              Verify the asset received from {custodyTarget?.patientName}. On submit, AT will be minted into the patient&apos;s Pool 1 (Available Pool).
+              Verify the asset received from {custodyTarget?.patientName}. On submit, the bank confirms physical custody — token minting is handled separately by the hospital admin.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
@@ -408,7 +408,7 @@ export default function BankDepositsPage() {
               ) : (
                 <ShieldCheck className="h-4 w-4 mr-1" />
               )}
-              Confirm & Mint AT
+              Confirm Custody
             </Button>
           </DialogFooter>
         </DialogContent>

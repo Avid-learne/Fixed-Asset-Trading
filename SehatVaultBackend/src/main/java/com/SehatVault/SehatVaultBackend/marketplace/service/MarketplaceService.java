@@ -19,6 +19,9 @@ import com.SehatVault.SehatVaultBackend.marketplace.repository.TradeParticipatio
 import com.SehatVault.SehatVaultBackend.wallet.service.TokenPriceService;
 import com.SehatVault.SehatVaultBackend.patient.entity.Patient;
 import com.SehatVault.SehatVaultBackend.patient.repository.PatientRepository;
+import com.SehatVault.SehatVaultBackend.blockchain.model.BlockchainTxRef;
+import com.SehatVault.SehatVaultBackend.blockchain.service.TokenContractGateway;
+import com.SehatVault.SehatVaultBackend.blockchain.util.TokenUnitConverter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -52,6 +55,7 @@ public class MarketplaceService {
     private final TradeParticipationRepository tradeParticipationRepository;
     private final UserRepository userRepository;
     private final AssetDepositRepository assetDepositRepository;
+    private final TokenContractGateway tokenContractGateway;
 
     public List<TradeDto> getTradesByHospital(UUID hospitalId) {
         return marketplaceTradeRepository.findByHospitalIdOrderByStartTimeDesc(hospitalId)
@@ -426,6 +430,7 @@ public class MarketplaceService {
                 log.error("Trade {} marked CLOSED via update but settlement failed: {}",
                         saved.getTradeId(), ex.getMessage(), ex);
             }
+            anchorTradeOnChain(saved.getTradeId(), updatedProfitLoss);
         }
 
         return toDto(saved);
@@ -492,7 +497,42 @@ public class MarketplaceService {
             log.error("Trade {} closed but settlement failed: {}", saved.getTradeId(), ex.getMessage(), ex);
         }
 
+        anchorTradeOnChain(saved.getTradeId(), profitLoss);
+
         return toDto(saved);
+    }
+
+    /**
+     * Persist the closed trade as a HospitalFinancials.recordTrade(...) on-chain audit anchor.
+     * Sums AT allocated across all participations (the AT actually invested in the trade) and
+     * records the absolute profit (the contract treats profit as uint256, so losses anchor as
+     * profit=0 — the off-chain row keeps the signed P/L).
+     */
+    private void anchorTradeOnChain(UUID tradeId, BigDecimal profitLoss) {
+        try {
+            BigDecimal totalInvestedAt = tradeParticipationRepository.findByTradeId(tradeId).stream()
+                    .map(TradeParticipation::getAtAllocated)
+                    .map(v -> v == null ? BigDecimal.ZERO : v)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            if (totalInvestedAt.compareTo(BigDecimal.ZERO) <= 0) {
+                return;
+            }
+
+            BigDecimal positiveProfit = profitLoss != null && profitLoss.compareTo(BigDecimal.ZERO) > 0
+                    ? profitLoss
+                    : BigDecimal.ZERO;
+
+            BlockchainTxRef ref = tokenContractGateway.recordTradeOnChain(
+                    TokenUnitConverter.toBaseUnits(totalInvestedAt, 18),
+                    TokenUnitConverter.toBaseUnits(positiveProfit, 18)
+            );
+            log.info("Anchored trade {} on-chain (tx={}, block={})", tradeId,
+                    ref.getTransactionHash(), ref.getBlockNumber());
+        } catch (Exception ex) {
+            // Audit anchor is best-effort: a chain failure must not break the off-chain close path.
+            log.warn("Failed to anchor trade {} on-chain: {}", tradeId, ex.getMessage());
+        }
     }
 
     // =================== PRIVATE HELPERS ===================

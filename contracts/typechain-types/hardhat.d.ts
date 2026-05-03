@@ -69,18 +69,6 @@ declare module "hardhat/types/runtime" {
       name: "HospitalFinancials",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.HospitalFinancials__factory>;
-    getContractFactory(
-      name: "AssetToken",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.AssetToken__factory>;
-    getContractFactory(
-      name: "HealthToken",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.HealthToken__factory>;
-    getContractFactory(
-      name: "HospitalFinancials",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.HospitalFinancials__factory>;
 
     getContractAt(
       name: "AccessControl",
@@ -137,21 +125,6 @@ declare module "hardhat/types/runtime" {
       address: string | ethers.Addressable,
       signer?: ethers.Signer
     ): Promise<Contracts.ReentrancyGuard>;
-    getContractAt(
-      name: "AssetToken",
-      address: string | ethers.Addressable,
-      signer?: ethers.Signer
-    ): Promise<Contracts.AssetToken>;
-    getContractAt(
-      name: "HealthToken",
-      address: string | ethers.Addressable,
-      signer?: ethers.Signer
-    ): Promise<Contracts.HealthToken>;
-    getContractAt(
-      name: "HospitalFinancials",
-      address: string | ethers.Addressable,
-      signer?: ethers.Signer
-    ): Promise<Contracts.HospitalFinancials>;
     getContractAt(
       name: "AssetToken",
       address: string | ethers.Addressable,
@@ -224,18 +197,6 @@ declare module "hardhat/types/runtime" {
       name: "HospitalFinancials",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.HospitalFinancials>;
-    deployContract(
-      name: "AssetToken",
-      signerOrOptions?: ethers.Signer | DeployContractOptions
-    ): Promise<Contracts.AssetToken>;
-    deployContract(
-      name: "HealthToken",
-      signerOrOptions?: ethers.Signer | DeployContractOptions
-    ): Promise<Contracts.HealthToken>;
-    deployContract(
-      name: "HospitalFinancials",
-      signerOrOptions?: ethers.Signer | DeployContractOptions
-    ): Promise<Contracts.HospitalFinancials>;
 
     deployContract(
       name: "AccessControl",
@@ -292,21 +253,6 @@ declare module "hardhat/types/runtime" {
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.ReentrancyGuard>;
-    deployContract(
-      name: "AssetToken",
-      args: any[],
-      signerOrOptions?: ethers.Signer | DeployContractOptions
-    ): Promise<Contracts.AssetToken>;
-    deployContract(
-      name: "HealthToken",
-      args: any[],
-      signerOrOptions?: ethers.Signer | DeployContractOptions
-    ): Promise<Contracts.HealthToken>;
-    deployContract(
-      name: "HospitalFinancials",
-      args: any[],
-      signerOrOptions?: ethers.Signer | DeployContractOptions
-    ): Promise<Contracts.HospitalFinancials>;
     deployContract(
       name: "AssetToken",
       args: any[],

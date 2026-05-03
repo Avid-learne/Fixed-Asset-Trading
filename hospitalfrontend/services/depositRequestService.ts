@@ -66,6 +66,9 @@ export type AssetDepositItem = {
   currentPool1At?: number
   /** Current PKR backing value of remaining Pool 1 AT (= currentPool1At * AT price). */
   currentPool1ValuePkr?: number
+
+  /** Total AT minted for this asset so far. 0 means custody-confirmed but not yet minted. */
+  tokensMinted?: number
 }
 
 const getAuthHeaders = (): HeadersInit => {
@@ -212,5 +215,13 @@ export const depositRequestService = {
       headers: getAuthHeaders(),
     })
     return parseResponse<AssetDepositItem>(response, 'Failed to move AT to Trading Pool')
+  },
+
+  async mintTokens(assetId: string): Promise<AssetDepositItem> {
+    const response = await fetch(`${API_BASE}/asset-deposits/${assetId}/mint-tokens`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    })
+    return parseResponse<AssetDepositItem>(response, 'Failed to mint AT')
   },
 }

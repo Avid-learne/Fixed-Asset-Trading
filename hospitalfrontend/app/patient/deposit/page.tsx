@@ -94,6 +94,40 @@ export default function DepositAssetPage() {
     init()
   }, [])
 
+  /**
+   * Read a File as base64 data URL so the actual content (not just the filename) is
+   * persisted in the deposit record. The filename is encoded into the URL fragment so
+   * the hospital admin's preview modal can display it without losing the original name.
+   */
+  const readFileAsDataUrl = (file: File | undefined): Promise<string> => {
+    if (!file) return Promise.resolve('')
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const url = String(reader.result || '')
+        const safeName = encodeURIComponent(file.name)
+        resolve(safeName ? `${url}#filename=${safeName}` : url)
+      }
+      reader.onerror = () => reject(reader.error || new Error('Failed to read file'))
+      reader.readAsDataURL(file)
+    })
+  }
+
+  /** Pull the original filename out of the data URL fragment (or fall back to the raw value). */
+  const describeDocument = (value: string | undefined): string => {
+    if (!value) return 'No file selected'
+    const fragMatch = value.match(/#filename=([^&]+)/)
+    if (fragMatch) {
+      try {
+        return decodeURIComponent(fragMatch[1])
+      } catch {
+        return fragMatch[1]
+      }
+    }
+    if (value.startsWith('data:')) return 'Selected file'
+    return value
+  }
+
   const calculateWorth = () => {
     const weightNum = parseFloat(weight)
     if (!weightNum || !assetType || !assetPrices) return 0
@@ -264,15 +298,15 @@ export default function DepositAssetPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Receipt:</span>
-                  <span className="font-medium">{submittedRequest?.assetReceipt || documents.receipt}</span>
+                  <span className="font-medium">{describeDocument(submittedRequest?.assetReceipt || documents.receipt)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Purity certificate:</span>
-                  <span className="font-medium">{submittedRequest?.purityCertificate || documents.purityCertificate}</span>
+                  <span className="font-medium">{describeDocument(submittedRequest?.purityCertificate || documents.purityCertificate)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Supporting docs:</span>
-                  <span className="font-medium">{submittedRequest?.supportingDocuments || documents.supportingDocuments}</span>
+                  <span className="font-medium">{describeDocument(submittedRequest?.supportingDocuments || documents.supportingDocuments)}</span>
                 </div>
               </div>
             </div>
@@ -445,27 +479,27 @@ export default function DepositAssetPage() {
                   <Input
                     type="file"
                     accept="image/*,.pdf"
-                    onChange={(event) => setDocuments((prev) => ({ ...prev, receipt: event.target.files?.[0]?.name || '' }))}
+                    onChange={(event) => readFileAsDataUrl(event.target.files?.[0]).then((value) => setDocuments((prev) => ({ ...prev, receipt: value })))}
                   />
-                  <p className="text-xs text-muted-foreground">{documents.receipt || 'No file selected'}</p>
+                  <p className="text-xs text-muted-foreground">{describeDocument(documents.receipt)}</p>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Purity / carat certificate</label>
                   <Input
                     type="file"
                     accept="image/*,.pdf"
-                    onChange={(event) => setDocuments((prev) => ({ ...prev, purityCertificate: event.target.files?.[0]?.name || '' }))}
+                    onChange={(event) => readFileAsDataUrl(event.target.files?.[0]).then((value) => setDocuments((prev) => ({ ...prev, purityCertificate: value })))}
                   />
-                  <p className="text-xs text-muted-foreground">{documents.purityCertificate || 'No file selected'}</p>
+                  <p className="text-xs text-muted-foreground">{describeDocument(documents.purityCertificate)}</p>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Supporting document</label>
                   <Input
                     type="file"
                     accept="image/*,.pdf"
-                    onChange={(event) => setDocuments((prev) => ({ ...prev, supportingDocuments: event.target.files?.[0]?.name || '' }))}
+                    onChange={(event) => readFileAsDataUrl(event.target.files?.[0]).then((value) => setDocuments((prev) => ({ ...prev, supportingDocuments: value })))}
                   />
-                  <p className="text-xs text-muted-foreground">{documents.supportingDocuments || 'No file selected'}</p>
+                  <p className="text-xs text-muted-foreground">{describeDocument(documents.supportingDocuments)}</p>
                 </div>
               </CardContent>
             </Card>

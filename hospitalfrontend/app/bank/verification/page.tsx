@@ -14,6 +14,33 @@ import { Search, Eye, CheckCircle, XCircle, AlertCircle, Download, X } from 'luc
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { profileService, type ProfileData } from '@/services/profileService'
 
+/** Human-readable filename for an uploaded doc value (data URL or raw filename). */
+const friendlyDocumentName = (value: string | undefined | null): string => {
+  if (!value) return 'Not attached'
+  const fragMatch = value.match(/#filename=([^&]+)/)
+  if (fragMatch) {
+    try {
+      return decodeURIComponent(fragMatch[1])
+    } catch {
+      return fragMatch[1]
+    }
+  }
+  if (value.startsWith('data:')) return 'Uploaded file'
+  return value.split('/').pop() || value
+}
+
+/** True when the value (data URL or filename) refers to a PDF. */
+const isPdfDocument = (value: string): boolean => {
+  if (value.startsWith('data:application/pdf')) return true
+  return /\.pdf(\?|#|$)/i.test(value)
+}
+
+/** True when the value (data URL or filename) refers to an image. */
+const isImageDocument = (value: string): boolean => {
+  if (value.startsWith('data:image/')) return true
+  return /\.(jpg|jpeg|png|gif|webp)(\?|#|$)/i.test(value)
+}
+
 interface PatientVerification {
   id: string
   userId: string
@@ -331,9 +358,9 @@ export default function PatientVerificationPage() {
                     <p className="text-sm text-gray-500">No documents attached</p>
                   ) : selectedPatient.documents.map((doc, index) => (
                     <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded border border-gray-200 hover:bg-gray-100 transition">
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <span className="text-sm font-medium text-gray-900">{doc.label}</span>
-                        <p className="text-xs text-gray-500 mt-1">{doc.value}</p>
+                        <p className="text-xs text-gray-500 mt-1 truncate">{friendlyDocumentName(doc.value)}</p>
                       </div>
                       <Button 
                         variant="ghost" 
@@ -440,10 +467,9 @@ export default function PatientVerificationPage() {
             </ModalHeader>
             <div className="px-6 py-4 space-y-4">
               <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                {selectedDocument.value.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                  // Image display
-                  <div className="space-y-2 max-h-96 overflow-auto">
-                    <img 
+                {isImageDocument(selectedDocument.value) ? (
+                  <div className="space-y-2 max-h-[70vh] overflow-auto">
+                    <img
                       src={selectedDocument.value}
                       alt={selectedDocument.label}
                       className="w-full rounded border border-gray-300"
@@ -452,24 +478,17 @@ export default function PatientVerificationPage() {
                       }}
                     />
                   </div>
-                ) : selectedDocument.value.match(/\.pdf$/i) ? (
-                  // PDF display
-                  <div className="text-center py-8">
-                    <p className="text-gray-600 text-sm mb-4">PDF Document</p>
-                    <p className="text-gray-500 text-xs mb-4 break-all">{selectedDocument.value}</p>
-                    <Button
-                      onClick={() => window.open(selectedDocument.value, '_blank')}
-                      className="gap-2"
-                    >
-                      <Download className="w-4 h-4" />
-                      Open PDF in New Tab
-                    </Button>
-                  </div>
+                ) : isPdfDocument(selectedDocument.value) ? (
+                  // Inline PDF — same window, no new tab.
+                  <iframe
+                    src={selectedDocument.value}
+                    className="w-full h-[70vh] border border-gray-300 rounded bg-white"
+                    title={selectedDocument.label}
+                  />
                 ) : (
-                  // Other file types
+                  // Unknown type fallback — keep download as the only option since we can't preview.
                   <div className="text-center py-8">
-                    <p className="text-gray-600 text-sm mb-4">File: {selectedDocument.label}</p>
-                    <p className="text-gray-500 text-xs mb-4 break-all">{selectedDocument.value}</p>
+                    <p className="text-gray-600 text-sm mb-4">File: {friendlyDocumentName(selectedDocument.value)}</p>
                     <Button
                       onClick={() => window.open(selectedDocument.value, '_blank')}
                       className="gap-2"

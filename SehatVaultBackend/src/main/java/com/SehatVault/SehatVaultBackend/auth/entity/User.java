@@ -84,6 +84,14 @@ public class User {
     
     @Column(name = "hospital_id")
     private java.util.UUID hospitalId;
+
+    /**
+     * On-chain wallet address (lowercased 0x… checksum-stripped) assigned at signup
+     * from the configured Hardhat pool. Patients also keep a wallet on the Patient
+     * entity for legacy reasons; the WalletAllocator dedupes across both tables.
+     */
+    @Column(name = "wallet_address", unique = true)
+    private String walletAddress;
     
     @Column(name = "mfa_enabled")
     private Boolean mfaEnabled = false;

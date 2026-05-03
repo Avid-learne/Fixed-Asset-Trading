@@ -214,6 +214,26 @@ public class AssetDepositController {
         }
     }
 
+    /**
+     * Hospital admin mints AT for a deposit whose custody has been confirmed by the bank.
+     * Bank only confirms physical custody; the actual on-chain mint + Pool 1 assignment
+     * happens here. Idempotent — rejects if already minted.
+     */
+    @PostMapping("/{assetId}/mint-tokens")
+    public ResponseEntity<?> mintTokens(Authentication authentication, @PathVariable UUID assetId) {
+        try {
+            if (authentication == null || authentication.getName() == null) {
+                return ResponseEntity.status(401).body(error("Unauthorized"));
+            }
+            AssetDepositDto data = assetDepositService.mintTokensForDeposit(authentication.getName(), assetId);
+            return ResponseEntity.ok(success("AT minted into Pool 1", data));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(error(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(error("Error minting AT: " + e.getMessage()));
+        }
+    }
+
     /** Hospital admin moves AT from Pool 1 (Available) to Pool 2 (Trading). */
     @PostMapping("/{assetId}/move-to-trading-pool")
     public ResponseEntity<?> moveToTradingPool(Authentication authentication, @PathVariable UUID assetId) {

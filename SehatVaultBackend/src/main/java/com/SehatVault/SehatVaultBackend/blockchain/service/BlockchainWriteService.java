@@ -34,10 +34,15 @@ public class BlockchainWriteService {
             return new BlockchainTxRef(null, null);
         }
         if (props.getWallet() == null || props.getWallet().getPrivateKey() == null || props.getWallet().getPrivateKey().isBlank()) {
-            throw new IllegalStateException("Missing blockchain.wallet.private-key");
+            throw new IllegalStateException(
+                    "Blockchain is enabled but 'blockchain.wallet.private-key' is not configured. "
+                            + "Set it in application.properties (or set blockchain.enabled=false).");
         }
         if (contractAddress == null || contractAddress.isBlank()) {
-            throw new IllegalStateException("Missing contract address for blockchain call");
+            throw new IllegalStateException(
+                    "Blockchain is enabled but the target contract address is empty. "
+                            + "Check 'blockchain.contracts.asset-token', 'blockchain.contracts.health-token', "
+                            + "and 'blockchain.contracts.hospital-financials' in application.properties.");
         }
 
         Credentials credentials = Credentials.create(props.getWallet().getPrivateKey().trim());

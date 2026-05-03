@@ -116,6 +116,43 @@ All corresponding `transactions` rows now store real `transaction_hash` and `blo
     - Updates wallet balance and credits the "Asset Health Card" bucket
     - Inserts a `transactions` row with tx hash + block number
 
+### Marketplace trade close (audit anchor)
+
+- `PATCH /api/marketplace/trades/{tradeId}/close`
+- `PUT /api/marketplace/trades/{tradeId}` (when the update flips status to CLOSED)
+  - Purpose: persist a tamper-evident on-chain anchor for the closed trade.
+  - On-chain:
+    - `HospitalFinancials.recordTrade(investedAT, profit)` — `investedAT` is the sum of AT
+      allocated across all participations (in 18-decimal base units), `profit` is the
+      positive P/L (losses are anchored as `profit=0`; the signed P/L stays in the
+      off-chain `marketplace_trades` row).
+  - Notes:
+    - The chain anchor is best-effort: if the chain call fails, the off-chain close path
+      is not aborted (a warning is logged). The off-chain trade row is the source of truth.
+
+### Marketplace trade settlement (loss → AT burn)
+
+- Triggered internally during trade close by `AtTradingService.settleTrade(...)`.
+  - Purpose: when a trade closes at a loss, AT held by the participant shrinks
+    proportionally; the same delta is burned on-chain so the on-chain balance stays in
+    sync with the off-chain ledger.
+  - On-chain:
+    - `AssetToken.burn(patientWallet, atDelta)` for each loss-bearing participation
+      (skipped when the patient has no wallet address).
+  - Stored off-chain:
+    - A `transactions` row of type `AT_BURN` with the real tx hash + block number is
+      inserted for the patient, alongside the existing P/L bookkeeping.
+
+## Backend startup config audit
+
+`BlockchainConfigGuard` runs once on `ApplicationReadyEvent`:
+
+- If `blockchain.enabled=false` → logs a single info line and skips the audit.
+- If `blockchain.enabled=true` and any of `rpc-url`, `wallet.private-key`, or the three
+  contract addresses are blank → logs a `WARN` line listing exactly which properties are
+  missing. Endpoints that need on-chain writes will then fail fast with a precise message
+  from `BlockchainWriteService` (naming the missing property).
+
 ## Frontend integration note (patient-signed HT transfers)
 
 Frontend now performs HT transfers on-chain first, then calls backend to persist the tx hash:

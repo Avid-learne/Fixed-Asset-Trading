@@ -24,8 +24,16 @@ export function DocumentViewer({ isOpen, onClose, documentUrl, documentName = 'D
     ? normalizedUrl
     : `${backendOrigin}/${normalizedUrl.replace(/^\/+/, '')}`
 
-  const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(normalizedUrl)
-  const isPdf = /\.pdf$/i.test(normalizedUrl)
+  // Detect MIME from data: URLs first (covers uploads where we don't have a path with extension),
+  // then fall back to the URL/filename extension (handles legacy URL records and data URLs that
+  // carry the original filename in the #filename= fragment).
+  const dataUrlMime = normalizedUrl.startsWith('data:')
+    ? normalizedUrl.slice(5).split(/[;,]/)[0].toLowerCase()
+    : ''
+  const isImage = dataUrlMime.startsWith('image/')
+    || /\.(jpg|jpeg|png|gif|webp)(\?|#|$)/i.test(normalizedUrl)
+  const isPdf = dataUrlMime === 'application/pdf'
+    || /\.pdf(\?|#|$)/i.test(normalizedUrl)
 
   const handleDownload = async () => {
     try {

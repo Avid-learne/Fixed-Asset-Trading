@@ -14,6 +14,22 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useAuth } from '@/contexts/AuthContext'
 import { authService } from '@/lib/authService'
 import { profileService, type ProfileData } from '@/services/profileService'
+import { DocumentViewer } from '@/components/DocumentViewer'
+
+/** Pull the friendly filename out of a data URL with a #filename= fragment. */
+const friendlyDocumentName = (value: string | undefined | null): string => {
+  if (!value) return 'Not attached'
+  const fragMatch = value.match(/#filename=([^&]+)/)
+  if (fragMatch) {
+    try {
+      return decodeURIComponent(fragMatch[1])
+    } catch {
+      return fragMatch[1]
+    }
+  }
+  if (value.startsWith('data:')) return 'Uploaded file'
+  return value.split('/').pop() || value
+}
 
 // Exchange rate: 1 USD = 280 PKR
 const USD_TO_PKR = 280
@@ -187,6 +203,8 @@ export default function PatientsPage() {
   const [error, setError] = useState<string | null>(null)
   const [reviewingKycId, setReviewingKycId] = useState<string | null>(null)
   const [kycRejectReasons, setKycRejectReasons] = useState<Record<string, string>>({})
+  // Inline KYC document viewer state (renders the doc in a modal instead of a new browser tab).
+  const [docViewer, setDocViewer] = useState<{ url: string; name: string } | null>(null)
 
   const fetchPatients = useCallback(async (): Promise<Patient[]> => {
     try {
@@ -892,44 +910,41 @@ export default function PatientsPage() {
                       <p className="text-sm font-medium text-slate-900">Submitted documents</p>
                       <div className="mt-3 space-y-2 text-sm text-slate-600">
                         <div className="flex items-center justify-between">
-                          <div>ID front: {selectedPatient.kycDocumentFront || 'Not attached'}</div>
+                          <div>ID front: {friendlyDocumentName(selectedPatient.kycDocumentFront)}</div>
                           {selectedPatient.kycDocumentFront && (
-                            <a
-                              href={selectedPatient.kycDocumentFront}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm text-primary hover:underline"
+                            <button
+                              type="button"
+                              onClick={() => setDocViewer({ url: selectedPatient.kycDocumentFront!, name: 'KYC — ID Front' })}
+                              className="text-sm text-primary hover:underline cursor-pointer"
                             >
                               View
-                            </a>
+                            </button>
                           )}
                         </div>
 
                         <div className="flex items-center justify-between">
-                          <div>ID back: {selectedPatient.kycDocumentBack || 'Not attached'}</div>
+                          <div>ID back: {friendlyDocumentName(selectedPatient.kycDocumentBack)}</div>
                           {selectedPatient.kycDocumentBack && (
-                            <a
-                              href={selectedPatient.kycDocumentBack}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm text-primary hover:underline"
+                            <button
+                              type="button"
+                              onClick={() => setDocViewer({ url: selectedPatient.kycDocumentBack!, name: 'KYC — ID Back' })}
+                              className="text-sm text-primary hover:underline cursor-pointer"
                             >
                               View
-                            </a>
+                            </button>
                           )}
                         </div>
 
                         <div className="flex items-center justify-between">
-                          <div>Selfie / live photo: {selectedPatient.kycSelfie || 'Not attached'}</div>
+                          <div>Selfie / live photo: {friendlyDocumentName(selectedPatient.kycSelfie)}</div>
                           {selectedPatient.kycSelfie && (
-                            <a
-                              href={selectedPatient.kycSelfie}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm text-primary hover:underline"
+                            <button
+                              type="button"
+                              onClick={() => setDocViewer({ url: selectedPatient.kycSelfie!, name: 'KYC — Selfie / live photo' })}
+                              className="text-sm text-primary hover:underline cursor-pointer"
                             >
                               View
-                            </a>
+                            </button>
                           )}
                         </div>
                       </div>
@@ -978,6 +993,14 @@ export default function PatientsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Inline KYC document viewer — keeps the preview in-app instead of opening a new tab. */}
+      <DocumentViewer
+        isOpen={!!docViewer}
+        onClose={() => setDocViewer(null)}
+        documentUrl={docViewer?.url ?? null}
+        documentName={docViewer?.name}
+      />
     </div>
   )
 }

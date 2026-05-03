@@ -11,6 +11,7 @@ import {
   Coins,
   ArrowLeft,
   Loader2,
+  CheckCircle2,
 } from "lucide-react";
 import { authService } from "@/lib/authService";
 import { useAuth } from "@/contexts/AuthContext";
@@ -173,7 +174,7 @@ export default function Auth() {
               <CardContent>
                 {successMessage && (
                   <div className="mb-4 flex items-center gap-2 rounded-lg border border-green-500 bg-green-500/10 p-3 text-sm text-green-600">
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <CheckCircle2 className="h-4 w-4" />
                     {successMessage}
                   </div>
                 )}

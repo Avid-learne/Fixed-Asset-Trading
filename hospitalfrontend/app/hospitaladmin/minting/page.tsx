@@ -34,19 +34,26 @@ interface MintRecord {
 
 const toNumber = (value: number | string | undefined | null) => Number(value || 0)
 
+/**
+ * Status pipeline this page cares about:
+ *  - 'pending'    custody confirmed, no AT minted yet → admin can mint
+ *  - 'minted'     AT already minted (tokensMinted > 0) → terminal success state
+ *  - 'processing' deposit hasn't reached custody-confirmed yet (still moving through
+ *                 hospital/bank approval) → not actionable here
+ *  - 'failed'     hospital/bank rejected the request → terminal failure state
+ */
 const mapToMintRecord = (item: AssetDepositItem): MintRecord => {
   const requestStatus = (item.status || '').toLowerCase()
   const bankStatus = (item.bankApprovalStatus || '').toLowerCase()
+  const minted = toNumber(item.tokensMinted)
 
-  let status: MintRecord['status'] = 'pending'
-  if (requestStatus === 'approved' && bankStatus === 'approved') {
+  let status: MintRecord['status'] = 'processing'
+  if (requestStatus === 'rejected' || bankStatus === 'rejected') {
+    status = 'failed'
+  } else if (minted > 0) {
     status = 'minted'
-  } else if (requestStatus === 'approved' && bankStatus === 'pending') {
-    status = 'processing'
-  } else if (requestStatus === 'approved' && bankStatus === 'rejected') {
-    status = 'failed'
-  } else if (requestStatus === 'rejected') {
-    status = 'failed'
+  } else if (requestStatus === 'custody_confirmed') {
+    status = 'pending'
   }
 
   return {
@@ -58,7 +65,7 @@ const mapToMintRecord = (item: AssetDepositItem): MintRecord => {
     assetType: item.assetType,
     weight: toNumber(item.weight),
     assetValue: toNumber(item.assetValue),
-    tokensMinted: toNumber(item.expectedTokens),
+    tokensMinted: minted > 0 ? minted : toNumber(item.expectedTokens),
     status,
     mintedDate: item.bankApprovedAt,
     submittedAt: item.submittedAt,
@@ -69,16 +76,16 @@ const mapToMintRecord = (item: AssetDepositItem): MintRecord => {
   }
 }
 
-const canForwardToMinting = (record: MintRecord): boolean => {
-  const bankStatus = (record.bankApprovalStatus || '').toLowerCase()
-  return record.status === 'pending' && !bankStatus
-}
+/** A row is mintable when bank has confirmed custody but AT hasn't been minted yet. */
+const canMint = (record: MintRecord): boolean => record.status === 'pending'
 
 export default function MintingPage() {
   const { toast } = useToast()
   const [records, setRecords] = useState<MintRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [minting, setMinting] = useState(false)
+  // Track which specific row(s) are currently being minted so only those buttons spin.
+  const [mintingIds, setMintingIds] = useState<string[]>([])
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -114,7 +121,7 @@ export default function MintingPage() {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedRecords(filteredRecords.filter(canForwardToMinting).map(r => r.id))
+      setSelectedRecords(filteredRecords.filter(canMint).map(r => r.id))
     } else {
       setSelectedRecords([])
     }
@@ -128,28 +135,57 @@ export default function MintingPage() {
     }
   }
 
-  const handleBatchMint = async () => {
-    if (selectedRecords.length === 0) {
-      return
-    }
-
+  /**
+   * Mint the given assetIds sequentially. We do NOT use Promise.all because the
+   * backend signs each tx with the same admin wallet — concurrent calls would
+   * collide on the same nonce and fail. Sequential keeps each receipt clean.
+   *
+   * `mintingIds` tracks the specific rows currently in flight so only their
+   * buttons spin (not every Mint button on the page).
+   */
+  const mintAssets = async (assetIds: string[]) => {
+    if (assetIds.length === 0) return
+    setMinting(true)
+    setMintingIds(assetIds)
+    setError('')
+    const succeeded: { id: string; tokensMinted: number }[] = []
+    const failed: { id: string; reason: string }[] = []
     try {
-      setMinting(true)
-      setError('')
-      await Promise.all(selectedRecords.map((id) => depositRequestService.approve(id)))
-      setSelectedRecords([])
-      setShowBatchMint(false)
-      toast({
-        title: 'Forwarded to minting queue',
-        description: 'Selected deposits were approved and forwarded for bank minting.',
-      })
-      await loadRecords()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to forward selected records for minting')
+      for (const id of assetIds) {
+        try {
+          const result = await depositRequestService.mintTokens(id)
+          succeeded.push({ id, tokensMinted: Number(result.tokensMinted ?? result.expectedTokens ?? 0) })
+        } catch (err) {
+          failed.push({ id, reason: err instanceof Error ? err.message : 'Unknown error' })
+        } finally {
+          // Drop the just-finished row from the in-flight list immediately so its
+          // button stops spinning even while later rows are still pending.
+          setMintingIds((current) => current.filter((x) => x !== id))
+        }
+      }
+
+      if (succeeded.length > 0) {
+        const totalMinted = succeeded.reduce((sum, s) => sum + s.tokensMinted, 0)
+        toast({
+          title: failed.length === 0 ? 'AT minted on-chain' : 'AT minted (with errors)',
+          description: failed.length === 0
+            ? `${totalMinted.toLocaleString()} AT minted via HospitalFinancials.mintAssetToken across ${succeeded.length} asset(s). Tokens credited to patient Pool 1.`
+            : `${succeeded.length} succeeded (${totalMinted.toLocaleString()} AT), ${failed.length} failed: ${failed.map(f => f.reason).join('; ')}`,
+        })
+      } else if (failed.length > 0) {
+        setError(`All mints failed: ${failed.map(f => f.reason).join('; ')}`)
+      }
     } finally {
       setMinting(false)
+      setMintingIds([])
+      setShowBatchMint(false)
+      setSelectedRecords([])
+      await loadRecords()
     }
   }
+
+  const handleBatchMint = () => mintAssets(selectedRecords)
+  const handleSingleMint = (id: string) => mintAssets([id])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -181,7 +217,7 @@ export default function MintingPage() {
     }
   }
 
-  const pendingRecords = records.filter(canForwardToMinting)
+  const pendingRecords = records.filter(canMint)
   const totalTokensMinted = records.filter(r => r.status === 'minted').reduce((sum, record) => sum + record.tokensMinted, 0)
   const totalValue = records.filter(r => r.status === 'minted').reduce((sum, record) => sum + record.assetValue, 0)
   const selectedTotalTokens = records.filter(r => selectedRecords.includes(r.id)).reduce((sum, r) => sum + r.tokensMinted, 0)
@@ -192,12 +228,12 @@ export default function MintingPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Token Minting</h1>
-          <p className="text-muted-foreground mt-1">Forward approved deposits into minting queue and track bank-approved minted tokens.</p>
+          <p className="text-muted-foreground mt-1">Mint AT for deposits whose physical custody has been confirmed by the bank. Pick rows individually or select multiple and mint in one click.</p>
         </div>
         {selectedRecords.length > 0 && (
-          <Button className="gap-2" onClick={() => setShowBatchMint(true)}>
+          <Button className="gap-2" onClick={() => setShowBatchMint(true)} disabled={minting}>
             <Coins className="w-4 h-4" />
-            Forward Selected ({selectedRecords.length})
+            Mint Selected ({selectedRecords.length})
           </Button>
         )}
       </div>
@@ -297,8 +333,8 @@ export default function MintingPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-12">
-                  <Checkbox 
-                    checked={selectedRecords.length === filteredRecords.filter(canForwardToMinting).length && filteredRecords.filter(canForwardToMinting).length > 0}
+                  <Checkbox
+                    checked={selectedRecords.length === filteredRecords.filter(canMint).length && filteredRecords.filter(canMint).length > 0}
                     onCheckedChange={handleSelectAll}
                   />
                 </TableHead>
@@ -323,10 +359,10 @@ export default function MintingPage() {
                 filteredRecords.map((record) => (
                   <TableRow key={record.id}>
                     <TableCell>
-                      <Checkbox 
+                      <Checkbox
                         checked={selectedRecords.includes(record.id)}
                         onCheckedChange={(checked) => handleSelectRecord(record.id, checked as boolean)}
-                        disabled={!canForwardToMinting(record)}
+                        disabled={!canMint(record)}
                       />
                     </TableCell>
                     <TableCell className="font-mono text-xs">{record.depositId}</TableCell>
@@ -356,17 +392,22 @@ export default function MintingPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex gap-2 justify-end">
-                        {canForwardToMinting(record) && (
-                          <Button size="sm" className="bg-success hover:bg-success/90" onClick={() => {
-                            setSelectedRecords([record.id])
-                            setShowBatchMint(true)
-                          }}>
-                            Forward
+                        {canMint(record) && (
+                          <Button
+                            size="sm"
+                            className="bg-indigo-600 hover:bg-indigo-700"
+                            onClick={() => handleSingleMint(record.id)}
+                            // Disable while THIS row is being minted, OR while any other mint
+                            // is in flight (sequential nonce — only one chain tx at a time).
+                            disabled={minting}
+                          >
+                            {mintingIds.includes(record.id) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Coins className="w-4 h-4" />}
+                            Mint
                           </Button>
                         )}
                         {(record.status === 'minted' || record.status === 'processing' || record.status === 'failed') && (
-                          <Button 
-                            size="sm" 
+                          <Button
+                            size="sm"
                             variant="outline"
                             onClick={() => {
                               setSelectedRecord(record)
@@ -389,9 +430,9 @@ export default function MintingPage() {
       <Dialog open={showBatchMint} onOpenChange={setShowBatchMint}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Confirm Forwarding to Minting Queue</DialogTitle>
+            <DialogTitle>Confirm AT Minting</DialogTitle>
             <DialogDescription>
-              Selected pending requests will be hospital-approved and forwarded to bank for minting.
+              Selected deposits will be minted on-chain. Each mint signs an `HospitalFinancials.mintAssetToken(...)` transaction and lands the AT in the patient&apos;s Pool 1.
             </DialogDescription>
           </DialogHeader>
           
@@ -409,19 +450,19 @@ export default function MintingPage() {
 
             <div className="p-4 border-2 border-primary bg-primary/5 rounded-lg">
               <div className="flex justify-between items-center mb-2">
-                <p className="text-sm font-medium">Tokens Expected for Minting</p>
+                <p className="text-sm font-medium">AT to mint</p>
                 <Coins className="w-5 h-5 text-primary" />
               </div>
               <p className="text-3xl font-bold text-primary">{selectedTotalTokens.toLocaleString()} AT</p>
-              <p className="text-sm text-muted-foreground mt-1">Final minting occurs after bank approval</p>
+              <p className="text-sm text-muted-foreground mt-1">Each row fires its own on-chain transaction (sequential to avoid nonce collisions).</p>
             </div>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex gap-2">
               <AlertCircle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-blue-900">Approval Pipeline</p>
+                <p className="text-sm font-medium text-blue-900">On-chain mint</p>
                 <p className="text-xs text-blue-700 mt-1">
-                  This page uses backend workflow: hospital approval forwards the request, and minting is completed when bank approves.
+                  Bank confirmed custody only. This action is what actually mints AT and sends the tokens to the patient&apos;s wallet.
                 </p>
               </div>
             </div>
@@ -458,12 +499,12 @@ export default function MintingPage() {
               {minting ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Forwarding...
+                  Minting…
                 </>
               ) : (
                 <>
                   <Coins className="w-4 h-4 mr-2" />
-                  Confirm Forwarding
+                  Mint {selectedRecords.length} Asset{selectedRecords.length === 1 ? '' : 's'}
                 </>
               )}
             </Button>

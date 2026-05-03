@@ -27,6 +27,8 @@ public class AuthResponse {
     private UUID hospitalId;
     private String hospitalName;
     private UUID patientId;
+    /** On-chain wallet address assigned at signup (null if allocation failed). */
+    private String walletAddress;
     private boolean success;
     private String message;
 
