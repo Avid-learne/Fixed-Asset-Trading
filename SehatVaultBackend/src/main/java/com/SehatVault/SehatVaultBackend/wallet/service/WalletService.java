@@ -21,6 +21,9 @@ import com.SehatVault.SehatVaultBackend.healthcard.entity.Card;
 import com.SehatVault.SehatVaultBackend.healthcard.entity.HealthCard;
 import com.SehatVault.SehatVaultBackend.healthcard.repository.CardRepository;
 import com.SehatVault.SehatVaultBackend.healthcard.repository.HealthCardRepository;
+import com.SehatVault.SehatVaultBackend.blockchain.model.BlockchainTxRef;
+import com.SehatVault.SehatVaultBackend.blockchain.service.BlockchainWriteService;
+import com.SehatVault.SehatVaultBackend.blockchain.service.TokenContractGateway;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +46,8 @@ public class WalletService {
         private final ActivityLogRepository activityLogRepository;
         private final CardRepository cardRepository;
         private final HealthCardRepository healthCardRepository;
+        private final BlockchainWriteService blockchainWriteService;
+        private final TokenContractGateway tokenContractGateway;
 
     public WalletSummaryDto getWalletSummary(UUID userId) {
         Patient patient = patientRepository.findByUserId(userId)
@@ -130,8 +135,18 @@ public class WalletService {
                         throw new IllegalArgumentException("HT token is not configured in tokens table");
                 }
 
-                String debitHash = "0x" + String.format("%064x", System.currentTimeMillis());
-                String creditHash = "0x" + String.format("%064x", System.currentTimeMillis() + 1);
+                String providedHash = request.getTransactionHash() != null ? request.getTransactionHash().trim() : null;
+                String debitHash = (providedHash != null && !providedHash.isBlank())
+                        ? providedHash
+                        : "0x" + String.format("%064x", System.currentTimeMillis());
+                String creditHash = debitHash;
+
+                Long blockNumber = null;
+                if (providedHash != null && !providedHash.isBlank()) {
+                        blockNumber = blockchainWriteService.getReceipt(providedHash)
+                                .flatMap(r -> r.getBlockNumber() != null ? java.util.Optional.of(r.getBlockNumber().longValue()) : java.util.Optional.empty())
+                                .orElse(null);
+                }
 
                 String note = request.getNote() == null || request.getNote().isBlank() ? "HT transfer" : request.getNote().trim();
 
@@ -144,6 +159,7 @@ public class WalletService {
                 debit.setSenderWalletAddress(senderPatient.getWalletAddress());
                 debit.setReceiverWalletAddress(recipientPatient.getWalletAddress());
                 debit.setTransactionHash(debitHash);
+                debit.setBlockNumber(blockNumber);
                 debit.setStatus("PENDING");
                 debit.setTimestamp(LocalDateTime.now());
                 walletTransactionRepository.save(debit);
@@ -157,6 +173,7 @@ public class WalletService {
                 credit.setSenderWalletAddress(senderPatient.getWalletAddress());
                 credit.setReceiverWalletAddress(recipientPatient.getWalletAddress());
                 credit.setTransactionHash(creditHash);
+                credit.setBlockNumber(blockNumber);
                 credit.setStatus("PENDING");
                 credit.setTimestamp(LocalDateTime.now());
                 walletTransactionRepository.save(credit);
@@ -231,7 +248,13 @@ public class WalletService {
                 debit.setDescription("Hospital redemption: " + reason + " (processed by " + staffUser.getEmail() + ")");
                 debit.setSenderWalletAddress(patient.getWalletAddress());
                 debit.setReceiverWalletAddress("HOSPITAL_REDEMPTION");
-                debit.setTransactionHash("0x" + String.format("%064x", System.currentTimeMillis()));
+                BlockchainTxRef chainTx = tokenContractGateway.redeemHTViaHospitalFinancials(
+                        patient.getWalletAddress(),
+                        com.SehatVault.SehatVaultBackend.blockchain.util.TokenUnitConverter.toBaseUnits(nz(request.getAmount()), 18),
+                        reason
+                );
+                debit.setTransactionHash(chainTx.getTransactionHash());
+                debit.setBlockNumber(chainTx.getBlockNumber());
                 debit.setStatus("PENDING");
                 debit.setTimestamp(LocalDateTime.now());
                 walletTransactionRepository.save(debit);

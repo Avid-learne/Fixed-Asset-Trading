@@ -20,6 +20,10 @@ import com.SehatVault.SehatVaultBackend.bankintegration.entity.Partnership;
 import com.SehatVault.SehatVaultBackend.bankintegration.repository.PartnershipRepository;
 import com.SehatVault.SehatVaultBackend.patient.service.PatientWalletAllocatorService;
 import com.SehatVault.SehatVaultBackend.wallet.service.TokenPriceService;
+import com.SehatVault.SehatVaultBackend.blockchain.model.BlockchainTxRef;
+import com.SehatVault.SehatVaultBackend.blockchain.service.TokenContractGateway;
+import com.SehatVault.SehatVaultBackend.blockchain.util.TokenUnitConverter;
+import com.SehatVault.SehatVaultBackend.blockchain.util.UuidUint256;
 import com.SehatVault.SehatVaultBackend.healthcard.entity.Card;
 import com.SehatVault.SehatVaultBackend.healthcard.entity.HealthCard;
 import com.SehatVault.SehatVaultBackend.healthcard.repository.CardRepository;
@@ -59,6 +63,7 @@ import java.util.UUID;
 public class AssetDepositService {
 
     private final TokenPriceService tokenPriceService;
+        private final TokenContractGateway tokenContractGateway;
     private final AssetDepositRepository assetDepositRepository;
     private final PatientRepository patientRepository;
     private final PatientTokenBalanceRepository patientTokenBalanceRepository;
@@ -948,6 +953,11 @@ public class AssetDepositService {
 
         UUID htTokenId = walletTransactionRepository.findTokenIdBySymbol("HT");
         if (htTokenId != null) {
+            BlockchainTxRef chainTx = tokenContractGateway.mintHT(
+                    patient.getWalletAddress(),
+                    TokenUnitConverter.toBaseUnits(nzNum(htCredit), 18)
+            );
+
             Transaction tx = new Transaction();
             tx.setUserId(patient.getUserId());
             tx.setTokenId(htTokenId);
@@ -956,7 +966,8 @@ public class AssetDepositService {
             tx.setDescription("Asset baseline HT credit (" + source + ") for asset " + assetId);
             tx.setSenderWalletAddress("ASSET_BASELINE_SYSTEM");
             tx.setReceiverWalletAddress(patient.getWalletAddress());
-            tx.setTransactionHash("0x" + String.format("%064x", System.currentTimeMillis()));
+            tx.setTransactionHash(chainTx.getTransactionHash());
+            tx.setBlockNumber(chainTx.getBlockNumber());
             tx.setStatus("CONFIRMED");
             tx.setTimestamp(LocalDateTime.now());
             walletTransactionRepository.save(tx);
@@ -1034,6 +1045,22 @@ public class AssetDepositService {
             UUID minterId,
             BigDecimal atTokens,
             Object unused) {
+            Patient patient = patientRepository.findById(patientId)
+                .orElseThrow(() -> new IllegalArgumentException("Patient not found for mint record"));
+
+            String metadata = "{"
+                + "\"assetId\":\"" + deposit.getAssetId() + "\""
+                + ",\"assetType\":\"" + nz(deposit.getAssetType()) + "\""
+                + ",\"assetValuePkr\":\"" + nzNum(deposit.getAssetValue()).toPlainString() + "\""
+                + "}";
+
+            BlockchainTxRef chainTx = tokenContractGateway.mintATViaHospitalFinancials(
+                patient.getWalletAddress(),
+                UuidUint256.toUint256(deposit.getAssetId()),
+                TokenUnitConverter.toBaseUnits(nzNum(atTokens), 18),
+                metadata
+            );
+
         MintRecord mintRecord = new MintRecord();
         mintRecord.setAssetId(deposit.getAssetId());
         mintRecord.setPatientId(patientId);
@@ -1041,7 +1068,8 @@ public class AssetDepositService {
         mintRecord.setTokensMinted(atTokens);
         mintRecord.setAmount(atTokens.multiply(tokenPriceService.getAtPricePkr()));
         mintRecord.setStatus("CONFIRMED");
-        mintRecord.setTransactionHash("0x" + String.format("%064x", System.currentTimeMillis()));
+            mintRecord.setTransactionHash(chainTx.getTransactionHash());
+            mintRecord.setBlockNumber(chainTx.getBlockNumber());
         mintRecord.setTimestamp(LocalDateTime.now());
         mintRecordRepository.save(mintRecord);
     }

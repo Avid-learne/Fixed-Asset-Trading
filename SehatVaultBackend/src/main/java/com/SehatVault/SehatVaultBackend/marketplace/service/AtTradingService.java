@@ -2,9 +2,20 @@ package com.SehatVault.SehatVaultBackend.marketplace.service;
 
 import com.SehatVault.SehatVaultBackend.assetdeposit.entity.AssetDeposit;
 import com.SehatVault.SehatVaultBackend.assetdeposit.repository.AssetDepositRepository;
+import com.SehatVault.SehatVaultBackend.activity.entity.Transaction;
+import com.SehatVault.SehatVaultBackend.blockchain.model.BlockchainTxRef;
+import com.SehatVault.SehatVaultBackend.blockchain.service.TokenContractGateway;
+import com.SehatVault.SehatVaultBackend.blockchain.util.TokenUnitConverter;
+import com.SehatVault.SehatVaultBackend.healthcard.entity.Card;
+import com.SehatVault.SehatVaultBackend.healthcard.entity.HealthCard;
+import com.SehatVault.SehatVaultBackend.healthcard.repository.CardRepository;
+import com.SehatVault.SehatVaultBackend.healthcard.repository.HealthCardRepository;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.PatientAssetTokenDto;
 import com.SehatVault.SehatVaultBackend.marketplace.entity.*;
 import com.SehatVault.SehatVaultBackend.marketplace.repository.*;
+import com.SehatVault.SehatVaultBackend.patient.entity.Patient;
+import com.SehatVault.SehatVaultBackend.patient.repository.PatientRepository;
+import com.SehatVault.SehatVaultBackend.wallet.repository.WalletTransactionRepository;
 import com.SehatVault.SehatVaultBackend.wallet.service.TokenPriceService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,6 +69,21 @@ public class AtTradingService {
 
         @Autowired
         private com.SehatVault.SehatVaultBackend.wallet.repository.PatientTokenBalanceRepository patientTokenBalanceRepository;
+
+        @Autowired
+        private PatientRepository patientRepository;
+
+        @Autowired
+        private WalletTransactionRepository walletTransactionRepository;
+
+        @Autowired
+        private CardRepository cardRepository;
+
+        @Autowired
+        private HealthCardRepository healthCardRepository;
+
+        @Autowired
+        private TokenContractGateway tokenContractGateway;
 
         @Autowired
         private HospitalAtPoolEntryRepository hospitalAtPoolEntryRepository;
@@ -250,13 +276,86 @@ public class AtTradingService {
                         return;
                 }
 
-                // Mark as distributed (actual HT transfer would be handled by wallet/blockchain
-                // service)
+                Patient patient = patientRepository.findById(distribution.getPatientId())
+                                .orElseThrow(() -> new RuntimeException("Patient not found"));
+                if (patient.getWalletAddress() == null || patient.getWalletAddress().isBlank()) {
+                        throw new RuntimeException("Patient wallet address is missing; cannot distribute HT on-chain");
+                }
+
+                BigDecimal htAmount = distribution.getCalculatedHtAmount() == null
+                                ? BigDecimal.ZERO
+                                : distribution.getCalculatedHtAmount().setScale(SCALE, RoundingMode.HALF_UP);
+                if (htAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                        throw new RuntimeException("Calculated HT amount must be > 0");
+                }
+
+                BlockchainTxRef chainTx = tokenContractGateway.mintHT(
+                                patient.getWalletAddress(),
+                                TokenUnitConverter.toBaseUnits(htAmount, 18)
+                );
+
+                // Update wallet balance (off-chain view)
+                com.SehatVault.SehatVaultBackend.wallet.entity.PatientTokenBalance balance = patientTokenBalanceRepository
+                                .findByPatientId(patient.getId())
+                                .orElseGet(() -> {
+                                        com.SehatVault.SehatVaultBackend.wallet.entity.PatientTokenBalance b = new com.SehatVault.SehatVaultBackend.wallet.entity.PatientTokenBalance();
+                                        b.setPatientId(patient.getId());
+                                        b.setTotalAt(BigDecimal.ZERO);
+                                        b.setTotalHt(BigDecimal.ZERO);
+                                        b.setLastUpdated(LocalDateTime.now());
+                                        return b;
+                                });
+                balance.setTotalHt((balance.getTotalHt() == null ? BigDecimal.ZERO : balance.getTotalHt()).add(htAmount));
+                balance.setLastUpdated(LocalDateTime.now());
+                patientTokenBalanceRepository.save(balance);
+
+                // Credit Asset Health Card bucket (keeps hospital redemption source consistent)
+                HealthCard assetCard = getOrCreateHealthCard(patient.getId(), "Asset Health Card");
+                assetCard.setHtBalance((assetCard.getHtBalance() == null ? BigDecimal.ZERO : assetCard.getHtBalance()).add(htAmount));
+                healthCardRepository.save(assetCard);
+
+                // Persist transaction row for UI visibility
+                UUID htTokenId = walletTransactionRepository.findTokenIdBySymbol("HT");
+                if (htTokenId != null) {
+                        Transaction tx = new Transaction();
+                        tx.setUserId(patient.getUserId());
+                        tx.setTokenId(htTokenId);
+                        tx.setType(Transaction.TransactionType.CREDIT);
+                        tx.setAmount(htAmount);
+                        tx.setDescription("Monthly HT distribution for trade " + distribution.getTradeId()
+                                        + " (month " + distribution.getDistributionMonth() + ")");
+                        tx.setSenderWalletAddress("TRADING_SYSTEM");
+                        tx.setReceiverWalletAddress(patient.getWalletAddress());
+                        tx.setTransactionHash(chainTx.getTransactionHash());
+                        tx.setBlockNumber(chainTx.getBlockNumber());
+                        tx.setStatus("CONFIRMED");
+                        tx.setTimestamp(LocalDateTime.now());
+                        walletTransactionRepository.save(tx);
+                }
+
                 distribution.markAsDistributed();
                 monthlyHtDistributionRepository.save(distribution);
 
-                log.info("Monthly HT {} distributed to patient {}", distribution.getCalculatedHtAmount(),
-                                distribution.getPatientId());
+                log.info("Monthly HT {} distributed to patient {}", htAmount, distribution.getPatientId());
+        }
+
+        private HealthCard getOrCreateHealthCard(UUID patientId, String cardName) {
+                Card card = cardRepository.findByCardNameIgnoreCase(cardName)
+                                .orElseThrow(() -> new IllegalStateException("Card type not found: " + cardName));
+
+                return healthCardRepository.findByPatientIdAndCardId(patientId, card.getCardId())
+                                .stream()
+                                .findFirst()
+                                .orElseGet(() -> {
+                                        HealthCard hc = new HealthCard();
+                                        hc.setPatientId(patientId);
+                                        hc.setCardId(card.getCardId());
+                                        hc.setCardNum("HC-" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase());
+                                        hc.setHtBalance(BigDecimal.ZERO.setScale(SCALE, RoundingMode.HALF_UP));
+                                        hc.setExpiryDate(LocalDate.now().plusYears(3));
+                                        hc.setCvv(String.valueOf(100 + new java.util.Random().nextInt(900)));
+                                        return healthCardRepository.save(hc);
+                                });
         }
 
         /**

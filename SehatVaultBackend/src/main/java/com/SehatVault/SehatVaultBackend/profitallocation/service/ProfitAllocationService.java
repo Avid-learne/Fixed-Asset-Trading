@@ -28,6 +28,9 @@ import com.SehatVault.SehatVaultBackend.healthcard.entity.Card;
 import com.SehatVault.SehatVaultBackend.healthcard.entity.HealthCard;
 import com.SehatVault.SehatVaultBackend.healthcard.repository.CardRepository;
 import com.SehatVault.SehatVaultBackend.healthcard.repository.HealthCardRepository;
+import com.SehatVault.SehatVaultBackend.blockchain.model.BlockchainTxRef;
+import com.SehatVault.SehatVaultBackend.blockchain.service.TokenContractGateway;
+import com.SehatVault.SehatVaultBackend.blockchain.util.TokenUnitConverter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,6 +63,7 @@ public class ProfitAllocationService {
     private final TokenPriceService tokenPriceService;
     private final CardRepository cardRepository;
     private final HealthCardRepository healthCardRepository;
+    private final TokenContractGateway tokenContractGateway;
 
     @Transactional(readOnly = true)
     public ProfitAllocationPreviewResponse getPreview(String email, BigDecimal requestedProfit) {
@@ -166,6 +170,11 @@ public class ProfitAllocationService {
             // Also credit the Asset Health Card for separation from subscription HT.
             creditAssetHealthCard(item.getPatientId(), item.getHtAmount());
 
+                BlockchainTxRef chainTx = tokenContractGateway.mintHT(
+                    item.getWalletAddress(),
+                    TokenUnitConverter.toBaseUnits(nz(item.getHtAmount()), 18)
+                );
+
             Transaction tx = new Transaction();
             tx.setUserId(item.getUserId());
             tx.setTokenId(htTokenId);
@@ -174,8 +183,9 @@ public class ProfitAllocationService {
             tx.setDescription("HT minted from profit distribution " + distribution.getProfitDistributionId());
             tx.setSenderWalletAddress("HOSPITAL-TREASURY");
             tx.setReceiverWalletAddress(item.getWalletAddress());
-                tx.setTransactionHash("0x" + String.format("%064x", System.currentTimeMillis()));
-                tx.setStatus("CONFIRMED");
+            tx.setTransactionHash(chainTx.getTransactionHash());
+            tx.setBlockNumber(chainTx.getBlockNumber());
+            tx.setStatus("CONFIRMED");
             tx.setTimestamp(LocalDateTime.now());
             walletTransactionRepository.save(tx);
         }

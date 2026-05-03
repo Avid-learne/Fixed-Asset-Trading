@@ -1,4 +1,6 @@
 import { authService } from '@/lib/authService'
+import { connectWallet, parseTokenAmount } from '@/lib/web3'
+import { healthTokenService } from '@/services/blockchainService'
 
 const API_URL = 'http://localhost:8000/api/wallet'
 
@@ -91,10 +93,24 @@ export const walletService = {
   },
 
   async transferHT(recipientWalletAddress: string, amount: number, note?: string): Promise<void> {
+    // 1) Execute the real on-chain transfer (patient-signed)
+    await connectWallet()
+    const tx = await healthTokenService.transfer(
+      recipientWalletAddress,
+      parseTokenAmount(String(amount))
+    )
+    const receipt = await tx.wait()
+
+    // 2) Persist the tx hash through the existing backend endpoint for audit/visibility
     const res = await fetch(`${API_URL}/patient/transfer/ht`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ recipientWalletAddress, amount, note }),
+      body: JSON.stringify({
+        recipientWalletAddress,
+        amount,
+        note,
+        transactionHash: receipt?.hash || tx.hash,
+      }),
     })
 
     const payload = await res.json().catch(() => ({} as ApiResponse<unknown>))

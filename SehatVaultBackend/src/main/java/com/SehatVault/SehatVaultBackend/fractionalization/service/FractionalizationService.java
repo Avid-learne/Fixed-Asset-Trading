@@ -28,6 +28,9 @@ import com.SehatVault.SehatVaultBackend.patient.repository.PatientRepository;
 import com.SehatVault.SehatVaultBackend.wallet.entity.PatientTokenBalance;
 import com.SehatVault.SehatVaultBackend.wallet.repository.PatientTokenBalanceRepository;
 import com.SehatVault.SehatVaultBackend.wallet.repository.WalletTransactionRepository;
+import com.SehatVault.SehatVaultBackend.blockchain.model.BlockchainTxRef;
+import com.SehatVault.SehatVaultBackend.blockchain.service.TokenContractGateway;
+import com.SehatVault.SehatVaultBackend.blockchain.util.TokenUnitConverter;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -60,6 +63,7 @@ public class FractionalizationService {
     private final HealthCardRepository healthCardRepository;
 
     private final WalletTransactionRepository walletTransactionRepository;
+    private final TokenContractGateway tokenContractGateway;
     private final ActivityLogRepository activityLogRepository;
     private final NotificationService notificationService;
 
@@ -459,7 +463,15 @@ public class FractionalizationService {
                 + (req.getReason() != null && !req.getReason().isBlank() ? ": " + req.getReason().trim() : ""));
         tx.setSenderWalletAddress("FRACTIONAL_ALLOCATION");
         tx.setReceiverWalletAddress("SERVICE_REDEMPTION");
-        tx.setTransactionHash("0x" + String.format("%064x", System.currentTimeMillis()));
+
+        BlockchainTxRef chainTx = tokenContractGateway.burnHT(
+            beneficiaryPatient != null && beneficiaryPatient.getWalletAddress() != null
+                ? beneficiaryPatient.getWalletAddress()
+                : "",
+            TokenUnitConverter.toBaseUnits(amount, 18)
+        );
+        tx.setTransactionHash(chainTx.getTransactionHash());
+        tx.setBlockNumber(chainTx.getBlockNumber());
         tx.setStatus("CONFIRMED");
         tx.setTimestamp(LocalDateTime.now());
         walletTransactionRepository.save(tx);
@@ -537,7 +549,15 @@ public class FractionalizationService {
                 + (req.getReason() != null && !req.getReason().isBlank() ? ": " + req.getReason().trim() : ""));
         tx.setSenderWalletAddress("FRACTIONAL_ALLOCATION");
         tx.setReceiverWalletAddress("HOSPITAL_REDEMPTION");
-        tx.setTransactionHash("0x" + String.format("%064x", System.currentTimeMillis()));
+
+        BlockchainTxRef chainTx = tokenContractGateway.burnHT(
+            beneficiaryPatient != null && beneficiaryPatient.getWalletAddress() != null
+                ? beneficiaryPatient.getWalletAddress()
+                : "",
+            TokenUnitConverter.toBaseUnits(amount, 18)
+        );
+        tx.setTransactionHash(chainTx.getTransactionHash());
+        tx.setBlockNumber(chainTx.getBlockNumber());
         tx.setStatus("CONFIRMED");
         tx.setTimestamp(LocalDateTime.now());
         walletTransactionRepository.save(tx);
@@ -733,6 +753,11 @@ public class FractionalizationService {
 
         UUID htTokenId = walletTransactionRepository.findTokenIdBySymbol("HT");
         if (htTokenId != null) {
+            BlockchainTxRef chainTx = tokenContractGateway.burnHT(
+                    primaryPatient.getWalletAddress(),
+                    TokenUnitConverter.toBaseUnits(amount, 18)
+            );
+
             Transaction tx = new Transaction();
             tx.setUserId(primaryPatient.getUserId());
             tx.setTokenId(htTokenId);
@@ -741,7 +766,8 @@ public class FractionalizationService {
             tx.setDescription("HT reserved for fractional allocations (source=" + source + ")");
             tx.setSenderWalletAddress(primaryPatient.getWalletAddress());
             tx.setReceiverWalletAddress("FRACTIONALIZATION_POOL");
-            tx.setTransactionHash("0x" + String.format("%064x", System.currentTimeMillis()));
+            tx.setTransactionHash(chainTx.getTransactionHash());
+            tx.setBlockNumber(chainTx.getBlockNumber());
             tx.setStatus("CONFIRMED");
             tx.setTimestamp(LocalDateTime.now());
             walletTransactionRepository.save(tx);
@@ -762,6 +788,11 @@ public class FractionalizationService {
 
         UUID htTokenId = walletTransactionRepository.findTokenIdBySymbol("HT");
         if (htTokenId != null) {
+            BlockchainTxRef chainTx = tokenContractGateway.mintHT(
+                    primaryPatient.getWalletAddress(),
+                    TokenUnitConverter.toBaseUnits(amount, 18)
+            );
+
             Transaction tx = new Transaction();
             tx.setUserId(primaryPatient.getUserId());
             tx.setTokenId(htTokenId);
@@ -770,7 +801,8 @@ public class FractionalizationService {
             tx.setDescription("Returned unused fractional HT to primary patient");
             tx.setSenderWalletAddress("FRACTIONALIZATION_POOL");
             tx.setReceiverWalletAddress(primaryPatient.getWalletAddress());
-            tx.setTransactionHash("0x" + String.format("%064x", System.currentTimeMillis()));
+            tx.setTransactionHash(chainTx.getTransactionHash());
+            tx.setBlockNumber(chainTx.getBlockNumber());
             tx.setStatus("CONFIRMED");
             tx.setTimestamp(LocalDateTime.now());
             walletTransactionRepository.save(tx);
@@ -813,6 +845,11 @@ public class FractionalizationService {
 
         UUID htTokenId = walletTransactionRepository.findTokenIdBySymbol("HT");
         if (htTokenId != null) {
+            BlockchainTxRef chainTx = tokenContractGateway.mintHT(
+                    beneficiaryPatient.getWalletAddress() == null ? "" : beneficiaryPatient.getWalletAddress(),
+                    TokenUnitConverter.toBaseUnits(amount, 18)
+            );
+
             Transaction tx = new Transaction();
             tx.setUserId(beneficiaryPatient.getUserId());
             tx.setTokenId(htTokenId);
@@ -821,7 +858,8 @@ public class FractionalizationService {
             tx.setDescription("Fractional HT received under NOC " + (nocNumber == null ? "" : nocNumber));
             tx.setSenderWalletAddress("FRACTIONALIZATION_POOL");
             tx.setReceiverWalletAddress(beneficiaryPatient.getWalletAddress() == null ? "" : beneficiaryPatient.getWalletAddress());
-            tx.setTransactionHash("0x" + String.format("%064x", System.currentTimeMillis()));
+            tx.setTransactionHash(chainTx.getTransactionHash());
+            tx.setBlockNumber(chainTx.getBlockNumber());
             tx.setStatus("CONFIRMED");
             tx.setTimestamp(LocalDateTime.now());
             walletTransactionRepository.save(tx);

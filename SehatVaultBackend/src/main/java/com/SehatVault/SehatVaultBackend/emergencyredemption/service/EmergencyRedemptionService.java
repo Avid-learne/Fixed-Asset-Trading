@@ -24,6 +24,9 @@ import com.SehatVault.SehatVaultBackend.patient.repository.PatientRepository;
 import com.SehatVault.SehatVaultBackend.wallet.entity.PatientTokenBalance;
 import com.SehatVault.SehatVaultBackend.wallet.repository.PatientTokenBalanceRepository;
 import com.SehatVault.SehatVaultBackend.wallet.repository.WalletTransactionRepository;
+import com.SehatVault.SehatVaultBackend.blockchain.model.BlockchainTxRef;
+import com.SehatVault.SehatVaultBackend.blockchain.service.TokenContractGateway;
+import com.SehatVault.SehatVaultBackend.blockchain.util.TokenUnitConverter;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -47,6 +50,7 @@ public class EmergencyRedemptionService {
     private final PatientTokenBalanceRepository patientTokenBalanceRepository;
     private final PatientAtAssignmentRepository patientAtAssignmentRepository;
     private final WalletTransactionRepository walletTransactionRepository;
+        private final TokenContractGateway tokenContractGateway;
     private final ActivityLogRepository activityLogRepository;
     private final NotificationService notificationService;
     private final CardRepository cardRepository;
@@ -227,6 +231,15 @@ public class EmergencyRedemptionService {
             throw new IllegalStateException("AT/HT tokens are not configured in tokens table");
         }
 
+        BlockchainTxRef burnAtTx = tokenContractGateway.burnAT(
+            patient.getWalletAddress(),
+            TokenUnitConverter.toBaseUnits(atToConvert, 18)
+        );
+        BlockchainTxRef mintHtTx = tokenContractGateway.mintHT(
+            patient.getWalletAddress(),
+            TokenUnitConverter.toBaseUnits(htIssued, 18)
+        );
+
         Transaction debitAt = new Transaction();
         debitAt.setUserId(patient.getUserId());
         debitAt.setTokenId(atTokenId);
@@ -235,7 +248,8 @@ public class EmergencyRedemptionService {
         debitAt.setDescription("Emergency conversion: AT→HT (approved by " + staffUser.getEmail() + ")");
         debitAt.setSenderWalletAddress(patient.getWalletAddress());
         debitAt.setReceiverWalletAddress("EMERGENCY_CONVERSION");
-        debitAt.setTransactionHash("0x" + String.format("%064x", System.currentTimeMillis()));
+        debitAt.setTransactionHash(burnAtTx.getTransactionHash());
+        debitAt.setBlockNumber(burnAtTx.getBlockNumber());
         debitAt.setStatus("CONFIRMED");
         debitAt.setTimestamp(LocalDateTime.now());
         walletTransactionRepository.save(debitAt);
@@ -248,7 +262,8 @@ public class EmergencyRedemptionService {
         creditHt.setDescription("Emergency conversion: AT→HT (urgency=" + urgency + ")");
         creditHt.setSenderWalletAddress("EMERGENCY_CONVERSION");
         creditHt.setReceiverWalletAddress(patient.getWalletAddress());
-        creditHt.setTransactionHash("0x" + String.format("%064x", System.currentTimeMillis() + 1));
+        creditHt.setTransactionHash(mintHtTx.getTransactionHash());
+        creditHt.setBlockNumber(mintHtTx.getBlockNumber());
         creditHt.setStatus("CONFIRMED");
         creditHt.setTimestamp(LocalDateTime.now());
         walletTransactionRepository.save(creditHt);

@@ -9,4 +9,5 @@ public class TransferHtRequest {
     private String recipientWalletAddress;
     private BigDecimal amount;
     private String note;
+    private String transactionHash;
 }

@@ -22,6 +22,9 @@ import com.SehatVault.SehatVaultBackend.notification.service.NotificationService
 import com.SehatVault.SehatVaultBackend.wallet.entity.PatientTokenBalance;
 import com.SehatVault.SehatVaultBackend.wallet.repository.PatientTokenBalanceRepository;
 import com.SehatVault.SehatVaultBackend.wallet.repository.WalletTransactionRepository;
+import com.SehatVault.SehatVaultBackend.blockchain.model.BlockchainTxRef;
+import com.SehatVault.SehatVaultBackend.blockchain.service.TokenContractGateway;
+import com.SehatVault.SehatVaultBackend.blockchain.util.TokenUnitConverter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,6 +57,7 @@ public class SubscriptionService {
     private final CardRepository cardRepository;
     private final PatientTokenBalanceRepository patientTokenBalanceRepository;
     private final WalletTransactionRepository walletTransactionRepository;
+    private final TokenContractGateway tokenContractGateway;
     private final ActivityLogRepository activityLogRepository;
     private final PatientWalletAllocatorService patientWalletAllocatorService;
     private final TokenPriceService tokenPriceService;
@@ -293,6 +297,11 @@ public class SubscriptionService {
 
         UUID htTokenId = walletTransactionRepository.findTokenIdBySymbol("HT");
         if (htTokenId != null) {
+            BlockchainTxRef chainTx = tokenContractGateway.mintHT(
+                    patient.getWalletAddress(),
+                    TokenUnitConverter.toBaseUnits(amount.setScale(2, RoundingMode.HALF_UP), 18)
+            );
+
             Transaction tx = new Transaction();
             tx.setUserId(patient.getUserId());
             tx.setTokenId(htTokenId);
@@ -301,7 +310,8 @@ public class SubscriptionService {
             tx.setDescription("Subscription HT credit (" + source + ")");
             tx.setSenderWalletAddress("SUBSCRIPTION_SYSTEM");
             tx.setReceiverWalletAddress(patient.getWalletAddress());
-            tx.setTransactionHash("0x" + String.format("%064x", System.currentTimeMillis()));
+            tx.setTransactionHash(chainTx.getTransactionHash());
+            tx.setBlockNumber(chainTx.getBlockNumber());
             tx.setStatus("CONFIRMED");
             tx.setTimestamp(java.time.LocalDateTime.now());
             walletTransactionRepository.save(tx);
@@ -466,7 +476,13 @@ public class SubscriptionService {
         tx.setDescription(String.format("Monthly HT allocation for %s (%s)", plan.getSubscriptionName(), source));
         tx.setSenderWalletAddress("SUBSCRIPTION_SYSTEM");
         tx.setReceiverWalletAddress(patient.getWalletAddress());
-        tx.setTransactionHash("0x" + String.format("%064x", System.currentTimeMillis()));
+
+        BlockchainTxRef chainTx = tokenContractGateway.mintHT(
+            patient.getWalletAddress(),
+            TokenUnitConverter.toBaseUnits(htAllocation, 18)
+        );
+        tx.setTransactionHash(chainTx.getTransactionHash());
+        tx.setBlockNumber(chainTx.getBlockNumber());
         tx.setStatus("CONFIRMED");
         tx.setTimestamp(java.time.LocalDateTime.now());
         walletTransactionRepository.save(tx);
