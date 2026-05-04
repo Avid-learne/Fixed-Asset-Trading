@@ -3,7 +3,9 @@ package com.SehatVault.SehatVaultBackend.dashboard.controller;
 import com.SehatVault.SehatVaultBackend.dashboard.dto.AssetPricesDto;
 import com.SehatVault.SehatVaultBackend.dashboard.dto.BankDashboardSummaryDto;
 import com.SehatVault.SehatVaultBackend.dashboard.dto.HospitalDashboardSummaryDto;
+import com.SehatVault.SehatVaultBackend.dashboard.dto.SuperAdminBankDetailsDto;
 import com.SehatVault.SehatVaultBackend.dashboard.dto.SuperAdminDashboardSummaryDto;
+import com.SehatVault.SehatVaultBackend.dashboard.dto.SuperAdminHospitalDetailsDto;
 import com.SehatVault.SehatVaultBackend.dashboard.dto.PatientDashboardSummaryDto;
 import com.SehatVault.SehatVaultBackend.dashboard.service.AssetPricingService;
 import com.SehatVault.SehatVaultBackend.dashboard.service.DashboardService;
@@ -17,6 +19,9 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PathVariable;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/dashboard")
@@ -45,6 +50,22 @@ public class DashboardController {
     @GetMapping("/super-admin")
     public ResponseEntity<ApiResponse<SuperAdminDashboardSummaryDto>> getSuperAdminDashboard(Authentication authentication) {
         return ResponseEntity.ok(ApiResponse.success(dashboardService.getSuperAdminSummary(authentication.getName())));
+    }
+
+    @GetMapping("/super-admin/hospitals/{hospitalId}")
+    public ResponseEntity<ApiResponse<SuperAdminHospitalDetailsDto>> getSuperAdminHospitalDetails(
+            Authentication authentication,
+            @PathVariable UUID hospitalId
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(dashboardService.getSuperAdminHospitalDetails(authentication.getName(), hospitalId)));
+    }
+
+    @GetMapping("/super-admin/banks/{bankId}")
+    public ResponseEntity<ApiResponse<SuperAdminBankDetailsDto>> getSuperAdminBankDetails(
+            Authentication authentication,
+            @PathVariable UUID bankId
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(dashboardService.getSuperAdminBankDetails(authentication.getName(), bankId)));
     }
 
     @GetMapping({"/hospital/asset-prices", "/asset-prices"})

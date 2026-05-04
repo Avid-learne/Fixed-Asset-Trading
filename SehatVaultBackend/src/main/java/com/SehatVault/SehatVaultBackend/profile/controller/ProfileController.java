@@ -45,7 +45,6 @@ public class ProfileController {
                 return ResponseEntity.status(401).body(createErrorResponse("Unauthorized"));
             }
 
-            String email = authentication.getName();
             // Extract userId from authentication principal if needed
             // For now, we'll need the frontend to pass userId or we extract from JWT
             

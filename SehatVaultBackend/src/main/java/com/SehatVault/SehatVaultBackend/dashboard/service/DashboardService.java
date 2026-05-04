@@ -5,8 +5,9 @@ import com.SehatVault.SehatVaultBackend.assetdeposit.entity.MintRecord;
 import com.SehatVault.SehatVaultBackend.assetdeposit.repository.AssetDepositRepository;
 import com.SehatVault.SehatVaultBackend.assetdeposit.repository.MintRecordRepository;
 import com.SehatVault.SehatVaultBackend.dashboard.dto.AssetPricesDto;
+import com.SehatVault.SehatVaultBackend.dashboard.dto.SuperAdminBankDetailsDto;
+import com.SehatVault.SehatVaultBackend.dashboard.dto.SuperAdminHospitalDetailsDto;
 import com.SehatVault.SehatVaultBackend.dashboard.dto.SuperAdminDashboardSummaryDto;
-import com.SehatVault.SehatVaultBackend.dashboard.service.AssetPricingService;
 import com.SehatVault.SehatVaultBackend.marketplace.entity.MarketplaceTrade;
 import com.SehatVault.SehatVaultBackend.marketplace.repository.MarketplaceTradeRepository;
 import com.SehatVault.SehatVaultBackend.auth.entity.User;
@@ -233,10 +234,7 @@ public class DashboardService {
     }
 
         public SuperAdminDashboardSummaryDto getSuperAdminSummary(String email) {
-        User user = requireUser(email);
-        if (user.getRole() == null || user.getRole().getRoleName() != com.SehatVault.SehatVaultBackend.auth.entity.Role.RoleType.admin) {
-            throw new IllegalArgumentException("Only super admins can access the system summary");
-        }
+        requireSuperAdmin(email, "Only super admins can access the system summary");
 
         List<Hospital> hospitals = hospitalRepository.findAll();
         List<Bank> banks = bankRepository.findAll();
@@ -296,10 +294,14 @@ public class DashboardService {
             SuperAdminDashboardSummaryDto.HospitalOverview row = new SuperAdminDashboardSummaryDto.HospitalOverview();
             row.setHospitalId(hospital.getHospitalId());
             row.setHospitalName(hospital.getHospitalName());
+            row.setRegistrationNumber(hospital.getRegistrationNum());
+            row.setEmail(hospital.getEmail());
+            row.setContactNum(hospital.getContactNum());
+            row.setAddress(hospital.getAddress());
             row.setPatientCount(patientCountsByHospital.getOrDefault(hospital.getHospitalId(), 0L));
             row.setVerificationStatus(hospital.getVerificationStatus() != null ? hospital.getVerificationStatus().name() : "PENDING");
-            row.setTotalAssets(hospital.getTotalAssets() != null ? BigDecimal.valueOf(hospital.getTotalAssets()) : BigDecimal.ZERO);
-            row.setTotalAT(hospital.getTotalAT() != null ? BigDecimal.valueOf(hospital.getTotalAT()) : BigDecimal.ZERO);
+            row.setTotalAssets(nz(assetDepositRepository.sumAssetValueByHospitalIdAndCustodyConfirmedAtIsNotNull(hospital.getHospitalId())));
+            row.setTotalAT(nz(mintRecordRepository.sumTokensMintedByHospitalId(hospital.getHospitalId())));
             row.setCreatedAt(hospital.getCreatedAt());
             dto.getHospitals().add(row);
         }
@@ -310,11 +312,7 @@ public class DashboardService {
             row.setBankName(bank.getBankName());
             row.setActivePartnerships(partnershipCountsByBank.getOrDefault(bank.getBankId(), 0L));
             row.setVerificationStatus(bank.getVerificationStatus() != null ? bank.getVerificationStatus().name() : "PENDING");
-            row.setTotalDeposits(partnershipRepository.findByBankIdOrderByCreatedAtDesc(bank.getBankId()).stream()
-                .filter(partnership -> partnership.getIntegrationStatus() == Partnership.IntegrationStatus.APPROVED)
-                .map(Partnership::getTotalDeposits)
-                .filter(value -> value != null)
-                .reduce(BigDecimal.ZERO, BigDecimal::add));
+            row.setTotalDeposits(nz(assetDepositRepository.sumAssetValueByBankIdAndCustodyConfirmedAtIsNotNull(bank.getBankId())));
             row.setCreatedAt(bank.getCreatedAt());
             dto.getBanks().add(row);
         }
@@ -336,6 +334,97 @@ public class DashboardService {
 
         return dto;
         }
+
+    public SuperAdminHospitalDetailsDto getSuperAdminHospitalDetails(String email, UUID hospitalId) {
+        requireSuperAdmin(email, "Only super admins can access hospital details");
+
+        Hospital hospital = hospitalRepository.findById(hospitalId)
+                .orElseThrow(() -> new IllegalArgumentException("Hospital not found"));
+
+        SuperAdminHospitalDetailsDto dto = new SuperAdminHospitalDetailsDto();
+        dto.setHospitalId(hospital.getHospitalId());
+        dto.setHospitalName(hospital.getHospitalName());
+        dto.setRegistrationNumber(hospital.getRegistrationNum());
+        dto.setAddress(hospital.getAddress());
+        dto.setEmail(hospital.getEmail());
+        dto.setContactNum(hospital.getContactNum());
+        dto.setCity(hospital.getCity());
+        dto.setVerificationStatus(hospital.getVerificationStatus() != null ? hospital.getVerificationStatus().name() : "PENDING");
+        dto.setCreatedAt(hospital.getCreatedAt());
+
+        dto.setPatientCount(patientRepository.findByHospitalId(hospitalId).size());
+        dto.setTotalDeposits(assetDepositRepository.countByHospitalIdAndCustodyConfirmedAtIsNotNull(hospitalId));
+        dto.setTotalAssets(nz(assetDepositRepository.sumAssetValueByHospitalIdAndCustodyConfirmedAtIsNotNull(hospitalId)));
+        dto.setTotalAT(nz(mintRecordRepository.sumTokensMintedByHospitalId(hospitalId)));
+
+        List<Partnership> links = partnershipRepository.findByHospitalIdOrderByCreatedAtDesc(hospitalId);
+        for (Partnership link : links) {
+            Bank bank = bankRepository.findById(link.getBankId()).orElse(null);
+            if (bank == null) continue;
+
+            SuperAdminHospitalDetailsDto.LinkedBank row = new SuperAdminHospitalDetailsDto.LinkedBank();
+            row.setPartnershipId(link.getPartnershipId());
+            row.setBankId(bank.getBankId());
+            row.setBankName(bank.getBankName());
+            row.setBankVerificationStatus(bank.getVerificationStatus() != null ? bank.getVerificationStatus().name() : "PENDING");
+            row.setIntegrationStatus(link.getIntegrationStatus() != null ? link.getIntegrationStatus().name() : "PENDING");
+            row.setLinkedAt(link.getCreatedAt());
+            row.setTotalDeposits(assetDepositRepository.countByBankIdAndHospitalIdAndCustodyConfirmedAtIsNotNull(bank.getBankId(), hospitalId));
+            row.setApprovedDeposits(assetDepositRepository.countByBankIdAndHospitalIdAndStatus(bank.getBankId(), hospitalId, "approved"));
+            row.setPendingDeposits(assetDepositRepository.countByBankIdAndHospitalIdAndStatus(bank.getBankId(), hospitalId, "pending"));
+            row.setTotalAssetValuePkr(nz(assetDepositRepository.sumAssetValueByBankIdAndHospitalIdAndCustodyConfirmedAtIsNotNull(bank.getBankId(), hospitalId)));
+            dto.getLinkedBanks().add(row);
+        }
+
+        return dto;
+    }
+
+    public SuperAdminBankDetailsDto getSuperAdminBankDetails(String email, UUID bankId) {
+        requireSuperAdmin(email, "Only super admins can access bank details");
+
+        Bank bank = bankRepository.findById(bankId)
+                .orElseThrow(() -> new IllegalArgumentException("Bank not found"));
+
+        SuperAdminBankDetailsDto dto = new SuperAdminBankDetailsDto();
+        dto.setBankId(bank.getBankId());
+        dto.setBankName(bank.getBankName());
+        dto.setRegistration(bank.getRegistration());
+        dto.setSwiftCode(bank.getSwiftCode());
+        dto.setBankCode(bank.getBankCode());
+        dto.setAddress(bank.getAddress());
+        dto.setEmail(bank.getEmail());
+        dto.setContactNum(bank.getContactNum());
+        dto.setCity(bank.getCity());
+        dto.setVerificationStatus(bank.getVerificationStatus() != null ? bank.getVerificationStatus().name() : "PENDING");
+        dto.setCreatedAt(bank.getCreatedAt());
+
+        List<Partnership> links = partnershipRepository.findByBankIdOrderByCreatedAtDesc(bankId);
+        dto.setActivePartnerships(links.stream()
+                .filter(link -> link.getIntegrationStatus() == Partnership.IntegrationStatus.APPROVED)
+                .count());
+        dto.setTotalDeposits(assetDepositRepository.countByBankIdAndCustodyConfirmedAtIsNotNull(bankId));
+        dto.setTotalAssetValuePkr(nz(assetDepositRepository.sumAssetValueByBankIdAndCustodyConfirmedAtIsNotNull(bankId)));
+
+        for (Partnership link : links) {
+            Hospital hospital = hospitalRepository.findById(link.getHospitalId()).orElse(null);
+            if (hospital == null) continue;
+
+            SuperAdminBankDetailsDto.LinkedHospital row = new SuperAdminBankDetailsDto.LinkedHospital();
+            row.setPartnershipId(link.getPartnershipId());
+            row.setHospitalId(hospital.getHospitalId());
+            row.setHospitalName(hospital.getHospitalName());
+            row.setHospitalVerificationStatus(hospital.getVerificationStatus() != null ? hospital.getVerificationStatus().name() : "PENDING");
+            row.setIntegrationStatus(link.getIntegrationStatus() != null ? link.getIntegrationStatus().name() : "PENDING");
+            row.setLinkedAt(link.getCreatedAt());
+            row.setTotalDeposits(assetDepositRepository.countByBankIdAndHospitalIdAndCustodyConfirmedAtIsNotNull(bankId, hospital.getHospitalId()));
+            row.setApprovedDeposits(assetDepositRepository.countByBankIdAndHospitalIdAndStatus(bankId, hospital.getHospitalId(), "approved"));
+            row.setPendingDeposits(assetDepositRepository.countByBankIdAndHospitalIdAndStatus(bankId, hospital.getHospitalId(), "pending"));
+            row.setTotalAssetValuePkr(nz(assetDepositRepository.sumAssetValueByBankIdAndHospitalIdAndCustodyConfirmedAtIsNotNull(bankId, hospital.getHospitalId())));
+            dto.getLinkedHospitals().add(row);
+        }
+
+        return dto;
+    }
 
     private List<HospitalDashboardSummaryDto.MonthlyMintData> buildMonthlyMintData(List<MintRecord> records) {
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MMM yyyy");
@@ -397,11 +486,23 @@ public class DashboardService {
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
     }
 
+    private User requireSuperAdmin(String email, String message) {
+        User user = requireUser(email);
+        if (user.getRole() == null || user.getRole().getRoleName() != com.SehatVault.SehatVaultBackend.auth.entity.Role.RoleType.admin) {
+            throw new IllegalArgumentException(message);
+        }
+        return user;
+    }
+
     private boolean eq(String value, String expected) {
         return value != null && value.trim().toLowerCase(Locale.ROOT).equals(expected);
     }
 
     private boolean isPatientPending(AssetDeposit d) {
         return eq(d.getStatus(), "pending") || eq(d.getBankApprovalStatus(), "pending");
+    }
+
+    private BigDecimal nz(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 }

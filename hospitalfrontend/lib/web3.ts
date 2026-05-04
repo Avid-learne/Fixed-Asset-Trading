@@ -17,6 +17,30 @@ export const NETWORK_CONFIG = {
   rpcUrl: RPC_URL,
 }
 
+type WalletConnectState = {
+  promise: Promise<{ address: string; signer: ethers.Signer } | null> | null
+}
+
+declare global {
+  interface Window {
+    __sehatvaultWalletConnectState?: WalletConnectState
+  }
+}
+
+let connectWalletInFlight = false
+
+function getWalletConnectState(): WalletConnectState {
+  if (typeof window === 'undefined') {
+    return { promise: null }
+  }
+
+  if (!window.__sehatvaultWalletConnectState) {
+    window.__sehatvaultWalletConnectState = { promise: null }
+  }
+
+  return window.__sehatvaultWalletConnectState
+}
+
 /**
  * Get a JSON-RPC provider connected to the local Hardhat node
  */
@@ -35,15 +59,21 @@ export async function getSigner(): Promise<ethers.Signer | null> {
   }
 
   try {
-    // Request account access
-    await window.ethereum.request({ method: 'eth_requestAccounts' })
-    
     const provider = new ethers.BrowserProvider(window.ethereum)
-    const signer = await provider.getSigner()
+    const accounts = (await window.ethereum.request({ method: 'eth_accounts' })) as string[]
+    if (!accounts || accounts.length === 0) {
+      return null
+    }
+
+    const signer = await provider.getSigner(accounts[0])
     
     return signer
   } catch (error) {
-    console.error('Error getting signer:', error)
+    if ((error as any)?.code === -32002) {
+      console.warn('MetaMask request already pending. Please finish the existing prompt and try again.')
+    } else {
+      console.error('Error getting signer:', error)
+    }
     return null
   }
 }
@@ -60,49 +90,79 @@ export async function connectWallet(): Promise<{
     return null
   }
 
-  try {
-    // Request account access
-    const accounts = await window.ethereum.request({
-      method: 'eth_requestAccounts',
-    })
+  const walletState = getWalletConnectState()
+  if (walletState.promise) {
+    return walletState.promise
+  }
 
-    // Try to switch to Hardhat network
-    try {
-      await window.ethereum.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: '0x7a69' }], // 31337 in hex
-      })
-    } catch (switchError: any) {
-      // Network doesn't exist, add it
-      if (switchError.code === 4902) {
-        await window.ethereum.request({
-          method: 'wallet_addEthereumChain',
-          params: [
-            {
-              chainId: '0x7a69',
-              chainName: 'Hardhat Local',
-              nativeCurrency: {
-                name: 'Ethereum',
-                symbol: 'ETH',
-                decimals: 18,
-              },
-              rpcUrls: [RPC_URL],
-            },
-          ],
-        })
-      } else {
-        throw switchError
-      }
-    }
-
-    const provider = new ethers.BrowserProvider(window.ethereum)
-    const signer = await provider.getSigner()
-    const address = await signer.getAddress()
-
-    return { address, signer }
-  } catch (error) {
-    console.error('Error connecting wallet:', error)
+  if (connectWalletInFlight) {
     return null
+  }
+
+  connectWalletInFlight = true
+  walletState.promise = (async () => {
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum)
+      const accounts = (await window.ethereum.request({ method: 'eth_accounts' })) as string[]
+      let activeAccounts = accounts
+
+      if (!activeAccounts || activeAccounts.length === 0) {
+        await window.ethereum.request({ method: 'eth_requestAccounts' })
+        activeAccounts = (await window.ethereum.request({ method: 'eth_accounts' })) as string[]
+      }
+
+      if (!activeAccounts || activeAccounts.length === 0) {
+        return null
+      }
+
+      // Try to switch to Hardhat network after the account is authorized.
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: '0x7a69' }], // 31337 in hex
+        })
+      } catch (switchError: any) {
+        // Network doesn't exist, add it
+        if (switchError.code === 4902) {
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [
+              {
+                chainId: '0x7a69',
+                chainName: 'Hardhat Local',
+                nativeCurrency: {
+                  name: 'Ethereum',
+                  symbol: 'ETH',
+                  decimals: 18,
+                },
+                rpcUrls: [RPC_URL],
+              },
+            ],
+          })
+        } else {
+          throw switchError
+        }
+      }
+
+      const signer = await provider.getSigner(activeAccounts[0])
+      const address = await signer.getAddress()
+
+      return { address, signer }
+    } catch (error) {
+      if ((error as any)?.code === -32002) {
+        console.warn('MetaMask request already pending. Please finish the existing prompt and try again.')
+      } else {
+        console.error('Error connecting wallet:', error)
+      }
+      return null
+    }
+  })()
+
+  try {
+    return await walletState.promise
+  } finally {
+    connectWalletInFlight = false
+    walletState.promise = null
   }
 }
 
@@ -116,7 +176,11 @@ export async function getConnectedAddress(): Promise<string | null> {
 
   try {
     const provider = new ethers.BrowserProvider(window.ethereum)
-    const signer = await provider.getSigner()
+    const accounts = (await window.ethereum.request({ method: 'eth_accounts' })) as string[]
+    if (!accounts || accounts.length === 0) {
+      return null
+    }
+    const signer = await provider.getSigner(accounts[0])
     return await signer.getAddress()
   } catch {
     return null

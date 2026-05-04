@@ -2,6 +2,8 @@ package com.SehatVault.SehatVaultBackend.auth.repository;
 
 import com.SehatVault.SehatVaultBackend.auth.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
@@ -20,6 +22,9 @@ public interface UserRepository extends JpaRepository<User, UUID> {
      * @return Optional containing User if found
      */
     Optional<User> findByEmail(String email);
+
+    @Query("SELECT u FROM User u WHERE LOWER(u.walletAddress) = LOWER(:walletAddress)")
+    Optional<User> findByWalletAddressIgnoreCase(@Param("walletAddress") String walletAddress);
     
     /**
      * Check if email already exists

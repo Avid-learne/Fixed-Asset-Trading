@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Search, Download, Filter, FileText, Shield, AlertCircle, Loader } from 'lucide-react'
+import { Search, Filter, FileText, Shield, AlertCircle, Loader } from 'lucide-react'
 import { auditLogService } from '@/services/auditLogService'
 import type { AuditLog as AuditLogType } from '@/types/auditLog'
 
@@ -78,33 +78,7 @@ export default function AdminAuditLogsPage() {
     return matchesSearch && matchesAction
   })
 
-  const handleExport = () => {
-    try {
-      const csv = [
-        ['Timestamp', 'User', 'Action', 'Resource', 'Details', 'IP Address', 'Status'],
-        ...filteredLogs.map((log) => [
-          log.timestamp,
-          log.user,
-          log.action,
-          log.resource,
-          log.details,
-          log.ipAddress,
-          log.status,
-        ]),
-      ]
-        .map((row) => row.join(','))
-        .join('\n')
-
-      const blob = new Blob([csv], { type: 'text/csv' })
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `audit-logs-${new Date().toISOString().split('T')[0]}.csv`
-      a.click()
-    } catch (err) {
-      console.error('Error exporting CSV:', err)
-    }
-  }
+  
 
   const getStatusColor = (status: string) => {
     return status === 'success' ? 'bg-secondary/20 text-secondary' : 'bg-destructive/20 text-destructive'
@@ -149,10 +123,7 @@ export default function AdminAuditLogsPage() {
           <h1 className="text-3xl font-bold text-foreground">System Audit Logs</h1>
           <p className="text-muted-foreground mt-1">Monitor all system activities and security events</p>
         </div>
-        <Button onClick={handleExport} variant="outline" disabled={isLoading || filteredLogs.length === 0}>
-          <Download className="w-4 h-4 mr-2" />
-          Export Logs
-        </Button>
+        {/* Export button removed per project policy */}
       </div>
 
       {error && (

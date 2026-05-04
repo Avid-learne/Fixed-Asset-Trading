@@ -14,6 +14,7 @@ public class FractionalAllocationView {
     private UUID requestId;
     private UUID primaryUserId;
     private UUID beneficiaryUserId;
+    private String beneficiaryRegistrationId;
     private String source;
     private BigDecimal totalAllocatedHt;
     private BigDecimal remainingHt;

@@ -9,8 +9,7 @@ type ApiResponse<T> = {
 }
 
 export type BeneficiaryShare = {
-  beneficiaryUserId: string
-  fractionPercent: number
+  beneficiaryWalletAddress: string
 }
 
 export type CreateFractionalizationRequest = {
@@ -37,6 +36,7 @@ export type FractionalizationRequestView = {
   createdAt?: string
   beneficiaries: {
     beneficiaryUserId: string
+    beneficiaryRegistrationId: string
     fractionPercent: number
     allocatedHt: number
   }[]
@@ -47,6 +47,7 @@ export type FractionalAllocationView = {
   requestId: string
   primaryUserId: string
   beneficiaryUserId: string
+  beneficiaryRegistrationId: string
   source: 'SUBSCRIPTION' | 'ASSET'
   totalAllocatedHt: number
   remainingHt: number
@@ -134,7 +135,9 @@ export const fractionalizationService = {
       method: 'POST',
       headers: getHeaders(),
     })
-    return mapReq(await parseApi<FractionalizationRequestView>(res, 'Approve failed'))
+    const json: ApiResponse<FractionalizationRequestView> = await res.json()
+    if (!res.ok || !json.success) throw new Error(json.message || 'Approve failed')
+    return mapReq(json.data)
   },
 
   async pendingForInsurer(): Promise<FractionalizationRequestView[]> {

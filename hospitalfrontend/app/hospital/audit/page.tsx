@@ -9,7 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { 
   Search, 
   Filter, 
-  Download,
   Shield,
   LogIn,
   LogOut,
@@ -375,10 +374,7 @@ export default function HospitalAuditTrail() {
           <p className="text-slate-600 mt-1">Complete activity log and security monitoring</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Export Logs
-          </Button>
+          {/* Export button removed per project policy */}
           <Button variant="outline">
             <Filter className="h-4 w-4 mr-2" />
             Advanced Filters

@@ -10,8 +10,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Building2, User, CreditCard, FileText, ChevronRight, CheckCircle } from 'lucide-react'
+import { authService } from '@/lib/authService'
 
 type OnboardingStep = 1 | 2 | 3 | 4
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
+
+const getAuthHeaders = (): HeadersInit => {
+  const token = authService.getToken()
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  }
+}
 
 export default function CreateHospitalPage() {
   const router = useRouter()
@@ -72,7 +83,24 @@ export default function CreateHospitalPage() {
   const handleSubmit = async () => {
     setSubmitting(true)
     try {
-      // await adminService.createHospital(hospitalData)
+      const response = await fetch(`${API_BASE}/hospitals`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          name: hospitalData.name,
+          registrationNumber: hospitalData.registrationNumber,
+          address: hospitalData.address,
+          contactEmail: hospitalData.email,
+          contactPhone: hospitalData.phone,
+          city: hospitalData.city,
+        }),
+      })
+
+      if (!response.ok) {
+        const body = await response.text()
+        throw new Error(body || `Failed to create hospital (${response.status})`)
+      }
+
       alert('Hospital onboarded successfully!')
       router.push('/admin/hospitals')
     } catch (error) {

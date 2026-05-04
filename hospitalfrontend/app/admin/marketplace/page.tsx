@@ -1,842 +1,184 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import React, { useEffect, useMemo, useState } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Building2, Home, Landmark, Factory, Store, TrendingUp, TrendingDown, Search, ArrowLeft, BarChart3, MapPin, Clock, Info, Eye, Activity, type LucideIcon } from 'lucide-react'
-import { ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { dashboardService, type AssetPrices } from '@/services/dashboardService'
+import { Button } from '@/components/ui/button'
+import { Search, Loader2, RefreshCw, TrendingUp, TrendingDown } from 'lucide-react'
+import { superAdminService } from '@/services/superAdminService'
+import type { SuperAdminDashboardSummary } from '@/services/dashboardService'
 
-// Investment types available for trading
-type InvestmentType = {
-  id: string
-  name: string
-  symbol: string
-  icon: LucideIcon
-  currentPrice: number
-  change24h: number
-  volume24h: number
-  marketCap: number
-  category: string
-  description: string
+type TradeRow = NonNullable<SuperAdminDashboardSummary['marketplaceTrades']>[number]
+type PnlFilter = 'all' | 'profit' | 'loss'
+
+const toNumber = (value: unknown): number => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
 }
 
-// Trade data type
-type Trade = {
-  id: string
-  timestamp: Date
-  type: 'BUY' | 'SELL'
-  investment: string
-  location: string
-  open: number
-  high: number
-  low: number
-  close: number
-  volume: number
-  liquidity: number
-  profitLoss: number
-  status: 'OPEN' | 'CLOSED'
-  notes: string
-}
+export default function AdminMarketplacePage() {
+  const [rows, setRows] = useState<TradeRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [pnlFilter, setPnlFilter] = useState<PnlFilter>('all')
 
-// Order book type
-type OrderBookItem = {
-  price: number
-  volume: number
-  total: number
-  type: 'BID' | 'ASK'
-}
-
-// Investment categories with real estate and financial instruments
-const INVESTMENT_TYPES: InvestmentType[] = [
-  {
-    id: 'commercial-real-estate',
-    name: 'Commercial Real Estate',
-    symbol: 'CRE',
-    icon: Building2,
-    currentPrice: 7850.25,
-    change24h: 2.45,
-    volume24h: 45000000,
-    marketCap: 2800000000,
-    category: 'Real Estate',
-    description: 'Office buildings, retail spaces, and commercial properties'
-  },
-  {
-    id: 'residential-property',
-    name: 'Residential Property',
-    symbol: 'RES',
-    icon: Home,
-    currentPrice: 4520.80,
-    change24h: -1.23,
-    volume24h: 32000000,
-    marketCap: 1950000000,
-    category: 'Real Estate',
-    description: 'Apartments, houses, and residential units'
-  },
-  {
-    id: 'government-bonds',
-    name: 'Government Bonds',
-    symbol: 'GOV',
-    icon: Landmark,
-    currentPrice: 1050.00,
-    change24h: 0.15,
-    volume24h: 85000000,
-    marketCap: 5600000000,
-    category: 'Bonds',
-    description: 'Federal and state government securities'
-  },
-  {
-    id: 'industrial-property',
-    name: 'Industrial Property',
-    symbol: 'IND',
-    icon: Factory,
-    currentPrice: 6320.50,
-    change24h: 3.82,
-    volume24h: 28000000,
-    marketCap: 1450000000,
-    category: 'Real Estate',
-    description: 'Warehouses, factories, and industrial facilities'
-  },
-  {
-    id: 'retail-spaces',
-    name: 'Retail Spaces',
-    symbol: 'RET',
-    icon: Store,
-    currentPrice: 3890.30,
-    change24h: -2.10,
-    volume24h: 19000000,
-    marketCap: 980000000,
-    category: 'Real Estate',
-    description: 'Shopping centers, malls, and retail outlets'
-  },
-  {
-    id: 'corporate-bonds',
-    name: 'Corporate Bonds',
-    symbol: 'COR',
-    icon: Landmark,
-    currentPrice: 980.75,
-    change24h: 0.85,
-    volume24h: 62000000,
-    marketCap: 4200000000,
-    category: 'Bonds',
-    description: 'Investment-grade corporate debt securities'
-  },
-  {
-    id: 'land-development',
-    name: 'Land Development',
-    symbol: 'LND',
-    icon: Building2,
-    currentPrice: 5640.90,
-    change24h: 4.25,
-    volume24h: 21000000,
-    marketCap: 1120000000,
-    category: 'Real Estate',
-    description: 'Undeveloped land and development projects'
-  },
-  {
-    id: 'office-space',
-    name: 'Office Space',
-    symbol: 'OFC',
-    icon: Building2,
-    currentPrice: 6890.40,
-    change24h: 1.67,
-    volume24h: 35000000,
-    marketCap: 2100000000,
-    category: 'Real Estate',
-    description: 'Class A and B office buildings'
+  const loadTrades = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const summary = await superAdminService.getSummary()
+      setRows(summary.marketplaceTrades || [])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load marketplace trades')
+      setRows([])
+    } finally {
+      setLoading(false)
+    }
   }
-]
-
-// Generate initial trades for selected investment
-const generateInitialTrades = (investmentName: string, basePrice: number): Trade[] => {
-  const trades: Trade[] = []
-  const now = new Date()
-  
-  for (let i = 0; i < 50; i++) {
-    const timestamp = new Date(now.getTime() - (49 - i) * 2 * 60 * 60 * 1000)
-    const volatility = basePrice * 0.02
-    const open = basePrice + (Math.random() - 0.5) * volatility
-    const close = open + (Math.random() - 0.5) * volatility
-    const high = Math.max(open, close) + Math.random() * volatility * 0.5
-    const low = Math.min(open, close) - Math.random() * volatility * 0.5
-    const profitLoss = (close - open) * (Math.random() * 1000)
-    
-    trades.push({
-      id: `TRD-${Date.now()}-${i}`,
-      timestamp,
-      type: Math.random() > 0.5 ? 'BUY' : 'SELL',
-      investment: investmentName,
-      location: ['Lahore', 'Karachi', 'Islamabad', 'Rawalpindi', 'Faisalabad'][Math.floor(Math.random() * 5)],
-      open: open * 10, // Store in PKR
-      high: high * 10,
-      low: low * 10,
-      close: close * 10,
-      volume: Math.floor(Math.random() * 1000000) + 100000,
-      liquidity: Math.floor(Math.random() * 10000000) + 1000000,
-      profitLoss: profitLoss * 10, // Store in PKR
-      status: Math.random() > 0.3 ? 'OPEN' : 'CLOSED',
-      notes: ''
-    })
-  }
-  
-  return trades
-}
-
-// Generate order book
-const generateOrderBook = (basePrice: number) => {
-  const bids: OrderBookItem[] = []
-  const asks: OrderBookItem[] = []
-  const price = basePrice * 10 // Convert to PKR
-  
-  for (let i = 0; i < 8; i++) {
-    const volume = Math.floor(Math.random() * 100) + 10
-    bids.push({
-      price: price - i * 100 - 50,
-      volume,
-      total: (price - i * 100) * volume,
-      type: 'BID'
-    })
-  }
-  
-  for (let i = 0; i < 8; i++) {
-    const volume = Math.floor(Math.random() * 100)
-    asks.push({
-      price: price + i * 100,
-      volume,
-      total: (price + i * 100) * volume,
-      type: 'ASK'
-    })
-  }
-  
-  return { bids, asks }
-}
-
-// Backend default (TokenPriceService) is 100 PKR per AT — used as fallback only.
-const AT_TO_PKR_FALLBACK = 100
-
-export default function PatientMarketplace() {
-  const [selectedInvestment, setSelectedInvestment] = useState<InvestmentType | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState<string>('All')
-  const [assetPrices, setAssetPrices] = useState<AssetPrices | null>(null)
 
   useEffect(() => {
-    dashboardService.getAssetPrices().then(setAssetPrices).catch(() => setAssetPrices(null))
+    loadTrades()
   }, [])
 
-  // Live AT/PKR rate from the DB-backed token price service. Falls back to the
-  // backend's own default (100) when the live rate can't be fetched.
-  const tokenPricePerPkr = assetPrices?.tokenPricePerPkr && assetPrices.tokenPricePerPkr > 0
-    ? assetPrices.tokenPricePerPkr
-    : AT_TO_PKR_FALLBACK
-  const convertPKRtoAT = (pkr: number) => pkr / tokenPricePerPkr
+  const filteredRows = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase()
 
-  // Filter investments
-  const filteredInvestments = INVESTMENT_TYPES.filter(inv => {
-    const matchesSearch = inv.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         inv.symbol.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesCategory = categoryFilter === 'All' || inv.category === categoryFilter
-    return matchesSearch && matchesCategory
-  })
+    return rows.filter((row) => {
+      const pnl = toNumber(row.profitLoss)
+      const hospital = (row.hospitalName || row.hospitalId || '').toLowerCase()
+      const title = (row.tradeTitle || '').toLowerCase()
+      const type = (row.tradeType || '').toLowerCase()
 
-  // Get unique categories
-  const categories = ['All', ...Array.from(new Set(INVESTMENT_TYPES.map(inv => inv.category)))]
+      const matchesSearch =
+        query.length === 0 ||
+        hospital.includes(query) ||
+        title.includes(query) ||
+        type.includes(query)
 
-  if (!selectedInvestment) {
-    // INVESTMENT SELECTION VIEW
-    return (
-      <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Investment Marketplace</h1>
-          <p className="text-slate-600 mt-1">View active trades and market information</p>
-        </div>
+      const matchesPnl =
+        pnlFilter === 'all' ||
+        (pnlFilter === 'profit' && pnl > 0) ||
+        (pnlFilter === 'loss' && pnl < 0)
 
-        {/* Search and Filters */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <Input
-              placeholder="Search investments..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <div className="flex gap-2 overflow-x-auto">
-            {categories.map((category) => (
-              <Button
-                key={category}
-                variant={categoryFilter === category ? "default" : "outline"}
-                size="sm"
-                onClick={() => setCategoryFilter(category)}
-                className="whitespace-nowrap"
-              >
-                {category}
-              </Button>
-            ))}
-          </div>
-        </div>
+      return matchesSearch && matchesPnl
+    })
+  }, [rows, searchTerm, pnlFilter])
 
-        {/* Investment Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredInvestments.map((investment) => {
-            const Icon = investment.icon
-            const isPositive = investment.change24h >= 0
-            
-            return (
-              <Card
-                key={investment.id}
-                className="hover:shadow-lg transition-shadow cursor-pointer hover:border-emerald-300"
-                onClick={() => setSelectedInvestment(investment)}
-              >
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                        <Icon className="h-5 w-5 text-emerald-600" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-slate-900">{investment.symbol}</h3>
-                        <p className="text-xs text-slate-500">{investment.category}</p>
-                      </div>
-                    </div>
-                    <Badge variant={isPositive ? "default" : "destructive"} className="flex items-center gap-1">
-                      {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                      {isPositive ? '+' : ''}{investment.change24h.toFixed(2)}%
-                    </Badge>
-                  </div>
-
-                  <p className="text-sm text-slate-600 mb-4 line-clamp-2">{investment.name}</p>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600">Price:</span>
-                      <span className="font-semibold">{investment.currentPrice.toLocaleString()} AT</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600">Volume (24h):</span>
-                      <span className="font-medium">₨{(investment.volume24h / 1000000).toFixed(2)}M</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600">Market Cap:</span>
-                      <span className="font-medium">₨{(investment.marketCap / 1000000000).toFixed(2)}B</span>
-                    </div>
-                  </div>
-
-                  <Button className="w-full mt-4 bg-blue-600 hover:bg-blue-700" disabled>
-                    <Eye className="h-4 w-4 mr-2" />
-                    View Details
-                  </Button>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-
-        {filteredInvestments.length === 0 && (
-          <div className="text-center py-12">
-            <Info className="h-12 w-12 mx-auto mb-4 text-slate-400" />
-            <p className="text-slate-600">No investments found matching your criteria</p>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  // TRADING DASHBOARD VIEW (READ-ONLY)
-  return <ReadOnlyTradingDashboard investment={selectedInvestment} onBack={() => setSelectedInvestment(null)} />
-}
-
-// Read-Only Trading Dashboard Component
-function ReadOnlyTradingDashboard({ investment, onBack }: { investment: InvestmentType; onBack: () => void }) {
-  const [trades] = useState<Trade[]>(generateInitialTrades(investment.name, investment.currentPrice))
-  const [orderBook] = useState(generateOrderBook(investment.currentPrice))
-  
-  // Chart data type
-  interface ChartDataPoint {
-    time: string
-    open: number
-    high: number
-    low: number
-    close: number
-    volume: number
-    liquidity: number
-    profitLoss: number
-    fullData: Trade
-  }
-  
-  const [hoveredCandle, setHoveredCandle] = useState<ChartDataPoint | null>(null)
-  
-  // Calculate market stats
-  const latestTrade = trades[trades.length - 1]
-  const previousTrade = trades[trades.length - 2]
-  const priceChange = latestTrade && previousTrade ? latestTrade.close - previousTrade.close : 0
-  const priceChangePercent = previousTrade ? (priceChange / previousTrade.close) * 100 : 0
-  const totalVolume = trades.reduce((sum, t) => sum + t.volume, 0)
-  const avgLiquidity = trades.reduce((sum, t) => sum + t.liquidity, 0) / trades.length
-  const totalProfitLoss = trades.reduce((sum, t) => sum + t.profitLoss, 0)
-  const openTrades = trades.filter(t => t.status === 'OPEN').length
-
-  // Format chart data
-  const chartData = trades.map(trade => ({
-    time: trade.timestamp.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-    open: trade.open,
-    high: trade.high,
-    low: trade.low,
-    close: trade.close,
-    volume: trade.volume,
-    liquidity: trade.liquidity,
-    profitLoss: trade.profitLoss,
-    fullData: trade
-  }))
-
-  // Custom candlestick rendering
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const CustomCandlestick = (props: Record<string, unknown>) => {
-    const { x, y, width, height, payload } = props as any
-    const trade = (payload as any)?.fullData as Trade
-    
-    if (!trade) return null
-    
-    const isGreen = trade.close >= trade.open
-    const bodyHeight = Math.abs(y - height)
-    const wickTop = Math.min(y, height)
-    
-    // Find the corresponding chart data point to set in hoveredCandle
-    const chartDataPoint = chartData.find(d => d.fullData.id === trade.id)
-    
-    return (
-      <g
-        onMouseEnter={() => chartDataPoint && setHoveredCandle(chartDataPoint)}
-        onMouseLeave={() => setHoveredCandle(null)}
-        style={{ cursor: 'pointer' }}
-      >
-        {/* Wick */}
-        <line
-          x1={x + width / 2}
-          y1={wickTop}
-          x2={x + width / 2}
-          y2={wickTop + bodyHeight}
-          stroke={isGreen ? '#10b981' : '#ef4444'}
-          strokeWidth={1}
-        />
-        
-        {/* Body */}
-        <rect
-          x={x + width * 0.25}
-          y={Math.min(y, height)}
-          width={width * 0.5}
-          height={bodyHeight || 1}
-          fill={isGreen ? '#10b981' : '#ef4444'}
-          stroke={isGreen ? '#059669' : '#dc2626'}
-          strokeWidth={1}
-          opacity={hoveredCandle?.fullData.id === trade.id ? 1 : 0.8}
-        />
-      </g>
-    )
-  }
-
-  const Icon = investment.icon
+  const stats = useMemo(() => {
+    const profitTrades = rows.filter((r) => toNumber(r.profitLoss) > 0).length
+    const lossTrades = rows.filter((r) => toNumber(r.profitLoss) < 0).length
+    const invested = rows.reduce((sum, r) => sum + toNumber(r.amountInvested), 0)
+    return {
+      total: rows.length,
+      profitTrades,
+      lossTrades,
+      invested,
+    }
+  }, [rows])
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" size="sm" onClick={onBack}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center">
-              <Icon className="h-6 w-6 text-emerald-600" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900">{investment.symbol} - Market View</h1>
-              <p className="text-slate-600">{investment.name}</p>
-            </div>
-          </div>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Marketplace Trades</h1>
+          <p className="text-gray-600 mt-1">Database-backed trades with hospital and P/L filters</p>
         </div>
+        <Button variant="outline" onClick={loadTrades} disabled={loading}>
+          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </div>
 
-      {/* Market Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
+      {error && (
+        <Card className="border-red-200 bg-red-50">
           <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600">Current Price</p>
-                <p className="text-2xl font-bold text-slate-900">
-                  {latestTrade?.close ? convertPKRtoAT(latestTrade.close).toLocaleString(undefined, {maximumFractionDigits: 2}) : '0'} AT
-                </p>
-                <div className="flex items-center gap-1 mt-1">
-                  {priceChange >= 0 ? (
-                    <TrendingUp className="h-4 w-4 text-emerald-600" />
-                  ) : (
-                    <TrendingDown className="h-4 w-4 text-red-600" />
-                  )}
-                  <span className={`text-sm font-medium ${priceChange >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                    {priceChangePercent.toFixed(2)}%
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 mt-1">1 AT = {tokenPricePerPkr} PKR</p>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center">
-                <TrendingUp className="h-6 w-6 text-emerald-600" />
-              </div>
-            </div>
+            <p className="text-sm text-red-700">{error}</p>
           </CardContent>
         </Card>
+      )}
 
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600">Total Volume</p>
-                <p className="text-2xl font-bold text-slate-900">
-                  {(totalVolume / 1000000).toFixed(2)}M
-                </p>
-                <p className="text-xs text-slate-500 mt-1">{trades.length} trades | 1 AT = {tokenPricePerPkr} PKR</p>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
-                <BarChart3 className="h-6 w-6 text-blue-600" />
-              </div>
-            </div>
-          </CardContent>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Total Trades</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-bold">{stats.total}</div></CardContent>
         </Card>
-
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600">Avg Liquidity</p>
-                <p className="text-2xl font-bold text-slate-900">
-                  {convertPKRtoAT(avgLiquidity / 1000000).toFixed(2)}M AT
-                </p>
-                <p className="text-xs text-slate-500 mt-1">1 AT = {tokenPricePerPkr} PKR</p>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center">
-                <BarChart3 className="h-6 w-6 text-purple-600" />
-              </div>
-            </div>
-          </CardContent>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Profit Trades</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-bold text-green-700">{stats.profitTrades}</div></CardContent>
         </Card>
-
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600">Total P&L</p>
-                <p className={`text-2xl font-bold ${totalProfitLoss >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                  {totalProfitLoss >= 0 ? '+' : ''}{convertPKRtoAT(totalProfitLoss / 1000).toFixed(0)}K AT
-                </p>
-                <p className="text-xs text-slate-500 mt-1">{openTrades} open | 1 AT = {tokenPricePerPkr} PKR</p>
-              </div>
-              <div className={`h-12 w-12 rounded-full flex items-center justify-center ${totalProfitLoss >= 0 ? 'bg-emerald-100' : 'bg-red-100'}`}>
-                <Activity className={`h-6 w-6 ${totalProfitLoss >= 0 ? 'text-emerald-600' : 'text-red-600'}`} />
-              </div>
-            </div>
-          </CardContent>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Loss Trades</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-bold text-red-700">{stats.lossTrades}</div></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Total Invested</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-bold">PKR {Math.round(stats.invested).toLocaleString()}</div></CardContent>
         </Card>
       </div>
 
-      {/* Candlestick Chart */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
-                Price Chart - {investment.symbol}
-              </CardTitle>
-              <CardDescription>Candlestick chart with volume and OHLC data</CardDescription>
-            </div>
-            <div className="flex gap-2">
-              {['1H', '4H', '1D', '1W', '1M'].map((timeRange) => (
-                <Button
-                  key={timeRange}
-                  variant="outline"
-                  size="sm"
-                  className={timeRange === '1D' ? 'border-emerald-200 bg-emerald-50 text-emerald-600' : ''}
-                >
-                  {timeRange}
-                </Button>
-              ))}
+          <div className="flex flex-col md:flex-row md:items-center gap-3 md:justify-between">
+            <CardTitle>Trades</CardTitle>
+            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+              <div className="relative w-full sm:w-80">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  className="pl-10"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search by hospital, title, or type"
+                />
+              </div>
+              <select
+                className="h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                value={pnlFilter}
+                onChange={(e) => setPnlFilter(e.target.value as PnlFilter)}
+              >
+                <option value="all">All P/L</option>
+                <option value="profit">Profit Trades</option>
+                <option value="loss">Loss Trades</option>
+              </select>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Hover Info Panel */}
-          {hoveredCandle && (
-            <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div>
-                  <p className="text-slate-600">Time</p>
-                  <p className="font-semibold text-slate-900">{hoveredCandle.time}</p>
-                </div>
-                <div>
-                  <p className="text-slate-600">Open</p>
-                  <p className="font-semibold text-slate-900">{convertPKRtoAT(hoveredCandle.open).toFixed(2)} AT</p>
-                </div>
-                <div>
-                  <p className="text-slate-600">High</p>
-                  <p className="font-semibold text-slate-900">{convertPKRtoAT(hoveredCandle.high).toFixed(2)} AT</p>
-                </div>
-                <div>
-                  <p className="text-slate-600">Low</p>
-                  <p className="font-semibold text-slate-900">{convertPKRtoAT(hoveredCandle.low).toFixed(2)} AT</p>
-                </div>
-                <div>
-                  <p className="text-slate-600">Close</p>
-                  <p className="font-semibold text-slate-900">{convertPKRtoAT(hoveredCandle.close).toFixed(2)} AT</p>
-                </div>
-                <div>
-                  <p className="text-slate-600">Volume</p>
-                  <p className="font-semibold text-slate-900">{(hoveredCandle.volume / 1000).toFixed(0)}K</p>
-                </div>
-                <div>
-                  <p className="text-slate-600">Liquidity</p>
-                  <p className="font-semibold text-slate-900">{convertPKRtoAT(hoveredCandle.liquidity).toFixed(2)} AT</p>
-                </div>
-                <div>
-                  <p className="text-slate-600">P&L</p>
-                  <p className={`font-semibold ${hoveredCandle.profitLoss >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                    {hoveredCandle.profitLoss >= 0 ? '+' : ''}{convertPKRtoAT(hoveredCandle.profitLoss).toFixed(2)} AT
-                  </p>
-                </div>
-              </div>
+        <CardContent className="space-y-3">
+          {loading ? (
+            <div className="text-center py-12 text-gray-500">
+              <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
+              Loading marketplace trades...
             </div>
-          )}
-          <ResponsiveContainer width="100%" height={500}>
-            <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis 
-                dataKey="time" 
-                stroke="#64748b"
-                style={{ fontSize: '12px' }}
-              />
-              <YAxis 
-                yAxisId="price"
-                stroke="#64748b"
-                style={{ fontSize: '12px' }}
-              />
-              <YAxis 
-                yAxisId="volume"
-                orientation="right"
-                stroke="#cbd5e1"
-                style={{ fontSize: '12px' }}
-              />
-              <Tooltip content={(props: any) => <CustomTooltip {...props} convertPKRtoAT={convertPKRtoAT} />} />
-              <Legend wrapperStyle={{ fontSize: '12px' }} />
-              <Bar 
-                yAxisId="volume"
-                dataKey="volume" 
-                fill="#94a3b8"
-                opacity={0.3}
-                radius={0}
-                isAnimationActive={false}
-                name="Volume"
-              />
-              <Bar 
-                yAxisId="price"
-                dataKey="high" 
-                shape={<CustomCandlestick />}
-                isAnimationActive={false}
-                name="Price"
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+          ) : filteredRows.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">No trades found for the current filters.</div>
+          ) : (
+            filteredRows.map((row) => {
+              const pnl = toNumber(row.profitLoss)
+              const isProfit = pnl > 0
+              const hospitalLabel = row.hospitalName || row.hospitalId || 'Unknown hospital'
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Order Book */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Order Book</CardTitle>
-            <CardDescription>Live bid and ask prices</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="all">
-              <TabsList className="grid w-full grid-cols-3 mb-4">
-                <TabsTrigger value="bids" className="text-xs">Bids</TabsTrigger>
-                <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
-                <TabsTrigger value="asks" className="text-xs">Asks</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="all" className="space-y-2">
-                {/* Asks */}
-                <div className="space-y-1">
-                  {orderBook.asks.slice().reverse().map((ask, idx) => (
-                    <div key={`ask-${idx}`} className="flex justify-between items-center text-xs py-1 px-2 rounded hover:bg-red-50">
-                      <span className="text-red-600 font-medium">{convertPKRtoAT(ask.price).toFixed(2)} AT</span>
-                      <span className="text-slate-600">{ask.volume}</span>
-                      <span className="text-slate-500">{(ask.total / 1000).toFixed(0)}K</span>
-                    </div>
-                  ))}
-                </div>
-                
-                {/* Spread */}
-                <div className="py-2 px-2 bg-slate-100 rounded text-center">
-                  <span className="text-xs font-semibold text-slate-700">
-                    Spread: {convertPKRtoAT(orderBook.asks[0].price - orderBook.bids[0].price).toFixed(2)} AT
-                  </span>
-                </div>
-                
-                {/* Bids */}
-                <div className="space-y-1">
-                  {orderBook.bids.map((bid, idx) => (
-                    <div key={`bid-${idx}`} className="flex justify-between items-center text-xs py-1 px-2 rounded hover:bg-emerald-50">
-                      <span className="text-emerald-600 font-medium">{convertPKRtoAT(bid.price).toFixed(2)} AT</span>
-                      <span className="text-slate-600">{bid.volume}</span>
-                      <span className="text-slate-500">{(bid.total / 1000).toFixed(0)}K</span>
-                    </div>
-                  ))}
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="bids">
-                <div className="space-y-1">
-                  {orderBook.bids.map((bid, idx) => (
-                    <div key={`bid-${idx}`} className="flex justify-between items-center text-xs py-1 px-2 rounded hover:bg-emerald-50">
-                      <span className="text-emerald-600 font-medium">{convertPKRtoAT(bid.price).toFixed(2)} AT</span>
-                      <span className="text-slate-600">{bid.volume}</span>
-                      <span className="text-slate-500">{(bid.total / 1000).toFixed(0)}K</span>
-                    </div>
-                  ))}
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="asks">
-                <div className="space-y-1">
-                  {orderBook.asks.map((ask, idx) => (
-                    <div key={`ask-${idx}`} className="flex justify-between items-center text-xs py-1 px-2 rounded hover:bg-red-50">
-                      <span className="text-red-600 font-medium">{convertPKRtoAT(ask.price).toFixed(2)} AT</span>
-                      <span className="text-slate-600">{ask.volume}</span>
-                      <span className="text-slate-500">{(ask.total / 1000).toFixed(0)}K</span>
-                    </div>
-                  ))}
-                </div>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
+              return (
+                <div key={row.tradeId} className="border rounded-lg p-4 flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-gray-900">{row.tradeTitle || 'Untitled trade'}</p>
+                    <p className="text-xs text-gray-500">{row.tradeType} • {hospitalLabel}</p>
+                    <p className="text-xs text-gray-500">Invested: PKR {Math.round(toNumber(row.amountInvested)).toLocaleString()}</p>
+                  </div>
 
-        {/* All Trades (View Only) */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-lg">Market Trades</CardTitle>
-            <CardDescription>View recent market activity</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3 max-h-[600px] overflow-y-auto">
-              {trades.map((trade) => (
-                <div key={trade.id} className="border border-slate-200 rounded-lg p-4 hover:border-blue-300 transition-colors">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge variant={trade.type === 'BUY' ? 'default' : 'destructive'}>
-                          {trade.type}
-                        </Badge>
-                        <span className="font-semibold text-slate-900 text-sm">{trade.id}</span>
-                        <Badge variant="outline" className="text-xs">
-                          {trade.status}
-                        </Badge>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <div className="flex items-center gap-2 text-slate-600 mb-1">
-                            <MapPin className="h-4 w-4" />
-                            <span>{trade.location}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-slate-600">
-                            <Clock className="h-4 w-4" />
-                            <span className="text-xs">{trade.timestamp.toLocaleString()}</span>
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-1">
-                          <div className="flex justify-between">
-                            <span className="text-slate-600">Entry:</span>
-                            <span className="font-medium">{convertPKRtoAT(trade.open).toFixed(2)} AT</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-600">Current:</span>
-                            <span className="font-medium">{convertPKRtoAT(trade.close).toFixed(2)} AT</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-600">P&L:</span>
-                            <span className={`font-medium ${trade.profitLoss >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                              {trade.profitLoss >= 0 ? '+' : ''}{convertPKRtoAT(trade.profitLoss).toFixed(0)} AT
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                  <div className="text-right">
+                    <Badge variant="outline">{row.status}</Badge>
+                    <p className={`text-sm mt-2 font-medium inline-flex items-center gap-1 ${isProfit ? 'text-green-600' : pnl < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                      {isProfit ? <TrendingUp className="h-3.5 w-3.5" /> : pnl < 0 ? <TrendingDown className="h-3.5 w-3.5" /> : null}
+                      {pnl > 0 ? '+' : ''}PKR {Math.round(pnl).toLocaleString()}
+                    </p>
                   </div>
                 </div>
-              ))}
-              
-              {trades.length === 0 && (
-                <div className="text-center py-8 text-slate-500">
-                  <Info className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>No trades available</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+              )
+            })
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
-}
-
-// Custom Tooltip Component
-const CustomTooltip = ({
-  active,
-  payload,
-  convertPKRtoAT,
-}: {
-  active?: boolean
-  payload?: Array<{ payload: { fullData: Trade } }>
-  convertPKRtoAT: (pkr: number) => number
-}) => {
-  if (active && payload && payload.length) {
-    const data = payload[0].payload.fullData as Trade
-    return (
-      <div className="bg-white p-3 rounded-lg shadow-lg border border-slate-200">
-        <p className="text-xs text-slate-600 mb-2">{data.timestamp.toLocaleString()}</p>
-        <div className="space-y-1 text-xs">
-          <div className="flex justify-between gap-4">
-            <span className="text-slate-600">Open:</span>
-            <span className="font-medium">{convertPKRtoAT(data.open).toFixed(2)} AT</span>
-          </div>
-          <div className="flex justify-between gap-4">
-            <span className="text-slate-600">High:</span>
-            <span className="font-medium text-emerald-600">{convertPKRtoAT(data.high).toFixed(2)} AT</span>
-          </div>
-          <div className="flex justify-between gap-4">
-            <span className="text-slate-600">Low:</span>
-            <span className="font-medium text-red-600">{convertPKRtoAT(data.low).toFixed(2)} AT</span>
-          </div>
-          <div className="flex justify-between gap-4">
-            <span className="text-slate-600">Close:</span>
-            <span className="font-medium">{convertPKRtoAT(data.close).toFixed(2)} AT</span>
-          </div>
-          <div className="border-t pt-1 mt-1">
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-600">Volume:</span>
-              <span className="font-medium">{data.volume.toLocaleString()}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-  return null
 }

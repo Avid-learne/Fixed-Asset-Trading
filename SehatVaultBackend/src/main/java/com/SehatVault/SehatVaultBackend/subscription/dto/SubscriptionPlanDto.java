@@ -18,6 +18,7 @@ public class SubscriptionPlanDto {
     
     private UUID subsId;
     private UUID hospitalId;
+        private Integer monthlyHt;
     private String hospitalName;
     private String subscriptionName;
     private BigDecimal amountPerMonth;

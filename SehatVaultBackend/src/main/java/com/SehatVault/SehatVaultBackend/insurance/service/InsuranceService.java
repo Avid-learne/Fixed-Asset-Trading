@@ -17,7 +17,6 @@ import java.util.stream.Collectors;
 @Slf4j
 public class InsuranceService {
 
-    private final InsuranceCompanyRepository insuranceCompanyRepository;
     private final NocCertificateRepository nocCertificateRepository;
     private final DocumentRequirementRepository documentRequirementRepository;
     private final SubmittedDocumentRepository submittedDocumentRepository;

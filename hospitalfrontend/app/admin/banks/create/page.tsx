@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Banknote, Building2, Shield, FileText } from 'lucide-react'
+import { superAdminService } from '@/services/superAdminService'
 
 export default function CreateBankPage() {
   const router = useRouter()
@@ -37,12 +38,21 @@ export default function CreateBankPage() {
   const handleSubmit = async () => {
     setSubmitting(true)
     try {
-      // await adminService.createBank(formData)
+      await superAdminService.createBank({
+        name: formData.name,
+        swiftCode: formData.swiftCode,
+        address: formData.address,
+        city: formData.city,
+        phone: formData.phone,
+        email: formData.email,
+        registration: formData.regulatoryLicense,
+        bankCode: formData.regulatoryLicense,
+      })
       alert('Bank partner registered successfully!')
       router.push('/admin/banks')
     } catch (error) {
       console.error('Error creating bank:', error)
-      alert('Failed to create bank. Please try again.')
+      alert(error instanceof Error ? error.message : 'Failed to create bank. Please try again.')
     } finally {
       setSubmitting(false)
     }

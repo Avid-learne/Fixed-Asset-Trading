@@ -4,7 +4,13 @@ import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { connectWallet, formatAddress, formatTokenAmount } from '@/lib/web3'
-import { assetTokenService, healthTokenService, hospitalFinancialsService } from '@/services/blockchainService'
+import {
+  AssetTokenService,
+  HealthTokenService,
+  HospitalFinancialsService,
+  assetTokenService,
+  healthTokenService,
+} from '@/services/blockchainService'
 import { Wallet, RefreshCw, Activity } from 'lucide-react'
 
 export default function BlockchainTestPage() {
@@ -20,13 +26,19 @@ export default function BlockchainTestPage() {
   } | null>(null)
 
   const handleConnect = async () => {
+    if (loading) return
     setLoading(true)
     try {
       const wallet = await connectWallet()
       if (wallet) {
         setWalletAddress(wallet.address)
-        await loadBalances(wallet.address)
-        await loadContractInfo()
+
+        // Instantiate fresh service instances here (avoids stale singletons during HMR)
+        const localAsset = new AssetTokenService()
+        const localHealth = new HealthTokenService()
+
+        await loadBalances(wallet.address, localAsset, localHealth)
+        await loadContractInfo(localAsset, localHealth)
       }
     } catch (error) {
       console.error('Connection error:', error)
@@ -36,10 +48,14 @@ export default function BlockchainTestPage() {
     }
   }
 
-  const loadBalances = async (address: string) => {
+  const loadBalances = async (
+    address: string,
+    assetSvc: InstanceType<typeof AssetTokenService> = assetTokenService,
+    healthSvc: InstanceType<typeof HealthTokenService> = healthTokenService
+  ) => {
     try {
-      const at = await assetTokenService.balanceOf(address)
-      const ht = await healthTokenService.balanceOf(address)
+      const at = await assetSvc.balanceOf(address)
+      const ht = await healthSvc.balanceOf(address)
       
       setAtBalance(formatTokenAmount(at))
       setHtBalance(formatTokenAmount(ht))
@@ -48,13 +64,16 @@ export default function BlockchainTestPage() {
     }
   }
 
-  const loadContractInfo = async () => {
+  const loadContractInfo = async (
+    assetSvc?: InstanceType<typeof AssetTokenService>,
+    healthSvc?: InstanceType<typeof HealthTokenService>
+  ) => {
     try {
       const [atName, atSymbol, htName, htSymbol] = await Promise.all([
-        assetTokenService.name(),
-        assetTokenService.symbol(),
-        healthTokenService.name(),
-        healthTokenService.symbol(),
+        assetSvc?.name ? assetSvc.name() : assetTokenService.name(),
+        assetSvc?.symbol ? assetSvc.symbol() : assetTokenService.symbol(),
+        healthSvc?.name ? healthSvc.name() : healthTokenService.name(),
+        healthSvc?.symbol ? healthSvc.symbol() : healthTokenService.symbol(),
       ])
 
       setContractInfo({ atName, atSymbol, htName, htSymbol })

@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -36,6 +37,7 @@ export default function NotificationCenter({
   canSend = false,
   allowedRoleTargets = defaultRoleTargets,
 }: NotificationCenterProps) {
+  const router = useRouter()
   const { user, isLoading: authLoading } = useAuth()
   const storedUser = authService.getUser()
   const activeUser = user || storedUser
@@ -70,7 +72,12 @@ export default function NotificationCenter({
       const receivedPromise = notificationService.getUserNotifications(String(userId))
       const sentPromise = canSend ? notificationService.getSentNotifications(String(userId)) : Promise.resolve([])
       const [receivedRows, sentRows] = await Promise.all([receivedPromise, sentPromise])
-      setReceived(receivedRows)
+      // Exclude notifications where the sender is the active user (don't show admin's own broadcast in their inbox)
+      const currentName = (activeUser as any)?.name || ''
+      const filteredReceived = (receivedRows || []).filter((r) => {
+        return !(r.senderName && currentName && r.senderName === currentName)
+      })
+      setReceived(filteredReceived)
       setSent(sentRows)
 
       if (!selected && receivedRows.length > 0) {
@@ -106,6 +113,11 @@ export default function NotificationCenter({
       await notificationService.markAsRead(String(userId), notification.id)
       setReceived((prev) => prev.map((n) => (n.id === notification.id ? { ...n, status: 'READ' } : n)))
       setSelected((prev) => (prev && prev.id === notification.id ? { ...prev, status: 'READ' } : prev))
+
+      // Navigate to the notification's URL if available
+      if (notification.navigationUrl) {
+        router.push(notification.navigationUrl)
+      }
     } catch {
       // Keep UX responsive even if mark-read API fails.
     }
@@ -159,6 +171,32 @@ export default function NotificationCenter({
   }
 
   const list = activeTab === 'sent' ? sent : received
+
+  const groupedSent = useMemo(() => {
+    // group sent notifications by title+message+minute to collapse broadcast duplicates
+    const map = new Map<string, {
+      ids: string[]
+      title: string
+      message: string
+      timestamp: string
+      senderName?: string
+      count: number
+    }>()
+
+    for (const n of sent) {
+      const minuteKey = new Date(n.timestamp).toISOString().slice(0,16) // group by minute
+      const key = `${n.title}||${n.message}||${minuteKey}`
+      const existing = map.get(key)
+      if (!existing) {
+        map.set(key, { ids: [n.id], title: n.title, message: n.message, timestamp: n.timestamp, senderName: n.senderName, count: 1 })
+      } else {
+        existing.ids.push(n.id)
+        existing.count += 1
+      }
+    }
+
+    return Array.from(map.values())
+  }, [sent])
 
   return (
     <div className="space-y-6">
@@ -306,21 +344,27 @@ export default function NotificationCenter({
                   <p className="text-sm text-muted-foreground">No sent notifications yet.</p>
                 ) : (
                   <div className="space-y-3">
-                    {sent.map((n) => (
-                      <div key={n.id} className="p-4 border rounded-lg">
-                        <div className="flex justify-between items-start gap-3">
-                          <h4 className="font-medium">{n.title || 'Notification'}</h4>
-                          <span className="text-xs text-muted-foreground whitespace-nowrap">
-                            {new Date(n.timestamp).toLocaleString()}
-                          </span>
+                    {groupedSent.map((g) => {
+                      const key = g.ids[0]
+                      const isBroadcast = g.count > 1
+                      return (
+                        <div key={key} className="p-4 border rounded-lg">
+                          <div className="flex justify-between items-start gap-3">
+                            <h4 className="font-medium">{g.title || 'Notification'}</h4>
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                              {new Date(g.timestamp).toLocaleString()}
+                            </span>
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-1">{g.message}</p>
+                          <div className="mt-2 text-xs text-muted-foreground flex items-center gap-2">
+                            <Info className="w-3 h-3" />
+                            <span>
+                              Receiver: {isBroadcast ? 'All users' : g.senderName || 'User'}{isBroadcast ? ` (${g.count} recipients)` : ''}
+                            </span>
+                          </div>
                         </div>
-                        <p className="text-sm text-muted-foreground mt-1">{n.message}</p>
-                        <div className="mt-2 text-xs text-muted-foreground flex items-center gap-2">
-                          <Info className="w-3 h-3" />
-                          <span>Receiver: {n.senderName || 'User'}</span>
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </CardContent>

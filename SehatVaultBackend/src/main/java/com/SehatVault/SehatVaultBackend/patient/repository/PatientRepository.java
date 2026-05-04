@@ -2,6 +2,8 @@ package com.SehatVault.SehatVaultBackend.patient.repository;
 
 import com.SehatVault.SehatVaultBackend.patient.entity.Patient;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -18,7 +20,8 @@ public interface PatientRepository extends JpaRepository<Patient, UUID> {
     
     Optional<Patient> findByRegistrationId(String registrationId);
 
-    Optional<Patient> findByWalletAddressIgnoreCase(String walletAddress);
+    @Query("SELECT p FROM Patient p WHERE LOWER(p.walletAddress) = LOWER(:walletAddress)")
+    Optional<Patient> findByWalletAddressIgnoreCase(@Param("walletAddress") String walletAddress);
     
     boolean existsByUserId(UUID userId);
     

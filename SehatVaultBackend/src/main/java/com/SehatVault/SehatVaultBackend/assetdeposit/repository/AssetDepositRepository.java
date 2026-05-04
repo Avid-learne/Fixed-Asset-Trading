@@ -103,6 +103,40 @@ public interface AssetDepositRepository extends JpaRepository<AssetDeposit, UUID
                         @Param("hospitalId") UUID hospitalId,
                         @Param("status") String status);
 
+        @Query(value = """
+                        SELECT COUNT(*)
+                        FROM asset_deposits ad
+                        JOIN patients p ON p.id = ad.patient_id
+                        WHERE p.hospital_id = :hospitalId
+                          AND ad.custody_confirmed_at IS NOT NULL
+                        """, nativeQuery = true)
+        long countByHospitalIdAndCustodyConfirmedAtIsNotNull(@Param("hospitalId") UUID hospitalId);
+
+        @Query(value = """
+                        SELECT COALESCE(SUM(ad.asset_value), 0)
+                        FROM asset_deposits ad
+                        JOIN patients p ON p.id = ad.patient_id
+                        WHERE p.hospital_id = :hospitalId
+                          AND ad.custody_confirmed_at IS NOT NULL
+                        """, nativeQuery = true)
+        BigDecimal sumAssetValueByHospitalIdAndCustodyConfirmedAtIsNotNull(@Param("hospitalId") UUID hospitalId);
+
+        @Query(value = """
+                        SELECT COUNT(*)
+                        FROM asset_deposits ad
+                        WHERE ad.bank_id = :bankId
+                          AND ad.custody_confirmed_at IS NOT NULL
+                        """, nativeQuery = true)
+        long countByBankIdAndCustodyConfirmedAtIsNotNull(@Param("bankId") UUID bankId);
+
+        @Query(value = """
+                        SELECT COALESCE(SUM(ad.asset_value), 0)
+                        FROM asset_deposits ad
+                        WHERE ad.bank_id = :bankId
+                          AND ad.custody_confirmed_at IS NOT NULL
+                        """, nativeQuery = true)
+        BigDecimal sumAssetValueByBankIdAndCustodyConfirmedAtIsNotNull(@Param("bankId") UUID bankId);
+
         List<AssetDeposit> findByPatientIdOrderBySubmittedAtDesc(UUID patientId);
 
         List<AssetDeposit> findByBankIdOrderBySubmittedAtDesc(UUID bankId);

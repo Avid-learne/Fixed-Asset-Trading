@@ -38,6 +38,10 @@ public class SuperAdminDashboardSummaryDto {
     public static class HospitalOverview {
         private UUID hospitalId;
         private String hospitalName;
+        private String registrationNumber;
+        private String email;
+        private String contactNum;
+        private String address;
         private long patientCount;
         private String verificationStatus;
         private BigDecimal totalAssets = BigDecimal.ZERO;

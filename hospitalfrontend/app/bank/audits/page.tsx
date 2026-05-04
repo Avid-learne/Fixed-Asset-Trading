@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
-import { Download, Loader } from 'lucide-react'
+import { Loader } from 'lucide-react'
 import { auditLogService } from '@/services/auditLogService'
 import type { AuditLog } from '@/types/auditLog'
 
@@ -40,33 +40,7 @@ export default function BankAuditsPage() {
         l.details.toLowerCase().includes(search.toLowerCase()))
   )
 
-  const handleExportCSV = () => {
-    try {
-      const headers = ['Action', 'User', 'Details', 'Status', 'Timestamp']
-      const rows = filtered.map((log) => [
-        log.action,
-        log.user,
-        log.details,
-        log.status,
-        log.timestamp,
-      ])
-
-      const csvContent = [
-        headers.join(','),
-        ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')),
-      ].join('\n')
-
-      const blob = new Blob([csvContent], { type: 'text/csv' })
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `bank-audit-logs-${new Date().toISOString().split('T')[0]}.csv`
-      a.click()
-      window.URL.revokeObjectURL(url)
-    } catch (err) {
-      console.error('Error exporting CSV:', err)
-    }
-  }
+  
 
   return (
     <div className="space-y-6">
@@ -75,9 +49,7 @@ export default function BankAuditsPage() {
           <h1 className="text-2xl font-semibold">Audits</h1>
           <p className="text-muted-foreground">Audit logs and institutional audit trails.</p>
         </div>
-        <Button variant="outline" onClick={handleExportCSV} disabled={isLoading || filtered.length === 0}>
-          <Download className="mr-2 h-4 w-4" /> Export Logs
-        </Button>
+        {/* Export button removed per project policy */}
       </div>
 
       {error && (

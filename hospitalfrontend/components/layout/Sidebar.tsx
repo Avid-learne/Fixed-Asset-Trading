@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
-import { notificationService } from '@/services/notificationService'
+import { notificationService, PortalNotification } from '@/services/notificationService'
 import {
   Sidebar as CollapsibleSidebar,
   SidebarProvider,
@@ -46,6 +46,7 @@ import {
   Activity,
   Building2,
   ShoppingCart,
+  Split,
 } from 'lucide-react'
 import { UserRole } from '@/types'
 
@@ -66,6 +67,7 @@ const patientNavItems: NavItem[] = [
   { name: 'Activity', href: '/patient/activity', icon: History, roles: [UserRole.PATIENT] },
   { name: 'Notifications', href: '/patient/notifications', icon: Bell, roles: [UserRole.PATIENT] },
   { name: 'Health Card', href: '/patient/health-card', icon: Users, roles: [UserRole.PATIENT] },
+  { name: 'Fractionalization', href: '/patient/fractionalization', icon: Split, roles: [UserRole.PATIENT], activeMatch: '/patient/fractionalization' },
   { name: 'Subscription', href: '/patient/subscription', icon: DollarSign, roles: [UserRole.PATIENT] },
   { name: 'Profile', href: '/patient/profile/info', icon: Settings, roles: [UserRole.PATIENT], activeMatch: '/patient/profile' },
 ]
@@ -87,6 +89,7 @@ const hospitalAdminNavItems: NavItem[] = [
   { name: 'Token Minting', href: '/hospitaladmin/minting', icon: Coins, roles: [UserRole.HOSPITAL_ADMIN] },
   { name: 'Pool Management', href: '/hospitaladmin/pool', icon: TrendingUp, roles: [UserRole.HOSPITAL_ADMIN] },
   { name: 'Profit Allocation', href: '/hospitaladmin/allocation', icon: Gift, roles: [UserRole.HOSPITAL_ADMIN] },
+  { name: 'Fractionalization', href: '/hospitaladmin/fractionalization', icon: Split, roles: [UserRole.HOSPITAL_ADMIN], activeMatch: '/hospitaladmin/fractionalization' },
   { name: 'Emergency Redemptions', href: '/hospitaladmin/emergency-redemptions', icon: AlertTriangle, roles: [UserRole.HOSPITAL_ADMIN] },
   { name: 'Subscription Plans', href: '/hospitaladmin/subscriptions', icon: Package, roles: [UserRole.HOSPITAL_ADMIN] },
   { name: 'Patient Profiles', href: '/hospitaladmin/patients', icon: Users, roles: [UserRole.HOSPITAL_ADMIN] },
@@ -111,10 +114,8 @@ const bankNavItems: NavItem[] = [
 const superAdminNavItems: NavItem[] = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard, roles: [UserRole.SUPER_ADMIN] },
   { name: 'Marketplace', href: '/admin/marketplace', icon: ShoppingCart, roles: [UserRole.SUPER_ADMIN] },
-  { name: 'User Management', href: '/admin/users', icon: Users, roles: [UserRole.SUPER_ADMIN] },
   { name: 'Hospital Management', href: '/admin/hospitals', icon: Building2, roles: [UserRole.SUPER_ADMIN] },
   { name: 'Bank Management', href: '/admin/banks', icon: CreditCard, roles: [UserRole.SUPER_ADMIN] },
-  { name: 'Logs', href: '/admin/logs', icon: FileText, roles: [UserRole.SUPER_ADMIN], activeMatch: '/admin/logs' },
   { name: 'Reports', href: '/admin/reports', icon: PieChart, roles: [UserRole.SUPER_ADMIN], activeMatch: '/admin/reports' },
   { name: 'Notifications', href: '/admin/notifications', icon: Mail, roles: [UserRole.SUPER_ADMIN] },
   { name: 'Settings', href: '/admin/settings', icon: Settings, roles: [UserRole.SUPER_ADMIN] },
@@ -128,12 +129,79 @@ interface LayoutSidebarProps extends SidebarProps {
   withProvider?: boolean
 }
 
+// URL path mapping for notification navigation
+const notificationPathMap: Record<string, string[]> = {
+  '/patient/deposit': ['deposit', 'asset', 'asset_deposit', '/asset-deposit'],
+  '/patient/marketplace': ['marketplace', '/marketplace'],
+  '/patient/wallet': ['wallet', '/wallet'],
+  '/patient/emergency-redemption': ['emergency', 'redemption', '/emergency-redemption'],
+  '/patient/activity': ['activity', '/activity'],
+  '/patient/notifications': ['notification'],
+  '/patient/health-card': ['health', 'card', 'health_card', '/health-card'],
+  '/patient/fractionalization': ['fractional', 'fractionalization', '/fractionalization'],
+  '/patient/subscription': ['subscription', '/subscription'],
+  '/patient/profile': ['profile', 'kyc', 'account', '/profile'],
+  '/hospital/marketplace': ['marketplace', '/marketplace'],
+  '/hospital/profit': ['profit'],
+  '/hospital/patients': ['patient'],
+  '/hospital/notifications': ['notification'],
+  '/hospitaladmin/deposits': ['deposit', 'asset', 'asset_deposit', '/asset-deposit'],
+  '/hospitaladmin/minting': ['minting', 'token'],
+  '/hospitaladmin/pool': ['pool'],
+  '/hospitaladmin/allocation': ['allocation', 'profit', 'fractional'],
+  '/hospitaladmin/fractionalization': ['fractional', 'fractionalization', '/fractionalization'],
+  '/hospitaladmin/emergency-redemptions': ['emergency', 'redemption', '/emergency-redemption'],
+  '/hospitaladmin/subscriptions': ['subscription', '/subscription'],
+  '/hospitaladmin/patients': ['patient'],
+  '/hospitaladmin/banks': ['bank'],
+  '/hospitaladmin/notifications': ['notification'],
+  '/bank/deposits': ['deposit', 'asset', 'asset_deposit', '/asset-deposit'],
+  '/bank/integrations': ['integration'],
+  '/bank/notifications': ['notification'],
+  '/admin/hospitals': ['hospital'],
+  '/admin/banks': ['bank'],
+  '/admin/marketplace': ['marketplace', '/marketplace'],
+  '/admin/notifications': ['notification'],
+}
+
+const routeFamilyMap: Array<{ navPrefixes: string[]; notificationPrefixes: string[] }> = [
+  {
+    navPrefixes: ['/patient/deposit', '/hospitaladmin/deposits', '/bank/deposits'],
+    notificationPrefixes: ['/asset-deposit'],
+  },
+  {
+    navPrefixes: ['/patient/fractionalization', '/hospitaladmin/fractionalization'],
+    notificationPrefixes: ['/fractionalization'],
+  },
+  {
+    navPrefixes: ['/patient/subscription', '/hospitaladmin/subscriptions'],
+    notificationPrefixes: ['/subscription'],
+  },
+  {
+    navPrefixes: ['/patient/emergency-redemption', '/hospitaladmin/emergency-redemptions'],
+    notificationPrefixes: ['/emergency-redemption'],
+  },
+  {
+    navPrefixes: ['/patient/health-card'],
+    notificationPrefixes: ['/health-card'],
+  },
+  {
+    navPrefixes: ['/patient/profile/info'],
+    notificationPrefixes: ['/profile'],
+  },
+  {
+    navPrefixes: ['/patient/marketplace', '/hospital/marketplace', '/admin/marketplace'],
+    notificationPrefixes: ['/marketplace'],
+  },
+]
+
 export const Sidebar: React.FC<LayoutSidebarProps> = ({ userRole, withProvider = true }) => {
   const pathname = usePathname()
   const { user } = useAuthStore()
   const userId = (user as any)?.id || (user as any)?.userId
 
   const [unreadCount, setUnreadCount] = useState(0)
+  const [notifications, setNotifications] = useState<PortalNotification[]>([])
 
   const getNavItems = () => {
     switch (userRole) {
@@ -154,38 +222,131 @@ export const Sidebar: React.FC<LayoutSidebarProps> = ({ userRole, withProvider =
 
   const navItems = useMemo(() => getNavItems(), [userRole])
 
-  const loadUnreadNavDots = useCallback(async () => {
+  const isNavItemActive = useCallback((item: NavItem): boolean => {
+    // Check if current item is a base/root path
+    const basePaths = ['/patient', '/hospital', '/hospitaladmin', '/bank', '/admin']
+    const isBasePath = basePaths.includes(item.href)
+
+    if (item.activeMatch) {
+      // Use custom activeMatch if provided
+      return pathname.startsWith(item.activeMatch)
+    }
+
+    if (isBasePath) {
+      // For base paths, only match exact path
+      return pathname === item.href
+    }
+
+    // For sub-paths, check if pathname starts with href
+    return pathname === item.href || pathname.startsWith(item.href + '/')
+  }, [pathname])
+
+  const matchesRouteFamily = (navHref: string, notificationUrl?: string): boolean => {
+    if (!notificationUrl) return false
+
+    const normalizedNavHref = navHref.toLowerCase()
+    const normalizedNotificationUrl = notificationUrl.toLowerCase()
+
+    return routeFamilyMap.some((group) => {
+      const navMatch = group.navPrefixes.some((prefix) => normalizedNavHref.startsWith(prefix))
+      const notificationMatch = group.notificationPrefixes.some((prefix) => normalizedNotificationUrl.startsWith(prefix))
+      return navMatch && notificationMatch
+    })
+  }
+
+  const getUnreadCountForPath = (navHref: string): number => {
+    const pathPatterns = notificationPathMap[navHref] || []
+    if (pathPatterns.length === 0) return 0
+
+    return notifications.filter((n) => {
+      if (n.status !== 'UNREAD') return false
+
+      const lowerType = (n.notificationType || '').toLowerCase()
+      const lowerUrl = (n.navigationUrl || '').toLowerCase()
+      const lowerTitle = (n.title || '').toLowerCase()
+      const lowerMessage = (n.message || '').toLowerCase()
+      const searchable = `${lowerType} ${lowerUrl} ${lowerTitle} ${lowerMessage}`
+
+      const directPatternMatch = pathPatterns.some((pattern) => searchable.includes(pattern))
+      if (directPatternMatch) return true
+
+      return matchesRouteFamily(navHref, n.navigationUrl)
+    }).length
+  }
+
+  const doesNotificationBelongToPath = useCallback((navHref: string, n: PortalNotification): boolean => {
+    const pathPatterns = notificationPathMap[navHref] || []
+    if (pathPatterns.length === 0) return false
+
+    const lowerType = (n.notificationType || '').toLowerCase()
+    const lowerUrl = (n.navigationUrl || '').toLowerCase()
+    const lowerTitle = (n.title || '').toLowerCase()
+    const lowerMessage = (n.message || '').toLowerCase()
+    const searchable = `${lowerType} ${lowerUrl} ${lowerTitle} ${lowerMessage}`
+
+    const directPatternMatch = pathPatterns.some((pattern) => searchable.includes(pattern))
+    if (directPatternMatch) return true
+
+    return matchesRouteFamily(navHref, n.navigationUrl)
+  }, [])
+
+  const loadNotifications = useCallback(async () => {
     if (!userId) {
       setUnreadCount(0)
+      setNotifications([])
       return
     }
 
     try {
-      const count = await notificationService.getUnreadCount(String(userId))
+      const [notifs, count] = await Promise.all([
+        notificationService.getUserNotifications(String(userId)),
+        notificationService.getUnreadCount(String(userId)),
+      ])
+      setNotifications(notifs)
       setUnreadCount(count)
     } catch {
       setUnreadCount(0)
+      setNotifications([])
     }
   }, [userId])
 
   useEffect(() => {
-    loadUnreadNavDots()
-  }, [loadUnreadNavDots])
+    loadNotifications()
+  }, [loadNotifications])
 
   useEffect(() => {
     const id = window.setInterval(() => {
-      loadUnreadNavDots()
+      loadNotifications()
     }, 30000)
     return () => window.clearInterval(id)
-  }, [loadUnreadNavDots])
+  }, [loadNotifications])
 
   useEffect(() => {
     const onChanged = () => {
-      loadUnreadNavDots()
+      loadNotifications()
     }
     window.addEventListener('notifications:changed', onChanged)
     return () => window.removeEventListener('notifications:changed', onChanged)
-  }, [loadUnreadNavDots])
+  }, [loadNotifications])
+
+  useEffect(() => {
+    if (!userId || notifications.length === 0) return
+
+    const currentNavItem = navItems.find((item) => isNavItemActive(item))
+    if (!currentNavItem) return
+
+    const toMarkRead = notifications.filter(
+      (n) => n.status === 'UNREAD' && doesNotificationBelongToPath(currentNavItem.href, n)
+    )
+
+    if (toMarkRead.length === 0) return
+
+    void Promise.all(
+      toMarkRead.map((n) =>
+        notificationService.markAsRead(String(userId), n.id).catch(() => undefined)
+      )
+    )
+  }, [userId, notifications, navItems, isNavItemActive, doesNotificationBelongToPath])
 
   const sidebarNode = (
     <CollapsibleSidebar variant="sidebar" collapsible="icon">
@@ -207,24 +368,9 @@ export const Sidebar: React.FC<LayoutSidebarProps> = ({ userRole, withProvider =
                 const Icon = item.icon
                 const isNotificationsTab = item.name.toLowerCase() === 'notifications'
                 const hasUnreadDot = isNotificationsTab && unreadCount > 0
-                // Check if current item is a base/root path
-                const basePaths = ['/patient', '/hospital', '/hospitaladmin', '/bank', '/admin']
-                const isBasePath = basePaths.includes(item.href)
-                
-                // Determine if this item should be active
-                let isActive = false
-                
-                if (item.activeMatch) {
-                  // Use custom activeMatch if provided
-                  isActive = pathname.startsWith(item.activeMatch)
-                } else if (isBasePath) {
-                  // For base paths, only match exact path
-                  isActive = pathname === item.href
-                } else {
-                  // For sub-paths, check if pathname starts with href
-                  // But ensure we don't accidentally match a base path
-                  isActive = pathname === item.href || pathname.startsWith(item.href + '/')
-                }
+                const unreadForPath = getUnreadCountForPath(item.href)
+                const hasUnreadForThisPath = unreadForPath > 0
+                const isActive = isNavItemActive(item)
                 
                 return (
                   <SidebarMenuItem key={item.name}>
@@ -232,11 +378,17 @@ export const Sidebar: React.FC<LayoutSidebarProps> = ({ userRole, withProvider =
                       <Link href={item.href} className="flex items-center gap-2">
                         <span className="relative inline-flex items-center justify-center">
                           <Icon className="w-5 h-5" />
-                          {hasUnreadDot && (
-                            <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-primary" />
+                          {(hasUnreadDot || hasUnreadForThisPath) && (
+                            <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-green-500" />
                           )}
                         </span>
-                        <span className={cn(hasUnreadDot && 'font-bold')}>{item.name}</span>
+                        <span
+                          className={cn(
+                            (hasUnreadDot || hasUnreadForThisPath) && 'font-bold'
+                          )}
+                        >
+                          {item.name}
+                        </span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

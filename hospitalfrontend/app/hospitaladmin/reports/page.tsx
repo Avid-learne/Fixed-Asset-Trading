@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { FileText, Download, Loader2, Trash2, BarChart3, TrendingUp, Coins, Users, DollarSign, Clock } from 'lucide-react'
+import { FileText, Loader2, Trash2, BarChart3, TrendingUp, Coins, Users, DollarSign, Clock } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { authService } from '@/lib/authService'
 
@@ -97,43 +97,7 @@ export default function ReportsPage() {
     }
   }
 
-  const handleExportCSV = () => {
-    if (!reportData) return
-    const rows: string[][] = [
-      ['=== HOSPITAL REPORT ===', '', ''],
-      ['Hospital', reportData.hospitalName, ''],
-      ['Report Type', reportData.reportType, ''],
-      ['Period', reportData.fromPeriod, reportData.toPeriod],
-      ['Generated At', reportData.generatedAt ? new Date(reportData.generatedAt).toLocaleString() : '', ''],
-      ['', '', ''],
-      ['=== SUMMARY ===', '', ''],
-      ['Total Patients', String(reportData.totalPatients), ''],
-      ['Total Deposits', String(reportData.totalDeposits), ''],
-      ['Approved Deposits', String(reportData.approvedDeposits), ''],
-      ['Pending Deposits', String(reportData.pendingDeposits), ''],
-      ['Total Asset Value (PKR)', String(reportData.totalAssetValue), ''],
-      ['AT Minted', String(reportData.totalAtMinted), ''],
-      ['HT Allocated', String(reportData.totalHtAllocated), ''],
-      ['Profit Distributed (PKR)', String(reportData.totalProfitDistributed), ''],
-      ['Trading Volume (PKR)', String(reportData.tradingVolume), ''],
-      ['Total Trades', String(reportData.totalTrades), ''],
-      ['', '', ''],
-      ['=== ASSET BREAKDOWN ===', '', ''],
-      ['Asset Type', 'Deposit Count', 'Total Value (PKR)'],
-      ...reportData.assetBreakdown.map(a => [a.assetType, String(a.count), String(a.totalValue)]),
-      ['', '', ''],
-      ['=== MONTHLY DATA ===', '', '', ''],
-      ['Month', 'Deposits', 'AT Minted', 'Profit Distributed (PKR)'],
-      ...reportData.monthlyData.map(m => [m.month, String(m.deposits), String(m.mintedAt), String(m.profitDistributed)]),
-    ]
-    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\r\n')
-    const bom = '\uFEFF'
-    const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url; a.download = `report-${reportData.reportType}-${reportData.fromPeriod}.csv`; a.click()
-    URL.revokeObjectURL(url)
-  }
+  
 
   return (
     <div className="space-y-6">
@@ -185,9 +149,7 @@ export default function ReportsPage() {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">{reportData.reportType} Report — {reportData.hospitalName}</h2>
-            <Button variant="outline" onClick={handleExportCSV}>
-              <Download className="w-4 h-4 mr-2" /> Export CSV
-            </Button>
+            {/* Export button removed per project policy */}
           </div>
           <p className="text-sm text-muted-foreground">{reportData.fromPeriod} to {reportData.toPeriod}</p>
 

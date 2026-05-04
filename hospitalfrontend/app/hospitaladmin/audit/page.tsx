@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { Search, Filter, Download, Eye, Shield, Activity, Lock, Loader } from 'lucide-react'
+import { Search, Filter, Eye, Shield, Activity, Lock, Loader } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { auditLogService } from '@/services/auditLogService'
 import type { AuditLog } from '@/types/auditLog'
@@ -147,35 +147,7 @@ export default function AuditTrailPage() {
   const isLoading = activeTab === 'patient' ? isLoadingPatient : isLoadingHospital
   const stats = auditLogService.getStatistics(currentLogs)
 
-  const handleExportCSV = () => {
-    try {
-      const headers = ['Log ID', 'Action', 'User', 'Details', 'IP Address', 'Status', 'Timestamp']
-      const rows = currentLogs.map((log) => [
-        log.id,
-        log.action,
-        log.user,
-        log.details,
-        log.ipAddress,
-        log.status,
-        log.timestamp,
-      ])
-
-      const csvContent = [
-        headers.join(','),
-        ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')),
-      ].join('\n')
-
-      const blob = new Blob([csvContent], { type: 'text/csv' })
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `audit-logs-${activeTab}-${new Date().toISOString().split('T')[0]}.csv`
-      a.click()
-      window.URL.revokeObjectURL(url)
-    } catch (err) {
-      console.error('Error exporting CSV:', err)
-    }
-  }
+  
 
   return (
     <div className="space-y-6">
@@ -184,9 +156,7 @@ export default function AuditTrailPage() {
           <h1 className="text-3xl font-bold text-foreground">Audit Trail</h1>
           <p className="text-muted-foreground mt-1">Comprehensive log of all system interactions and activities.</p>
         </div>
-        <Button variant="outline" onClick={handleExportCSV} disabled={isLoading || currentLogs.length === 0}>
-          <Download className="w-4 h-4 mr-2" /> Export CSV
-        </Button>
+        {/* Export button removed per project policy */}
       </div>
 
       {error && (

@@ -11,6 +11,7 @@ export interface SubscriptionPlan {
   features: string[];
   htTokens: number;
   isActive: boolean;
+  monthlyHt: number;
 }
 
 export interface PatientSubscription {

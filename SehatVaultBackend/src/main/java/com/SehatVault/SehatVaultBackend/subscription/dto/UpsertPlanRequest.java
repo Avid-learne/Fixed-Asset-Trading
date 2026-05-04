@@ -10,4 +10,5 @@ public class UpsertPlanRequest {
     private String subscriptionName;
     private BigDecimal amountPerMonth;
     private List<String> features;
+    private Integer monthlyHt;
 }

@@ -16,6 +16,8 @@ import { Building2, Plus, Users, Coins, TrendingUp, Eye, CheckCircle, Search, Li
 import { DataTable, StatusBadge } from '../components'
 import { formatNumber, formatDate } from '@/lib/utils'
 import { authService } from '@/lib/authService'
+import { superAdminService, type SuperAdminHospitalDetails } from '@/services/superAdminService'
+import type { SuperAdminDashboardSummary } from '@/services/dashboardService'
 
 interface Hospital {
   id: string
@@ -29,6 +31,35 @@ interface Hospital {
   tokensMinted: number
   createdAt: string
   subscriptionPlan: string
+}
+
+type HospitalSummaryRow = NonNullable<SuperAdminDashboardSummary['hospitals']>[number]
+
+const toSafeString = (value: unknown): string => {
+  if (typeof value === 'string') return value
+  if (value === null || value === undefined) return ''
+  return String(value)
+}
+
+const toSafeNumber = (value: unknown): number => {
+  const num = Number(value)
+  return Number.isFinite(num) ? num : 0
+}
+
+const normalizeStatus = (value: unknown): Hospital['status'] => {
+  const normalized = toSafeString(value).toLowerCase()
+  if (normalized === 'active' || normalized === 'suspended' || normalized === 'pending' || normalized === 'inactive') {
+    return normalized
+  }
+  return 'inactive'
+}
+
+const mapVerificationToStatus = (value: unknown): Hospital['status'] => {
+  const normalized = toSafeString(value).toLowerCase()
+  if (normalized === 'verified') return 'active'
+  if (normalized === 'pending') return 'pending'
+  if (normalized === 'rejected') return 'inactive'
+  return normalizeStatus(value)
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
@@ -49,6 +80,8 @@ export default function HospitalsManagementPage() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [selectedHospital, setSelectedHospital] = useState<Hospital | null>(null)
+  const [selectedHospitalDetails, setSelectedHospitalDetails] = useState<SuperAdminHospitalDetails | null>(null)
+  const [detailsLoading, setDetailsLoading] = useState(false)
   
   const [formData, setFormData] = useState({
     name: '',
@@ -66,24 +99,45 @@ export default function HospitalsManagementPage() {
     try {
       setLoading(true)
       setError(null)
-      const response = await fetch(`${API_BASE}/hospitals`, {
-        method: 'GET',
-        headers: getAuthHeaders(),
-      })
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch hospitals (${response.status})`)
-      }
-      
-      const data = await response.json()
-      const hospitalsList = data.data || data || []
-      setHospitals(Array.isArray(hospitalsList) ? hospitalsList : [])
+      const summary = await superAdminService.getSummary()
+      const hospitalsList = summary.hospitals || []
+      const normalizedHospitals: Hospital[] = Array.isArray(hospitalsList)
+        ? hospitalsList.map((row: HospitalSummaryRow) => ({
+            id: toSafeString(row?.hospitalId),
+            name: toSafeString(row?.hospitalName),
+            address: toSafeString(row?.address),
+            contactEmail: toSafeString(row?.email),
+            contactPhone: toSafeString(row?.contactNum),
+            registrationNumber: toSafeString(row?.registrationNumber),
+            status: mapVerificationToStatus(row?.verificationStatus),
+            totalPatients: toSafeNumber(row?.patientCount),
+            tokensMinted: toSafeNumber(row?.totalAT),
+            createdAt: toSafeString(row?.createdAt),
+            subscriptionPlan: 'Standard',
+          }))
+        : []
+      setHospitals(normalizedHospitals)
     } catch (err) {
       console.error('Error fetching hospitals:', err)
       setError(err instanceof Error ? err.message : 'Failed to load hospitals')
       setHospitals([])
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleViewHospital = async (hospital: Hospital) => {
+    setSelectedHospital(hospital)
+    setSelectedHospitalDetails(null)
+    if (!hospital.id) return
+    try {
+      setDetailsLoading(true)
+      const details = await superAdminService.getHospitalDetails(hospital.id)
+      setSelectedHospitalDetails(details)
+    } catch (err) {
+      console.error('Error loading hospital details:', err)
+    } finally {
+      setDetailsLoading(false)
     }
   }
 
@@ -131,19 +185,22 @@ export default function HospitalsManagementPage() {
   }
 
   const filteredHospitals = hospitals.filter(h => {
-    const matchesSearch = h.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         h.contactEmail.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === 'all' || h.status === statusFilter
+    const search = searchTerm.toLowerCase()
+    const matchesSearch = toSafeString(h.name).toLowerCase().includes(search) ||
+                         toSafeString(h.contactEmail).toLowerCase().includes(search)
+    const matchesStatus = statusFilter === 'all' || h.status === statusFilter.toLowerCase()
     return matchesSearch && matchesStatus
   })
 
   const getStatusBadge = (status: string) => {
+    const normalizedStatus = status.toLowerCase()
     const config = {
-      'Active': 'bg-green-100 text-green-800 border-green-200',
-      'Suspended': 'bg-red-100 text-red-800 border-red-200',
-      'Pending': 'bg-yellow-100 text-yellow-800 border-yellow-200'
+      active: 'bg-green-100 text-green-800 border-green-200',
+      suspended: 'bg-red-100 text-red-800 border-red-200',
+      pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      inactive: 'bg-gray-100 text-gray-800 border-gray-200',
     }
-    return config[status as keyof typeof config] || 'bg-gray-100 text-gray-800'
+    return config[normalizedStatus as keyof typeof config] || 'bg-gray-100 text-gray-800'
   }
 
   return (
@@ -257,9 +314,9 @@ export default function HospitalsManagementPage() {
                 className="h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
               >
                 <option value="all">All Status</option>
-                <option value="Active">Active</option>
-                <option value="Suspended">Suspended</option>
-                <option value="Pending">Pending</option>
+                <option value="active">Active</option>
+                <option value="suspended">Suspended</option>
+                <option value="pending">Pending</option>
               </select>
             </div>
           </div>
@@ -316,7 +373,7 @@ export default function HospitalsManagementPage() {
                     </TableCell>
                     <TableCell>
                       <Badge className={getStatusBadge(hospital.status)}>
-                        {hospital.status}
+                        {hospital.status.charAt(0).toUpperCase() + hospital.status.slice(1)}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-gray-600">
@@ -324,7 +381,7 @@ export default function HospitalsManagementPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
-                        <Button variant="ghost" size="sm" onClick={() => setSelectedHospital(hospital)}>
+                        <Button variant="ghost" size="sm" onClick={() => handleViewHospital(hospital)}>
                           View
                         </Button>
                         <Button
@@ -411,7 +468,7 @@ export default function HospitalsManagementPage() {
         </TabsContent>
       </Tabs>
 
-      <Modal open={!!selectedHospital} onOpenChange={() => setSelectedHospital(null)}>
+      <Modal open={!!selectedHospital} onOpenChange={() => { setSelectedHospital(null); setSelectedHospitalDetails(null) }}>
         <ModalContent>
           <ModalHeader>
             <ModalTitle>Hospital Details</ModalTitle>
@@ -421,42 +478,82 @@ export default function HospitalsManagementPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-gray-500">Hospital Name</p>
-                  <p className="font-medium text-gray-900">{selectedHospital.name}</p>
+                  <p className="font-medium text-gray-900">{selectedHospitalDetails?.hospitalName || selectedHospital.name}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Registration No.</p>
-                  <p className="font-medium text-gray-900">{selectedHospital.registrationNumber}</p>
+                  <p className="font-medium text-gray-900">{selectedHospitalDetails?.registrationNumber || selectedHospital.registrationNumber || '—'}</p>
                 </div>
                 <div className="col-span-2">
                   <p className="text-sm text-gray-500">Address</p>
-                  <p className="font-medium text-gray-900">{selectedHospital.address}</p>
+                  <p className="font-medium text-gray-900">{selectedHospitalDetails?.address || selectedHospital.address || '—'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Contact Email</p>
-                  <p className="font-medium text-gray-900">{selectedHospital.contactEmail}</p>
+                  <p className="font-medium text-gray-900">{selectedHospitalDetails?.email || selectedHospital.contactEmail || '—'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Contact Phone</p>
-                  <p className="font-medium text-gray-900">{selectedHospital.contactPhone}</p>
+                  <p className="font-medium text-gray-900">{selectedHospitalDetails?.contactNum || selectedHospital.contactPhone || '—'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Total Patients</p>
-                  <p className="font-medium text-gray-900">{formatNumber(selectedHospital.totalPatients)}</p>
+                  <p className="font-medium text-gray-900">{formatNumber(selectedHospitalDetails?.patientCount ?? selectedHospital.totalPatients)}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Tokens Minted</p>
-                  <p className="font-medium text-gray-900">{formatNumber(selectedHospital.tokensMinted)}</p>
+                  <p className="text-sm text-gray-500">Total AT Minted</p>
+                  <p className="font-medium text-gray-900">{formatNumber(Number(selectedHospitalDetails?.totalAT ?? selectedHospital.tokensMinted))}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Total Assets (PKR)</p>
+                  <p className="font-medium text-gray-900">{formatNumber(Number(selectedHospitalDetails?.totalAssets ?? 0))}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Confirmed Deposits</p>
+                  <p className="font-medium text-gray-900">{formatNumber(selectedHospitalDetails?.totalDeposits ?? 0)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Status</p>
                   <Badge className={getStatusBadge(selectedHospital.status)}>
-                    {selectedHospital.status}
+                    {selectedHospital.status.charAt(0).toUpperCase() + selectedHospital.status.slice(1)}
                   </Badge>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Registered Date</p>
-                  <p className="font-medium text-gray-900">{formatDate(selectedHospital.createdAt)}</p>
+                  <p className="font-medium text-gray-900">{formatDate(selectedHospitalDetails?.createdAt || selectedHospital.createdAt)}</p>
                 </div>
+              </div>
+
+              <div>
+                <p className="text-sm text-gray-500 mb-2">Integrated Banks</p>
+                {detailsLoading ? (
+                  <p className="text-sm text-gray-500">Loading linked banks...</p>
+                ) : (selectedHospitalDetails?.linkedBanks?.length || 0) === 0 ? (
+                  <p className="text-sm text-gray-500">No linked banks found.</p>
+                ) : (
+                  <div className="max-h-48 overflow-auto rounded border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Bank</TableHead>
+                          <TableHead>Integration</TableHead>
+                          <TableHead>Deposits</TableHead>
+                          <TableHead>Asset Value (PKR)</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(selectedHospitalDetails?.linkedBanks || []).map((link) => (
+                          <TableRow key={link.partnershipId}>
+                            <TableCell className="font-medium">{link.bankName}</TableCell>
+                            <TableCell>{link.integrationStatus}</TableCell>
+                            <TableCell>{formatNumber(link.totalDeposits)}</TableCell>
+                            <TableCell>{formatNumber(Number(link.totalAssetValuePkr || 0))}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
               </div>
             </div>
           )}

@@ -79,6 +79,10 @@ export type SuperAdminDashboardSummary = {
   hospitals?: Array<{
     hospitalId: string
     hospitalName: string
+    registrationNumber?: string
+    email?: string
+    contactNum?: string
+    address?: string
     patientCount: number
     verificationStatus: 'PENDING' | 'VERIFIED' | 'REJECTED'
     totalAssets: number

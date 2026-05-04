@@ -3,7 +3,6 @@ package com.SehatVault.SehatVaultBackend.dashboard.service;
 import com.SehatVault.SehatVaultBackend.assetdeposit.entity.AssetDeposit;
 import com.SehatVault.SehatVaultBackend.assetdeposit.repository.AssetDepositRepository;
 import com.SehatVault.SehatVaultBackend.assetdeposit.repository.MintRecordRepository;
-import com.SehatVault.SehatVaultBackend.auth.entity.User;
 import com.SehatVault.SehatVaultBackend.auth.repository.UserRepository;
 import com.SehatVault.SehatVaultBackend.bank.entity.Bank;
 import com.SehatVault.SehatVaultBackend.bank.repository.BankRepository;

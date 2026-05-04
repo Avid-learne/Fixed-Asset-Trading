@@ -11,6 +11,7 @@ import com.SehatVault.SehatVaultBackend.notification.dto.NotificationDto;
 import com.SehatVault.SehatVaultBackend.notification.dto.SendNotificationRequest;
 import com.SehatVault.SehatVaultBackend.notification.dto.SendNotificationResponse;
 import com.SehatVault.SehatVaultBackend.notification.entity.Notification;
+import com.SehatVault.SehatVaultBackend.notification.entity.NotificationType;
 import com.SehatVault.SehatVaultBackend.notification.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -198,6 +199,35 @@ public class NotificationService {
     }
 
     @Transactional
+    public void notifyUser(UUID senderUserId, UUID receiverUserId, String title, String message, 
+                          NotificationType notificationType) {
+        notifyUser(senderUserId, receiverUserId, title, message, notificationType, 
+                  notificationType != null ? notificationType.getNavigationUrl() : "/dashboard");
+    }
+
+    @Transactional
+    public void notifyUser(UUID senderUserId, UUID receiverUserId, String title, String message, 
+                          NotificationType notificationType, String navigationUrl) {
+        if (senderUserId == null || receiverUserId == null) {
+            return;
+        }
+        String safeTitle = sanitize(title, "Notification");
+        String safeMessage = message == null ? "" : message.trim();
+        if (safeMessage.isEmpty()) {
+            return;
+        }
+        Notification n = new Notification();
+        n.setSenderId(senderUserId);
+        n.setReceiverId(receiverUserId);
+        n.setNotificationText(safeTitle + "::" + safeMessage);
+        n.setNotificationType(notificationType);
+        n.setNavigationUrl(navigationUrl != null ? navigationUrl : "/dashboard");
+        n.setStatus(Notification.NotificationStatus.UNREAD);
+        n.setTimestamp(LocalDateTime.now());
+        notificationRepository.save(n);
+    }
+
+    @Transactional
     public int notifyUsers(UUID senderUserId, Set<UUID> receiverIds, String title, String message) {
         if (senderUserId == null || receiverIds == null || receiverIds.isEmpty()) {
             return 0;
@@ -217,6 +247,50 @@ public class NotificationService {
                     n.setSenderId(senderUserId);
                     n.setReceiverId(receiverId);
                     n.setNotificationText(payload);
+                    n.setStatus(Notification.NotificationStatus.UNREAD);
+                    n.setTimestamp(now);
+                    return n;
+                })
+                .toList();
+        if (batch.isEmpty()) {
+            return 0;
+        }
+        notificationRepository.saveAll(batch);
+        return batch.size();
+    }
+
+    @Transactional
+    public int notifyUsers(UUID senderUserId, Set<UUID> receiverIds, String title, String message, 
+                          NotificationType notificationType) {
+        return notifyUsers(senderUserId, receiverIds, title, message, notificationType,
+                notificationType != null ? notificationType.getNavigationUrl() : "/dashboard");
+    }
+
+    @Transactional
+    public int notifyUsers(UUID senderUserId, Set<UUID> receiverIds, String title, String message, 
+                          NotificationType notificationType, String navigationUrl) {
+        if (senderUserId == null || receiverIds == null || receiverIds.isEmpty()) {
+            return 0;
+        }
+        String safeTitle = sanitize(title, "Notification");
+        String safeMessage = message == null ? "" : message.trim();
+        if (safeMessage.isEmpty()) {
+            return 0;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        String payload = safeTitle + "::" + safeMessage;
+        String finalUrl = navigationUrl != null ? navigationUrl : "/dashboard";
+        
+        List<Notification> batch = receiverIds.stream()
+                .filter(receiverId -> receiverId != null)
+                .map(receiverId -> {
+                    Notification n = new Notification();
+                    n.setSenderId(senderUserId);
+                    n.setReceiverId(receiverId);
+                    n.setNotificationText(payload);
+                    n.setNotificationType(notificationType);
+                    n.setNavigationUrl(finalUrl);
                     n.setStatus(Notification.NotificationStatus.UNREAD);
                     n.setTimestamp(now);
                     return n;
@@ -311,7 +385,9 @@ public class NotificationService {
                 n.getStatus() != null ? n.getStatus().name() : "UNREAD",
                 n.getTimestamp() != null ? n.getTimestamp().toString() : null,
                 direction,
-                displayName
+                displayName,
+                n.getNotificationType() != null ? n.getNotificationType().name() : null,
+                n.getNavigationUrl() != null ? n.getNavigationUrl() : "/dashboard"
         );
     }
 

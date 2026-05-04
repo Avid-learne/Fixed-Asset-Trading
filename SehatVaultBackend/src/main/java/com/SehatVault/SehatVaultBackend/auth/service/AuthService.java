@@ -68,32 +68,6 @@ public class AuthService {
         }
     }
 
-    /**
-     * Call stored procedure to handle user signup and create role-specific records
-     * 
-     * @param userId     User ID
-     * @param role       User role
-     * @param hospitalId Hospital ID (optional, for hospital_staff and patients)
-     */
-    private void callSignupProcedure(java.util.UUID userId, String role, java.util.UUID hospitalId) {
-        try {
-            String sql = "CALL public.usp_handle_user_signup(?, ?, ?)";
-            System.out.println("DEBUG: About to execute signup procedure with SQL: " + sql + " | User ID: " + userId
-                    + " | Role: " + role.toLowerCase() + " | Hospital ID: " + hospitalId);
-            int result = jdbcTemplate.update(sql, userId, role.toLowerCase(), hospitalId);
-            System.out.println("DEBUG: Signup procedure returned result: " + result);
-            System.out.println("Signup procedure executed for user: " + userId + " with role: " + role
-                    + " and hospital: " + hospitalId);
-        } catch (Exception e) {
-            System.err.println("Failed to execute signup procedure!");
-            System.err.println("Error Type: " + e.getClass().getName());
-            System.err.println("Error Message: " + e.getMessage());
-            e.printStackTrace();
-            // Don't throw exception, just log error to prevent interrupting signup flow
-            // The user is already created, so signup should succeed even if procedure fails
-        }
-    }
-
     private AuthResponse buildAuthResponse(User user, String role, String token) {
         AuthResponse response = new AuthResponse(
                 user.getUserId(),

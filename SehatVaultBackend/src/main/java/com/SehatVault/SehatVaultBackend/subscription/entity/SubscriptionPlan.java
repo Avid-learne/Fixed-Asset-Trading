@@ -44,4 +44,7 @@ public class SubscriptionPlan {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "monthly_ht", nullable = false)
+    private Integer monthlyHt = 0;
 }

@@ -386,33 +386,6 @@ public class EmergencyRedemptionService {
         patientAtAssignmentRepository.save(a);
     }
 
-    private void deductAtFromAssignments(UUID patientId, UUID hospitalId, BigDecimal atToConvert) {
-        BigDecimal remaining = atToConvert;
-
-        List<PatientAtAssignment> assignments = patientAtAssignmentRepository
-                .findAvailableAtByPatientIdAndHospitalIdOldestFirst(patientId, hospitalId);
-
-        for (PatientAtAssignment a : assignments) {
-            if (remaining.compareTo(BigDecimal.ZERO) <= 0) break;
-            BigDecimal available = nz(a.getAvailableAt());
-            if (available.compareTo(BigDecimal.ZERO) <= 0) continue;
-
-            BigDecimal take = available.min(remaining);
-
-            a.setAvailableAt(available.subtract(take));
-            a.setTotalAtAssigned(nz(a.getTotalAtAssigned()).subtract(take));
-
-            // keep unavailableAt as-is; in pre-trade window it should be 0.
-            patientAtAssignmentRepository.save(a);
-
-            remaining = remaining.subtract(take);
-        }
-
-        if (remaining.compareTo(BigDecimal.ZERO) > 0) {
-            throw new IllegalArgumentException("Insufficient available AT assigned for conversion");
-        }
-    }
-
     private HealthCard getOrCreateAssetHealthCard(UUID patientId) {
         Card card = cardRepository.findByCardNameIgnoreCase("Asset Health Card").orElseGet(() -> {
             Card c = new Card();

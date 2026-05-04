@@ -49,7 +49,6 @@ import java.util.UUID;
 public class ProfitAllocationService {
 
     private static final BigDecimal ONE_HUNDRED = new BigDecimal("100");
-    private static final BigDecimal ZERO = BigDecimal.ZERO;
 
     private final UserRepository userRepository;
     private final PatientRepository patientRepository;

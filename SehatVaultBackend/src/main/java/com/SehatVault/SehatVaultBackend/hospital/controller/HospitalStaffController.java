@@ -157,9 +157,6 @@ public class HospitalStaffController {
                 return ResponseEntity.badRequest().body(error("Role is required"));
             }
             
-            User currentUser = userRepository.findByEmail(authentication.getName())
-                    .orElseThrow(() -> new RuntimeException("User not found"));
-            
             // TODO: Implement invitation logic - create pending user, send email, etc.
             // For now, return success message
             return ResponseEntity.ok(success("Invitation sent successfully", Map.of(

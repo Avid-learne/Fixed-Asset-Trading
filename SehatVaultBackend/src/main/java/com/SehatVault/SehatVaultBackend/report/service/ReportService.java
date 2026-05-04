@@ -5,6 +5,7 @@ import com.SehatVault.SehatVaultBackend.assetdeposit.entity.MintRecord;
 import com.SehatVault.SehatVaultBackend.assetdeposit.repository.AssetDepositRepository;
 import com.SehatVault.SehatVaultBackend.assetdeposit.repository.MintRecordRepository;
 import com.SehatVault.SehatVaultBackend.auth.entity.User;
+import com.SehatVault.SehatVaultBackend.auth.entity.Role;
 import com.SehatVault.SehatVaultBackend.auth.repository.UserRepository;
 import com.SehatVault.SehatVaultBackend.hospital.entity.Hospital;
 import com.SehatVault.SehatVaultBackend.hospital.repository.HospitalRepository;
@@ -52,8 +53,9 @@ public class ReportService {
 
     public List<ReportLogDto> getReportHistory(String email) {
         User user = requireUser(email);
-        UUID hospitalId = requireHospitalId(user);
-        List<ReportLog> logs = reportLogRepository.findByHospitalIdOrderByGeneratedAtDesc(hospitalId);
+        List<ReportLog> logs = isAdmin(user)
+            ? reportLogRepository.findAllByOrderByGeneratedAtDesc()
+            : reportLogRepository.findByHospitalIdOrderByGeneratedAtDesc(requireHospitalId(user));
         return logs.stream().map(log -> {
             String name = userRepository.findById(log.getGeneratedBy())
                     .map(User::getName).orElse("Unknown");
@@ -243,5 +245,9 @@ public class ReportService {
 
     private boolean eq(String value, String expected) {
         return value != null && value.trim().toLowerCase(Locale.ROOT).equals(expected);
+    }
+
+    private boolean isAdmin(User user) {
+        return user.getRole() != null && user.getRole().getRoleName() == Role.RoleType.admin;
     }
 }

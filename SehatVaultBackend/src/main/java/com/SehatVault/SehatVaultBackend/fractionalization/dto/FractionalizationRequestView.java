@@ -34,6 +34,7 @@ public class FractionalizationRequestView {
     @AllArgsConstructor
     public static class BeneficiaryRow {
         private UUID beneficiaryUserId;
+        private String beneficiaryRegistrationId;
         private BigDecimal fractionPercent;
         private BigDecimal allocatedHt;
     }

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { Download, CheckCircle2, XCircle } from 'lucide-react'
+import { CheckCircle2, XCircle } from 'lucide-react'
 
 type ApprovalItem = {
   id: string
@@ -89,9 +89,7 @@ export default function BankApprovalsPage() {
     }
   }
 
-  const handleExport = () => {
-    alert('Exporting data to CSV... In production, this would generate and download a CSV file.')
-  }
+  
 
   const filteredDeposits = assetDepositRequests.filter((d) =>
     (status === 'All' || d.status === status) &&
@@ -114,9 +112,7 @@ export default function BankApprovalsPage() {
           <h1 className="text-2xl font-semibold">Asset Deposit Requests</h1>
           <p className="text-muted-foreground">Review and approve submitted assets from hospitals.</p>
         </div>
-        <Button variant="outline" onClick={handleExport}>
-          <Download className="mr-2 h-4 w-4" /> Export
-        </Button>
+        {/* Export button removed per project policy */}
       </div>
 
       <div className="flex gap-3">

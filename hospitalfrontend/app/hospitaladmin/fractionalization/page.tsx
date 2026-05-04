@@ -165,7 +165,7 @@ export default function HospitalAdminFractionalizationPage() {
                 <div className="space-y-1 mt-1">
                   {selected.beneficiaries.map((b) => (
                     <div key={b.beneficiaryUserId} className="text-sm">
-                      <span className="font-mono text-xs">{b.beneficiaryUserId}</span>
+                      <span className="font-mono text-xs">{b.beneficiaryRegistrationId || '—'}</span>
                       {' — '}
                       {b.fractionPercent}% ({b.allocatedHt} HT)
                     </div>

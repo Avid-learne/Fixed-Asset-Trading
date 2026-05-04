@@ -54,7 +54,7 @@ export function NocCertificate({ request }: { request: FractionalizationRequestV
           <div className="rounded-md bg-white border border-emerald-200 divide-y divide-emerald-100">
             {request.beneficiaries.map((b) => (
               <div key={b.beneficiaryUserId} className="px-3 py-2 flex justify-between items-center text-xs">
-                <span className="font-mono text-slate-700">{b.beneficiaryUserId.slice(0, 16)}...</span>
+                <span className="font-mono text-slate-700">{b.beneficiaryRegistrationId || '—'}</span>
                 <span className="font-medium text-emerald-700">
                   {b.fractionPercent}% · {b.allocatedHt} HT
                 </span>

@@ -16,6 +16,8 @@ export type PortalNotification = {
   timestamp: string
   direction?: 'sent' | 'received'
   senderName?: string
+  notificationType?: string
+  navigationUrl?: string
 }
 
 export type SendNotificationPayload = {
@@ -56,6 +58,8 @@ const mapRow = (row: any): PortalNotification => ({
   timestamp: row.timestamp,
   direction: (row.direction as 'sent' | 'received') || 'received',
   senderName: row.senderName || 'System',
+  notificationType: row.notificationType,
+  navigationUrl: row.navigationUrl || '/dashboard',
 })
 
 export const notificationService = {

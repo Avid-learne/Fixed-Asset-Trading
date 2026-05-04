@@ -23,6 +23,7 @@ import com.SehatVault.SehatVaultBackend.healthcard.entity.HealthCard;
 import com.SehatVault.SehatVaultBackend.healthcard.repository.CardRepository;
 import com.SehatVault.SehatVaultBackend.healthcard.repository.HealthCardRepository;
 import com.SehatVault.SehatVaultBackend.notification.service.NotificationService;
+import com.SehatVault.SehatVaultBackend.notification.entity.NotificationType;
 import com.SehatVault.SehatVaultBackend.patient.entity.Patient;
 import com.SehatVault.SehatVaultBackend.patient.repository.PatientRepository;
 import com.SehatVault.SehatVaultBackend.wallet.entity.PatientTokenBalance;
@@ -40,8 +41,6 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
@@ -90,11 +89,11 @@ public class FractionalizationService {
         ensurePrimaryHasSufficientSourceHt(patient, fractionalizeAmount, source);
 
         if (req.getBeneficiaries() == null || req.getBeneficiaries().isEmpty()) {
-            throw new IllegalArgumentException("At least one beneficiary is required");
+            throw new IllegalArgumentException("Exactly one beneficiary is required");
         }
-
-        Set<UUID> seen = new HashSet<>();
-        BigDecimal totalPercent = BigDecimal.ZERO;
+        if (req.getBeneficiaries().size() != 1) {
+            throw new IllegalArgumentException("Only one beneficiary is allowed at a time");
+        }
 
         FractionalizationRequest request = new FractionalizationRequest();
         request.setPrimaryPatientId(patient.getId());
@@ -107,54 +106,47 @@ public class FractionalizationService {
 
         FractionalizationRequest savedRequest = requestRepository.save(request);
 
-        for (CreateFractionalizationRequest.BeneficiaryShare b : req.getBeneficiaries()) {
-            if (b.getBeneficiaryUserId() == null) {
-                throw new IllegalArgumentException("Beneficiary user ID is required");
-            }
-            if (!seen.add(b.getBeneficiaryUserId())) {
-                throw new IllegalArgumentException("Duplicate beneficiary is not allowed");
-            }
-            if (b.getBeneficiaryUserId().equals(patient.getUserId())) {
+        CreateFractionalizationRequest.BeneficiaryShare b = req.getBeneficiaries().get(0);
+        if (b.getBeneficiaryWalletAddress() == null || b.getBeneficiaryWalletAddress().isBlank()) {
+            throw new IllegalArgumentException("Beneficiary wallet address is required");
+        }
+
+        if (patient.getWalletAddress() != null
+                && patient.getWalletAddress().equalsIgnoreCase(b.getBeneficiaryWalletAddress().trim())) {
+            throw new IllegalArgumentException("Primary patient cannot be listed as beneficiary");
+        }
+
+        // Lookup beneficiary by wallet address in patients table
+        Patient beneficiaryPatient = patientRepository.findByWalletAddressIgnoreCase(b.getBeneficiaryWalletAddress().trim())
+                .orElseThrow(() -> new IllegalArgumentException("Beneficiary wallet address not found: "
+                        + b.getBeneficiaryWalletAddress()));
+
+        // Get the associated User
+        User beneficiaryUser = userRepository.findById(beneficiaryPatient.getUserId())
+                .orElseThrow(() -> new IllegalArgumentException("Beneficiary user not found"));
+
+        if (beneficiaryUser.getUserId().equals(patient.getUserId())) {
                 throw new IllegalArgumentException("Primary patient cannot be listed as beneficiary");
-            }
-
-            User beneficiaryUser = userRepository.findById(b.getBeneficiaryUserId())
-                    .orElseThrow(() -> new IllegalArgumentException("Beneficiary user not found: " + b.getBeneficiaryUserId()));
-
-            if (beneficiaryUser.getRole() == null || beneficiaryUser.getRole().getRoleName() != Role.RoleType.patient) {
-                throw new IllegalArgumentException("Beneficiary must be a patient user");
-            }
-
-            Patient beneficiaryPatient = patientRepository.findByUserId(beneficiaryUser.getUserId())
-                    .orElseThrow(() -> new IllegalArgumentException("Beneficiary patient profile not found"));
-
-            if (beneficiaryPatient.getHospitalId() == null || !beneficiaryPatient.getHospitalId().equals(patient.getHospitalId())) {
-                throw new IllegalArgumentException("Beneficiaries must belong to the same hospital");
-            }
-
-            BigDecimal pct = nz(b.getFractionPercent());
-            if (pct.compareTo(BigDecimal.ZERO) <= 0 || pct.compareTo(new BigDecimal("100")) > 0) {
-                throw new IllegalArgumentException("Beneficiary fraction percent must be between 0 and 100");
-            }
-
-            totalPercent = totalPercent.add(pct);
-
-            BigDecimal allocated = fractionalizeAmount
-                    .multiply(pct)
-                    .divide(new BigDecimal("100"), 6, RoundingMode.HALF_UP);
-
-            FractionalizationBeneficiary row = new FractionalizationBeneficiary();
-            row.setRequestId(savedRequest.getRequestId());
-            row.setBeneficiaryPatientId(beneficiaryPatient.getId());
-            row.setBeneficiaryUserId(beneficiaryUser.getUserId());
-            row.setFractionPercent(pct);
-            row.setAllocatedHt(allocated);
-            beneficiaryRepository.save(row);
         }
 
-        if (totalPercent.compareTo(new BigDecimal("100")) > 0) {
-            throw new IllegalArgumentException("Total beneficiary fractions cannot exceed 100%");
+        if (beneficiaryUser.getRole() == null || beneficiaryUser.getRole().getRoleName() != Role.RoleType.patient) {
+            throw new IllegalArgumentException("Beneficiary must be a patient user");
         }
+
+        if (beneficiaryPatient.getHospitalId() == null || !beneficiaryPatient.getHospitalId().equals(patient.getHospitalId())) {
+            throw new IllegalArgumentException("Beneficiaries must belong to the same hospital");
+        }
+
+        BigDecimal pct = new BigDecimal("100");
+        BigDecimal allocated = fractionalizeAmount;
+
+        FractionalizationBeneficiary row = new FractionalizationBeneficiary();
+        row.setRequestId(savedRequest.getRequestId());
+        row.setBeneficiaryPatientId(beneficiaryPatient.getId());
+        row.setBeneficiaryUserId(beneficiaryUser.getUserId());
+        row.setFractionPercent(pct);
+        row.setAllocatedHt(allocated);
+        beneficiaryRepository.save(row);
 
         notifyHospitalAdmins(patient.getHospitalId(), patient.getUserId(),
                 "Fractionalization Request",
@@ -662,10 +654,16 @@ public class FractionalizationService {
     private FractionalizationRequestView mapRequestView(FractionalizationRequest request) {
         List<FractionalizationRequestView.BeneficiaryRow> beneficiaries = beneficiaryRepository.findByRequestId(request.getRequestId())
                 .stream()
-                .map(b -> new FractionalizationRequestView.BeneficiaryRow(
-                        b.getBeneficiaryUserId(),
-                        b.getFractionPercent(),
-                        b.getAllocatedHt()))
+                .map(b -> {
+                    String registrationId = patientRepository.findById(b.getBeneficiaryPatientId())
+                            .map(Patient::getRegistrationId)
+                            .orElse("");
+                    return new FractionalizationRequestView.BeneficiaryRow(
+                            b.getBeneficiaryUserId(),
+                            registrationId,
+                            b.getFractionPercent(),
+                            b.getAllocatedHt());
+                })
                 .toList();
 
         return new FractionalizationRequestView(
@@ -688,11 +686,16 @@ public class FractionalizationService {
     }
 
     private FractionalAllocationView mapAllocationView(FractionalHtAllocation a) {
+        String beneficiaryRegistrationId = patientRepository.findByUserId(a.getBeneficiaryUserId())
+                .map(Patient::getRegistrationId)
+                .orElse("");
+        
         return new FractionalAllocationView(
                 a.getAllocationId(),
                 a.getRequestId(),
                 a.getPrimaryUserId(),
                 a.getBeneficiaryUserId(),
+                beneficiaryRegistrationId,
                 a.getSource(),
                 a.getTotalAllocatedHt(),
                 a.getRemainingHt(),

@@ -24,12 +24,14 @@ interface PlanForm {
   subscriptionName: string
   amountPerMonth: string
   featuresText: string
+  monthlyHt: string
 }
 
 const emptyForm: PlanForm = {
   subscriptionName: '',
   amountPerMonth: '',
   featuresText: '',
+  monthlyHt: '',
 }
 
 function planToForm(plan: SubscriptionPlan): PlanForm {
@@ -37,6 +39,7 @@ function planToForm(plan: SubscriptionPlan): PlanForm {
     subscriptionName: plan.subscriptionName,
     amountPerMonth: String(plan.amountPerMonth),
     featuresText: (plan.features ?? []).join('\n'),
+    monthlyHt: String(plan.monthlyHt ?? ''),
   }
 }
 
@@ -88,7 +91,7 @@ export default function HospitalAdminSubscriptionsPage() {
   }
 
   const handleSave = async () => {
-    const { subscriptionName, amountPerMonth, featuresText } = form
+    const { subscriptionName, amountPerMonth, featuresText, monthlyHt } = form
     if (!subscriptionName.trim()) {
       setFormError('Plan name is required')
       return
@@ -107,10 +110,19 @@ export default function HospitalAdminSubscriptionsPage() {
       return
     }
 
+    if (!monthlyHt.trim()) {
+      setFormError('Monthly HT allocation is required')
+      return
+    }
+    const monthlyHtValue = parseInt(monthlyHt, 10)
+    if (isNaN(monthlyHtValue) || monthlyHtValue <= 0) {
+      setFormError('Enter a valid monthly HT allocation')
+      return
+    }
     try {
       setSaving(true)
       setFormError('')
-      const payload = { subscriptionName: subscriptionName.trim(), amountPerMonth: amount, features }
+      const payload = { subscriptionName: subscriptionName.trim(), amountPerMonth: amount, features, monthlyHt: monthlyHtValue }
       if (editingId) {
         const updated = await subscriptionService.updatePlan(editingId, payload)
         setPlans((prev) => prev.map((p) => (p.subsId === editingId ? updated : p)))
@@ -221,6 +233,9 @@ export default function HospitalAdminSubscriptionsPage() {
                     </li>
                   ))}
                 </ul>
+                <div className="text-sm text-muted-foreground">
+                  HT allocation: <span className="text-primary font-medium">{plan.monthlyHt} HT / month</span>
+                </div>
                 {plan.isActive && (
                   <div className="flex gap-2 pt-2">
                     <Button
@@ -275,6 +290,18 @@ export default function HospitalAdminSubscriptionsPage() {
                 value={form.amountPerMonth}
                 onChange={(e) => setForm((f) => ({ ...f, amountPerMonth: e.target.value }))}
               />
+            </div>
+            <div>
+              <Label htmlFor="monthlyHt">Monthly HT Allocation (HT tokens)</Label>
+              <Input
+                id="monthlyHt"
+                type="number"
+                min={1}
+                placeholder="e.g. 150"
+                value={form.monthlyHt}
+                onChange={(e) => setForm((f) => ({ ...f, monthlyHt: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground mt-1">Specify how many HT tokens this plan grants each month (required).</p>
             </div>
             <div>
               <Label htmlFor="planFeatures">

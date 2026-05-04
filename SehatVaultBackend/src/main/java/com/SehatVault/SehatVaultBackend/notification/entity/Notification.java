@@ -37,6 +37,13 @@ public class Notification {
     private String notificationText;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "notification_type")
+    private NotificationType notificationType;
+
+    @Column(name = "navigation_url")
+    private String navigationUrl;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "status")
     private NotificationStatus status;
 

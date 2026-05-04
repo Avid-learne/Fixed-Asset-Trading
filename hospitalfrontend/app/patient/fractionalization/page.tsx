@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,13 +11,13 @@ import { FileBadge2 } from 'lucide-react'
 import { fractionalizationService, FractionalAllocationView, FractionalizationRequestView } from '@/services/fractionalizationService'
 import { NocCertificate } from '@/components/shared/NocCertificate'
 
-type BeneficiaryDraft = { beneficiaryUserId: string; fractionPercent: string }
+type BeneficiaryDraft = { beneficiaryWalletAddress: string }
 
 export default function PatientFractionalizationPage() {
   const [source, setSource] = useState<'SUBSCRIPTION' | 'ASSET'>('SUBSCRIPTION')
   const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
-  const [beneficiaries, setBeneficiaries] = useState<BeneficiaryDraft[]>([{ beneficiaryUserId: '', fractionPercent: '' }])
+  const [beneficiaries, setBeneficiaries] = useState<BeneficiaryDraft[]>([{ beneficiaryWalletAddress: '' }])
 
   const [requests, setRequests] = useState<FractionalizationRequestView[]>([])
   const [allocations, setAllocations] = useState<FractionalAllocationView[]>([])
@@ -29,11 +29,6 @@ export default function PatientFractionalizationPage() {
 
   // The NOC the patient is currently viewing (opened via "View NOC" button on an ACTIVE row).
   const [viewingNoc, setViewingNoc] = useState<FractionalizationRequestView | null>(null)
-
-  const totalPercent = useMemo(
-    () => beneficiaries.reduce((s, b) => s + (Number(b.fractionPercent) || 0), 0),
-    [beneficiaries],
-  )
 
   const load = async () => {
     setLoading(true)
@@ -62,10 +57,6 @@ export default function PatientFractionalizationPage() {
     setBeneficiaries(next)
   }
 
-  const addBeneficiary = () => setBeneficiaries((prev) => [...prev, { beneficiaryUserId: '', fractionPercent: '' }])
-
-  const removeBeneficiary = (idx: number) => setBeneficiaries((prev) => prev.filter((_, i) => i !== idx))
-
   const submit = async () => {
     const parsedAmount = Number(amount)
     if (!parsedAmount || parsedAmount <= 0) {
@@ -74,16 +65,16 @@ export default function PatientFractionalizationPage() {
     }
 
     const rows = beneficiaries
-      .filter((b) => b.beneficiaryUserId.trim() && Number(b.fractionPercent) > 0)
-      .map((b) => ({ beneficiaryUserId: b.beneficiaryUserId.trim(), fractionPercent: Number(b.fractionPercent) }))
+      .filter((b) => b.beneficiaryWalletAddress.trim())
+      .map((b) => ({ beneficiaryWalletAddress: b.beneficiaryWalletAddress.trim() }))
 
     if (rows.length === 0) {
-      alert('Add at least one valid beneficiary')
+      alert('Enter a valid beneficiary wallet address')
       return
     }
 
-    if (rows.reduce((s, r) => s + r.fractionPercent, 0) > 100) {
-      alert('Total beneficiary percent cannot exceed 100')
+    if (rows.length > 1) {
+      alert('Only one beneficiary is allowed at a time')
       return
     }
 
@@ -98,7 +89,7 @@ export default function PatientFractionalizationPage() {
 
       setAmount('')
       setNote('')
-      setBeneficiaries([{ beneficiaryUserId: '', fractionPercent: '' }])
+      setBeneficiaries([{ beneficiaryWalletAddress: '' }])
       await load()
       alert('Request submitted for hospital admin + insurance NOC review')
     } catch (e) {
@@ -149,7 +140,7 @@ export default function PatientFractionalizationPage() {
         <CardHeader>
           <CardTitle>New Fractionalization Request</CardTitle>
           <CardDescription>
-            Beneficiary percentages can be up to 100%. Any remainder stays with you.
+            Only one beneficiary wallet can be assigned at a time.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -177,34 +168,18 @@ export default function PatientFractionalizationPage() {
           </div>
 
           <div className="space-y-3">
-            <p className="text-sm font-semibold">Beneficiaries</p>
+            <p className="text-sm font-semibold">Beneficiary wallet address</p>
             {beneficiaries.map((b, idx) => (
-              <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-2">
+              <div key={idx} className="grid grid-cols-1 gap-2">
                 <Input
-                  className="md:col-span-7"
-                  placeholder="Beneficiary user UUID"
-                  value={b.beneficiaryUserId}
-                  onChange={(e) => updateBeneficiary(idx, { beneficiaryUserId: e.target.value })}
+                  placeholder="Beneficiary wallet address"
+                  value={b.beneficiaryWalletAddress}
+                  onChange={(e) => updateBeneficiary(idx, { beneficiaryWalletAddress: e.target.value })}
                 />
-                <Input
-                  className="md:col-span-3"
-                  type="number"
-                  min={0}
-                  max={100}
-                  placeholder="%"
-                  value={b.fractionPercent}
-                  onChange={(e) => updateBeneficiary(idx, { fractionPercent: e.target.value })}
-                />
-                <Button className="md:col-span-2" variant="outline" onClick={() => removeBeneficiary(idx)}>
-                  Remove
-                </Button>
               </div>
             ))}
 
-            <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={addBeneficiary}>Add Beneficiary</Button>
-              <p className="text-sm text-muted-foreground">Total beneficiary split: {totalPercent}%</p>
-            </div>
+            <p className="text-sm text-muted-foreground">Only one beneficiary can be added.</p>
           </div>
 
           <Button onClick={submit} disabled={submitting}>
@@ -279,7 +254,7 @@ export default function PatientFractionalizationPage() {
               <TableBody>
                 {allocations.map((a) => (
                   <TableRow key={a.allocationId}>
-                    <TableCell className="font-mono text-xs">{a.beneficiaryUserId.slice(0, 12)}...</TableCell>
+                    <TableCell className="font-mono text-xs">{a.beneficiaryRegistrationId || '—'}</TableCell>
                     <TableCell>{a.remainingHt}</TableCell>
                     <TableCell>{a.status}</TableCell>
                     <TableCell>{a.nocExpiresAt ? new Date(a.nocExpiresAt).toLocaleString() : '-'}</TableCell>

@@ -6,7 +6,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.web3j.abi.FunctionEncoder;
 import org.web3j.abi.datatypes.Function;
-import org.web3j.abi.datatypes.Type;
 import org.web3j.crypto.Credentials;
 import org.web3j.protocol.Web3j;
 import org.web3j.protocol.core.methods.response.EthSendTransaction;
@@ -18,8 +17,6 @@ import org.web3j.tx.response.TransactionReceiptProcessor;
 
 import java.io.IOException;
 import java.math.BigInteger;
-import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -95,7 +92,4 @@ public class BlockchainWriteService {
         }
     }
 
-    public static Function fn(String name, List<Type> inputs) {
-        return new Function(name, Objects.requireNonNullElse(inputs, List.of()), List.of());
-    }
 }

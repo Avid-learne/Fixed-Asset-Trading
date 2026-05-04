@@ -10,7 +10,6 @@ import com.SehatVault.SehatVaultBackend.activity.repository.ActivityLogRepositor
 import com.SehatVault.SehatVaultBackend.patient.entity.Patient;
 import com.SehatVault.SehatVaultBackend.patient.repository.PatientRepository;
 import com.SehatVault.SehatVaultBackend.patient.service.PatientWalletAllocatorService;
-import com.SehatVault.SehatVaultBackend.wallet.service.TokenPriceService;
 import com.SehatVault.SehatVaultBackend.subscription.dto.*;
 import com.SehatVault.SehatVaultBackend.subscription.entity.PatientSubscription;
 import com.SehatVault.SehatVaultBackend.subscription.entity.PaymentHistory;
@@ -60,7 +59,6 @@ public class SubscriptionService {
     private final TokenContractGateway tokenContractGateway;
     private final ActivityLogRepository activityLogRepository;
     private final PatientWalletAllocatorService patientWalletAllocatorService;
-    private final TokenPriceService tokenPriceService;
     private final NotificationService notificationService;
 
     /**
@@ -342,11 +340,17 @@ public class SubscriptionService {
         if (activePlans >= 3) {
             throw new IllegalStateException("A hospital can have at most 3 active subscription plans");
         }
+        // monthlyHt is required for plans
+        if (request.getMonthlyHt() == null || request.getMonthlyHt() <= 0) {
+            throw new IllegalArgumentException("monthlyHt is required and must be > 0");
+        }
+
         SubscriptionPlan plan = new SubscriptionPlan();
         plan.setHospitalId(hospitalId);
         plan.setSubscriptionName(request.getSubscriptionName());
         plan.setAmountPerMonth(request.getAmountPerMonth());
         plan.setFeatures(String.join("|", request.getFeatures()));
+        plan.setMonthlyHt(request.getMonthlyHt());
         plan.setIsActive(true);
         return convertToDto(subscriptionPlanRepository.save(plan));
     }
@@ -361,6 +365,10 @@ public class SubscriptionService {
         plan.setSubscriptionName(request.getSubscriptionName());
         plan.setAmountPerMonth(request.getAmountPerMonth());
         plan.setFeatures(String.join("|", request.getFeatures()));
+        if (request.getMonthlyHt() == null || request.getMonthlyHt() <= 0) {
+            throw new IllegalArgumentException("monthlyHt is required and must be > 0");
+        }
+        plan.setMonthlyHt(request.getMonthlyHt());
         return convertToDto(subscriptionPlanRepository.save(plan));
     }
 
@@ -439,10 +447,11 @@ public class SubscriptionService {
             PatientSubscription subscription,
             HealthCard subscriptionCard,
             String source) {
-        BigDecimal htAllocation = calculateMonthlyHt(plan.getAmountPerMonth());
-        if (htAllocation.compareTo(BigDecimal.ZERO) <= 0) {
+        // Use explicit monthly HT (integer tokens) from plan
+        if (plan.getMonthlyHt() == null || plan.getMonthlyHt() <= 0) {
             return;
         }
+        BigDecimal htAllocation = BigDecimal.valueOf(plan.getMonthlyHt());
 
         // Credit subscription card HT balance.
         subscriptionCard.setHtBalance(nz(subscriptionCard.getHtBalance()).add(htAllocation));
@@ -620,9 +629,9 @@ public class SubscriptionService {
             dto.setFeatures(new ArrayList<>());
         }
 
-        // Calculate HT tokens based on amount (1000 PKR = 10 HT)
-        dto.setHtTokens(
-                calculateMonthlyHt(plan.getAmountPerMonth()).setScale(0, java.math.RoundingMode.DOWN).intValue());
+        // Use stored monthlyHt as the single source of truth (required)
+        dto.setHtTokens(plan.getMonthlyHt());
+        dto.setMonthlyHt(plan.getMonthlyHt());
         dto.setIsActive(plan.getIsActive());
 
         return dto;
@@ -637,8 +646,8 @@ public class SubscriptionService {
         dto.setStartDate(subscription.getStartDate());
         dto.setEndDate(subscription.getEndDate());
         dto.setStatus(subscription.getStatus().toString());
-        dto.setHtTokens(
-                calculateMonthlyHt(plan.getAmountPerMonth()).setScale(0, java.math.RoundingMode.DOWN).intValue());
+        // Use the explicit monthly HT stored on the plan
+        dto.setHtTokens(plan.getMonthlyHt());
         return dto;
     }
 

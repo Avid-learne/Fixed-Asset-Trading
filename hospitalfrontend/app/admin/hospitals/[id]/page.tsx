@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { StatusBadge, SwitchToggle, ActionConfirmModal, ChartCard, KeyValueCard } from '../../components'
 import { authService } from '@/lib/authService'
+import { superAdminService } from '@/services/superAdminService'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
 
@@ -67,6 +68,7 @@ export default function HospitalDetailsPage({ params }: { params: { id: string }
   
   const [showDisableModal, setShowDisableModal] = useState(false)
   const [showSuspendModal, setShowSuspendModal] = useState(false)
+  const [updatingKyc, setUpdatingKyc] = useState(false)
 
   useEffect(() => {
     fetchHospitalData()
@@ -212,6 +214,7 @@ export default function HospitalDetailsPage({ params }: { params: { id: string }
             <p className="text-gray-600 mt-1">{hospital.registrationNumber} {hospital.type ? `• ${hospital.type}` : ''}</p>
             <div className="flex items-center gap-3 mt-2">
               <StatusBadge status={hospital.status} />
+              <Badge variant="outline">KYC: {hospital.verificationStatus || 'PENDING'}</Badge>
               <Badge variant="outline">{hospital.subscriptionPlan || 'Standard'}</Badge>
             </div>
           </div>

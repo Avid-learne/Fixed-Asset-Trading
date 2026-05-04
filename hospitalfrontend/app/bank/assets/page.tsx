@@ -61,7 +61,7 @@ export default function AssetCustodyPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Asset Value</CardTitle>
@@ -81,19 +81,6 @@ export default function AssetCustodyPage() {
           <CardContent>
             <div className="text-2xl font-bold text-foreground">{totalAssets}</div>
             <p className="text-xs text-muted-foreground mt-1">In custody</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total AT Minted</CardTitle>
-            <Archive className="w-5 h-5 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground">
-              {assets.reduce((sum, a) => sum + (a.expectedTokens || 0), 0).toLocaleString()} AT
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">From approved deposits</p>
           </CardContent>
         </Card>
       </div>

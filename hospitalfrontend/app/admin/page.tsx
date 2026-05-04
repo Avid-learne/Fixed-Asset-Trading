@@ -1,3 +1,5 @@
+'use client'
+
 // hospitalfrontend/app/admin/page.tsx
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'

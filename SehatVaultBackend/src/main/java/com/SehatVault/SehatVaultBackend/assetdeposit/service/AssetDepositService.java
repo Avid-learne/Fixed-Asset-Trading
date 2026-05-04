@@ -42,6 +42,7 @@ import com.SehatVault.SehatVaultBackend.activity.entity.Transaction;
 import com.SehatVault.SehatVaultBackend.activity.entity.ActivityLog;
 import com.SehatVault.SehatVaultBackend.activity.repository.ActivityLogRepository;
 import com.SehatVault.SehatVaultBackend.notification.service.NotificationService;
+import com.SehatVault.SehatVaultBackend.notification.entity.NotificationType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -175,7 +176,11 @@ public class AssetDepositService {
             throw new IllegalArgumentException("Hospital is not linked to this account");
         }
 
-        List<AssetDeposit> deposits = assetDepositRepository.findAllByHospitalId(hospitalId);
+        List<AssetDeposit> deposits = assetDepositRepository.findAllByHospitalId(hospitalId)
+            .stream()
+            // Exclude deposits that have already been minted (prevent showing minted assets in queue)
+            .filter(item -> !Boolean.TRUE.equals(item.getMinted()))
+            .toList();
         if (status != null && !status.isBlank() && !"all".equalsIgnoreCase(status)) {
             String normalized = status.trim().toLowerCase(Locale.ROOT);
             deposits = deposits.stream()
@@ -517,9 +522,11 @@ public class AssetDepositService {
                 .orElseThrow(() -> new IllegalArgumentException("No bank profile found for this account"));
 
         List<AssetDeposit> deposits = assetDepositRepository.findByBankIdOrderBySubmittedAtDesc(bank.getBankId())
-                .stream()
-                .filter(item -> "approved".equalsIgnoreCase(nz(item.getStatus())))
-                .toList();
+            .stream()
+            .filter(item -> "approved".equalsIgnoreCase(nz(item.getStatus())))
+            // Exclude deposits that have already been minted
+            .filter(item -> !Boolean.TRUE.equals(item.getMinted()))
+            .toList();
 
         if (bankStatus != null && !bankStatus.isBlank() && !"all".equalsIgnoreCase(bankStatus)) {
             String normalized = bankStatus.trim().toLowerCase(Locale.ROOT);
@@ -1165,8 +1172,12 @@ public class AssetDepositService {
     }
 
     private void sendNotification(UUID senderId, UUID receiverId, String title, String message) {
+        sendNotification(senderId, receiverId, title, message, NotificationType.ASSET_DEPOSIT_SUBMITTED);
+    }
+
+    private void sendNotification(UUID senderId, UUID receiverId, String title, String message, NotificationType type) {
         try {
-            notificationService.notifyUser(senderId, receiverId, title, message);
+            notificationService.notifyUser(senderId, receiverId, title, message, type);
         } catch (Exception e) {
             log.warn("Failed to send notification: {}", e.getMessage());
         }

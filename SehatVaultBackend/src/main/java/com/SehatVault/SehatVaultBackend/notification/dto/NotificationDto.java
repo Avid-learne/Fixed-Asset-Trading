@@ -15,4 +15,6 @@ public class NotificationDto {
     private String timestamp;
     private String direction;
     private String senderName;
+    private String notificationType;
+    private String navigationUrl;
 }
