@@ -998,6 +998,9 @@ export default function PatientsPage() {
       <DocumentViewer
         isOpen={!!docViewer}
         onClose={() => setDocViewer(null)}
+        documentUrl={docViewer?.url}
+        documentName={docViewer?.name}
+      />
         documentUrl={docViewer?.url ?? null}
         documentName={docViewer?.name}
       />

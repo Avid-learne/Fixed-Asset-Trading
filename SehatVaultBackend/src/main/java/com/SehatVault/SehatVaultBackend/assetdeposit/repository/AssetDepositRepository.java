@@ -56,6 +56,18 @@ public interface AssetDepositRepository extends JpaRepository<AssetDeposit, UUID
                         @Param("status") String status);
 
         @Query(value = """
+                        SELECT COUNT(*)
+                        FROM asset_deposits ad
+                        JOIN patients p ON p.id = ad.patient_id
+                        WHERE ad.bank_id = :bankId
+                          AND p.hospital_id = :hospitalId
+                          AND ad.custody_confirmed_at IS NOT NULL
+                        """, nativeQuery = true)
+        long countByBankIdAndHospitalIdAndCustodyConfirmedAtIsNotNull(
+                        @Param("bankId") UUID bankId,
+                        @Param("hospitalId") UUID hospitalId);
+
+        @Query(value = """
                         SELECT COALESCE(SUM(ad.asset_value), 0)
                         FROM asset_deposits ad
                         JOIN patients p ON p.id = ad.patient_id
@@ -65,6 +77,31 @@ public interface AssetDepositRepository extends JpaRepository<AssetDeposit, UUID
         BigDecimal sumAssetValueByBankIdAndHospitalId(
                         @Param("bankId") UUID bankId,
                         @Param("hospitalId") UUID hospitalId);
+
+        @Query(value = """
+                        SELECT COALESCE(SUM(ad.asset_value), 0)
+                        FROM asset_deposits ad
+                        JOIN patients p ON p.id = ad.patient_id
+                        WHERE ad.bank_id = :bankId
+                          AND p.hospital_id = :hospitalId
+                          AND ad.custody_confirmed_at IS NOT NULL
+                        """, nativeQuery = true)
+        BigDecimal sumAssetValueByBankIdAndHospitalIdAndCustodyConfirmedAtIsNotNull(
+                        @Param("bankId") UUID bankId,
+                        @Param("hospitalId") UUID hospitalId);
+
+        @Query(value = """
+                        SELECT COALESCE(SUM(ad.asset_value), 0)
+                        FROM asset_deposits ad
+                        JOIN patients p ON p.id = ad.patient_id
+                        WHERE ad.bank_id = :bankId
+                          AND p.hospital_id = :hospitalId
+                          AND lower(ad.status) = lower(:status)
+                        """, nativeQuery = true)
+        BigDecimal sumAssetValueByBankIdAndHospitalIdAndStatus(
+                        @Param("bankId") UUID bankId,
+                        @Param("hospitalId") UUID hospitalId,
+                        @Param("status") String status);
 
         List<AssetDeposit> findByPatientIdOrderBySubmittedAtDesc(UUID patientId);
 

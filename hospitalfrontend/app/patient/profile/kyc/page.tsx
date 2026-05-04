@@ -281,7 +281,12 @@ export default function ProfileKYCPage() {
           <CardDescription>{statusMeta.description}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Progress value={completionPercent} />
+          <div className="relative h-4 w-full overflow-hidden rounded-full bg-slate-200">
+            <div
+              className="h-full w-full flex-1 bg-cyan-500 transition-all"
+              style={{ transform: `translateX(-${100 - completionPercent}%)` }}
+            />
+          </div>
           <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
             <span>{completionPercent}% ready</span>
             <span>Required fields missing: {missingKycFields.length}</span>

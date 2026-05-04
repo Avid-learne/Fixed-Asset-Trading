@@ -356,6 +356,15 @@ public class AssetDepositService {
 
            assetDepositRepository.save(deposit);
 
+           // Ensure patient has an Asset-based Health Card created immediately upon custody confirmation.
+           // Create with 0 HT balance so the card exists for the patient UI; monthly baseline credits
+           // will be applied by the scheduled baseline processor when configured.
+           try {
+               creditAssetHealthCard(patient.getId(), BigDecimal.ZERO);
+           } catch (Exception e) {
+               log.warn("Failed to create asset health card after custody confirmation: {}", e.getMessage());
+           }
+
            // Notify patient
            sendNotification(bankUser.getUserId(), patientUser.getUserId(),
                "Custody Confirmed — Awaiting Token Mint",
@@ -392,6 +401,10 @@ public class AssetDepositService {
             throw new IllegalArgumentException("Custody must be confirmed before minting AT");
         }
 
+        if (Boolean.TRUE.equals(deposit.getMinted())) {
+            throw new IllegalArgumentException("AT has already been minted for this deposit");
+        }
+
         BigDecimal alreadyMinted = nzNum(mintRecordRepository.sumTokensMintedByAssetId(assetId));
         if (alreadyMinted.compareTo(BigDecimal.ZERO) > 0) {
             throw new IllegalArgumentException("AT has already been minted for this deposit");
@@ -418,6 +431,17 @@ public class AssetDepositService {
         patientTokenBalanceRepository.save(balance);
 
         recordMint(deposit, patient.getId(), admin.getUserId(), atTokens, null);
+
+        // Mark deposit as minted to prevent double-minting in future. Persist immediately.
+        deposit.setMinted(Boolean.TRUE);
+        assetDepositRepository.save(deposit);
+
+        // Ensure the patient's Asset Health Card exists so the UI shows it immediately.
+        try {
+            creditAssetHealthCard(patient.getId(), BigDecimal.ZERO);
+        } catch (Exception e) {
+            log.warn("Failed to create asset health card after minting: {}", e.getMessage());
+        }
 
         UUID hospitalId = admin.getHospitalId();
         atTradingService.initializeAtAssignmentWithPatient(
@@ -622,6 +646,13 @@ public class AssetDepositService {
             "Custody Confirmed — Mint Required",
             "Patient " + patientUser.getName() + " custody confirmed by bank. "
                 + "Mint AT from the Deposits page to make it available in Pool 1.");
+
+        // Ensure an Asset Health Card exists for the patient immediately after custody confirmation
+        try {
+            creditAssetHealthCard(patient.getId(), BigDecimal.ZERO);
+        } catch (Exception e) {
+            log.warn("Failed to create asset health card after custody-confirm+mint flow: {}", e.getMessage());
+        }
 
         return toDto(saved, patient, patientUser, hospital);
         }
@@ -909,6 +940,7 @@ public class AssetDepositService {
         dto.setBaselineHtPerMonth(nzNum(deposit.getBaselineHtPerMonth()));
         dto.setLastBaselineHtAt(deposit.getLastBaselineHtAt());
         dto.setTokensMinted(nzNum(mintRecordRepository.sumTokensMintedByAssetId(deposit.getAssetId())));
+        dto.setMinted(Boolean.TRUE.equals(deposit.getMinted()));
         return dto;
     }
 

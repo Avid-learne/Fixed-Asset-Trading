@@ -108,11 +108,13 @@ public class DashboardService {
 
         BankDashboardSummaryDto dto = new BankDashboardSummaryDto();
         dto.setBankName(bank.getBankName());
-        dto.setTotalDeposits(deposits.size());
+        dto.setTotalDeposits(deposits.stream().filter(d -> d.getCustodyConfirmedAt() != null).count());
         dto.setPendingReviews(deposits.stream().filter(d -> eq(d.getBankApprovalStatus(), "pending")).count());
         dto.setApprovedReviews(deposits.stream().filter(d -> eq(d.getBankApprovalStatus(), "approved")).count());
         dto.setRejectedReviews(deposits.stream().filter(d -> eq(d.getBankApprovalStatus(), "rejected")).count());
-        dto.setTotalAssetValue(deposits.stream().map(AssetDeposit::getAssetValue).filter(v -> v != null)
+        dto.setTotalAssetValue(deposits.stream()
+            .filter(d -> d.getCustodyConfirmedAt() != null)
+                .map(AssetDeposit::getAssetValue).filter(v -> v != null)
                 .reduce(BigDecimal.ZERO, BigDecimal::add));
         dto.setActivePartnerships(partnershipRepository.findByBankIdOrderByCreatedAtDesc(bank.getBankId())
                 .stream()

@@ -263,10 +263,10 @@ public class BankIntegrationService {
         dto.setRejectionReason(link.getRejectionReason());
         dto.setPartnershipStarted(link.getPartnershipStarted());
         dto.setLinkedAt(link.getCreatedAt());
-        dto.setTotalDeposits(assetDepositRepository.countByBankIdAndHospitalId(bankId, hospital.getHospitalId()));
+        dto.setTotalDeposits(assetDepositRepository.countByBankIdAndHospitalIdAndCustodyConfirmedAtIsNotNull(bankId, hospital.getHospitalId()));
         dto.setApprovedDeposits(assetDepositRepository.countByBankIdAndHospitalIdAndStatus(bankId, hospital.getHospitalId(), "approved"));
         dto.setPendingDeposits(assetDepositRepository.countByBankIdAndHospitalIdAndStatus(bankId, hospital.getHospitalId(), "pending"));
-        dto.setTotalAssetValuePkr(nz(assetDepositRepository.sumAssetValueByBankIdAndHospitalId(bankId, hospital.getHospitalId())));
+        dto.setTotalAssetValuePkr(nz(assetDepositRepository.sumAssetValueByBankIdAndHospitalIdAndCustodyConfirmedAtIsNotNull(bankId, hospital.getHospitalId())));
         return dto;
     }
 

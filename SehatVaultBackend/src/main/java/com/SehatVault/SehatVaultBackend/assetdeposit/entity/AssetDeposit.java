@@ -90,6 +90,9 @@ public class AssetDeposit {
     @Column(name = "custody_confirmed_by")
     private UUID custodyConfirmedBy;
 
+    @Column(name = "minted", nullable = false)
+    private Boolean minted = Boolean.FALSE;
+
     // Baseline monthly HT benefit while asset remains on deposit
     @Column(name = "baseline_ht_per_month")
     private BigDecimal baselineHtPerMonth;

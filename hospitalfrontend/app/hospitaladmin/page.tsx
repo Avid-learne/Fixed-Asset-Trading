@@ -239,31 +239,7 @@ export default function HospitalAdminHome() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Today's Asset Prices</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="gold-price">Gold (PKR/gram)</Label>
-              <Input id="gold-price" type="number" value={goldPrice} onChange={(e) => setGoldPrice(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="silver-price">Silver (PKR/gram)</Label>
-              <Input id="silver-price" type="number" value={silverPrice} onChange={(e) => setSilverPrice(e.target.value)} />
-            </div>
-            {priceSuccess && (
-              <div className="rounded-md bg-green-50 border border-green-200 px-3 py-2 text-xs text-green-700">
-                Prices updated successfully
-              </div>
-            )}
-            <Button className="w-full" onClick={handleSavePrices} disabled={savingPrices}>
-              {savingPrices ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-              {savingPrices ? 'Saving...' : 'Update Prices'}
-            </Button>
-            <p className="text-xs text-muted-foreground">Update daily based on market value. These rates are used when patients submit deposits.</p>
-          </CardContent>
-        </Card>
+        
       </div>
 
       {/* Quick Actions */}

@@ -43,4 +43,5 @@ public class AssetDepositDto {
     /** Total AT actually minted for this asset so far (sum of all MintRecord rows).
      *  0 means custody-confirmed but not yet minted by hospital admin. */
     private BigDecimal tokensMinted;
+    private Boolean minted;
 }
