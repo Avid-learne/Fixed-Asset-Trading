@@ -15,10 +15,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  const buildAuthUser = (storedUser: ReturnType<typeof authService.getUser>, response?: { userId?: string; email?: string; name?: string } | null): AuthUser | null => {
+  const buildAuthUser = (storedUser: ReturnType<typeof authService.getUser>, response?: { userId?: string; email?: string; name?: string; hospitalId?: string; hospitalName?: string; bankId?: string } | null): AuthUser | null => {
     if (!storedUser) return null
 
     const normalizedRole = (storedUser.role?.toUpperCase() || 'PATIENT') as UserRole
+    
+    // Build hospital object if hospitalId is present
+    const hospitalId = response?.hospitalId || storedUser.hospitalId
+    const hospital = hospitalId ? {
+      id: hospitalId,
+      name: response?.hospitalName || storedUser.hospitalName || 'Hospital',
+      registrationNumber: '',
+      address: '',
+      city: '',
+      state: '',
+      contactEmail: '',
+      contactPhone: '',
+      status: 'active' as const,
+      verificationStatus: 'verified' as const,
+      connectedBankIds: [],
+      createdAt: new Date().toISOString(),
+    } : undefined
 
     return {
       id: response?.userId || storedUser.id || '',
@@ -29,7 +46,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       createdAt: new Date().toISOString(),
       mfaEnabled: false,
       isActive: true,
-      hospitalId: storedUser.hospitalId,
+      hospitalId: hospitalId,
+      hospital: hospital,
       bankId: storedUser.bankId,
       patientId: storedUser.patientId,
     }

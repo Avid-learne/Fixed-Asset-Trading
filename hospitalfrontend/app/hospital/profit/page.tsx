@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -198,33 +198,81 @@ export default function HospitalProfitDistribution() {
   const [periodFilter, setPeriodFilter] = useState<string>('all')
 
   // Filter distributions
-  const filteredDistributions = MOCK_PROFIT_DISTRIBUTIONS.filter(dist => {
-    const matchesSearch = 
-      dist.patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      dist.patientCNIC.includes(searchQuery) ||
-      dist.patientId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      dist.investmentType.toLowerCase().includes(searchQuery.toLowerCase())
-    
-    const matchesStatus = statusFilter === 'all' || dist.distributionStatus === statusFilter
-    const matchesPeriod = periodFilter === 'all' || dist.period === periodFilter
-    
-    return matchesSearch && matchesStatus && matchesPeriod
-  })
+  const filteredDistributions = useMemo(() => {
+    const lowerSearch = searchQuery.trim().toLowerCase()
+
+    return MOCK_PROFIT_DISTRIBUTIONS.filter((dist) => {
+      const matchesSearch =
+        !lowerSearch ||
+        dist.patientName.toLowerCase().includes(lowerSearch) ||
+        dist.patientCNIC.toLowerCase().includes(lowerSearch) ||
+        dist.patientId.toLowerCase().includes(lowerSearch) ||
+        dist.investmentType.toLowerCase().includes(lowerSearch)
+
+      const matchesStatus = statusFilter === 'all' || dist.distributionStatus === statusFilter
+      const matchesPeriod = periodFilter === 'all' || dist.period === periodFilter
+
+      return matchesSearch && matchesStatus && matchesPeriod
+    })
+  }, [searchQuery, statusFilter, periodFilter])
+
+  const patientTotals = useMemo(() => {
+    const groups = filteredDistributions.reduce((acc, dist) => {
+      if (!acc[dist.patientId]) {
+        acc[dist.patientId] = {
+          patientId: dist.patientId,
+          patientName: dist.patientName,
+          patientCNIC: dist.patientCNIC,
+          completedCount: 0,
+          totalDistributed: 0,
+          pendingAmount: 0,
+        }
+      }
+
+      if (dist.distributionStatus === 'completed') {
+        acc[dist.patientId].completedCount += 1
+        acc[dist.patientId].totalDistributed += dist.profitAmount
+      } else {
+        acc[dist.patientId].pendingAmount += dist.profitAmount
+      }
+
+      return acc
+    }, {} as Record<string, {
+      patientId: string
+      patientName: string
+      patientCNIC: string
+      completedCount: number
+      totalDistributed: number
+      pendingAmount: number
+    }>)
+
+    return Object.values(groups).sort((a, b) => b.totalDistributed - a.totalDistributed)
+  }, [filteredDistributions])
 
   // Calculate summary statistics
-  const totalDistributed = MOCK_PROFIT_DISTRIBUTIONS
-    .filter(d => d.distributionStatus === 'completed')
-    .reduce((sum, d) => sum + d.profitAmount, 0)
-  
-  const totalPatients = new Set(MOCK_PROFIT_DISTRIBUTIONS.map(d => d.patientId)).size
-  
-  const completedDistributions = MOCK_PROFIT_DISTRIBUTIONS.filter(d => d.distributionStatus === 'completed').length
-  
-  const pendingAmount = MOCK_PROFIT_DISTRIBUTIONS
-    .filter(d => d.distributionStatus === 'pending' || d.distributionStatus === 'processing')
-    .reduce((sum, d) => sum + d.profitAmount, 0)
+  const totalDistributed = useMemo(() => {
+    return MOCK_PROFIT_DISTRIBUTIONS
+      .filter((d) => d.distributionStatus === 'completed')
+      .reduce((sum, d) => sum + d.profitAmount, 0)
+  }, [])
 
-  const uniquePeriods = [...new Set(MOCK_PROFIT_DISTRIBUTIONS.map(d => d.period))].sort().reverse()
+  const totalPatients = useMemo(() => {
+    return new Set(MOCK_PROFIT_DISTRIBUTIONS.map((d) => d.patientId)).size
+  }, [])
+
+  const completedDistributions = useMemo(() => {
+    return MOCK_PROFIT_DISTRIBUTIONS.filter((d) => d.distributionStatus === 'completed').length
+  }, [])
+
+  const pendingAmount = useMemo(() => {
+    return MOCK_PROFIT_DISTRIBUTIONS
+      .filter((d) => d.distributionStatus === 'pending' || d.distributionStatus === 'processing')
+      .reduce((sum, d) => sum + d.profitAmount, 0)
+  }, [])
+
+  const uniquePeriods = useMemo(() => {
+    return [...new Set(MOCK_PROFIT_DISTRIBUTIONS.map((d) => d.period))].sort().reverse()
+  }, [])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -365,12 +413,12 @@ export default function HospitalProfitDistribution() {
       </Card>
 
       {/* Profit Distribution Tables */}
-      <Tabs defaultValue="all" className="w-full">
+      <Tabs defaultValue="by-patient" className="w-full">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="all">All Distributions ({filteredDistributions.length})</TabsTrigger>
           <TabsTrigger value="completed">Completed</TabsTrigger>
           <TabsTrigger value="pending">Pending</TabsTrigger>
-          <TabsTrigger value="by-patient">By Patient</TabsTrigger>
+          <TabsTrigger value="by-patient">By Patient ({patientTotals.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="all" className="mt-6">
@@ -605,9 +653,15 @@ export default function HospitalProfitDistribution() {
           <Card>
             <CardHeader>
               <CardTitle>Distribution by Patient</CardTitle>
-              <CardDescription>Aggregated profit distribution per patient</CardDescription>
+              <CardDescription>Total profit distributed to each patient (patient share only)</CardDescription>
             </CardHeader>
             <CardContent>
+              {patientTotals.length === 0 ? (
+                <div className="text-center py-12 text-slate-500">
+                  <PieChart className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p>No distributions found</p>
+                </div>
+              ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -615,73 +669,47 @@ export default function HospitalProfitDistribution() {
                       <th className="text-left py-3 px-4 font-semibold text-sm text-slate-700">Patient ID</th>
                       <th className="text-left py-3 px-4 font-semibold text-sm text-slate-700">Patient Name</th>
                       <th className="text-left py-3 px-4 font-semibold text-sm text-slate-700">CNIC</th>
-                      <th className="text-left py-3 px-4 font-semibold text-sm text-slate-700">Current Tokens</th>
-                      <th className="text-left py-3 px-4 font-semibold text-sm text-slate-700">Total Distributions</th>
-                      <th className="text-left py-3 px-4 font-semibold text-sm text-slate-700">Total Profit</th>
-                      <th className="text-left py-3 px-4 font-semibold text-sm text-slate-700">Avg. Profit Rate</th>
+                      <th className="text-left py-3 px-4 font-semibold text-sm text-slate-700">Completed Distributions</th>
+                      <th className="text-left py-3 px-4 font-semibold text-sm text-slate-700">Total Distributed</th>
+                      <th className="text-left py-3 px-4 font-semibold text-sm text-slate-700">Pending Amount</th>
                       <th className="text-left py-3 px-4 font-semibold text-sm text-slate-700">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {(() => {
-                      const patientGroups = MOCK_PROFIT_DISTRIBUTIONS.reduce((acc, dist) => {
-                        if (!acc[dist.patientId]) {
-                          acc[dist.patientId] = {
-                            patientId: dist.patientId,
-                            patientName: dist.patientName,
-                            patientCNIC: dist.patientCNIC,
-                            tokenBalance: dist.tokenBalance,
-                            distributions: [],
-                            totalProfit: 0,
-                            avgProfitRate: 0
-                          }
-                        }
-                        acc[dist.patientId].distributions.push(dist)
-                        acc[dist.patientId].totalProfit += dist.profitAmount
-                        return acc
-                      }, {} as Record<string, any>)
-
-                      return Object.values(patientGroups).map((patient: any) => {
-                        const avgRate = patient.distributions.reduce((sum: number, d: any) => sum + d.profitRate, 0) / patient.distributions.length
-                        
-                        return (
-                          <tr key={patient.patientId} className="border-b hover:bg-slate-50 transition-colors">
-                            <td className="py-3 px-4">
-                              <span className="text-sm font-medium text-slate-900">{patient.patientId}</span>
-                            </td>
-                            <td className="py-3 px-4">
-                              <p className="text-sm font-medium text-slate-900">{patient.patientName}</p>
-                            </td>
-                            <td className="py-3 px-4">
-                              <span className="text-sm text-slate-600">{patient.patientCNIC}</span>
-                            </td>
-                            <td className="py-3 px-4">
-                              <span className="text-sm font-semibold text-slate-900">{patient.tokenBalance.toLocaleString()} AT</span>
-                            </td>
-                            <td className="py-3 px-4">
-                              <Badge variant="outline">{patient.distributions.length} distributions</Badge>
-                            </td>
-                            <td className="py-3 px-4">
-                              <div className="flex items-center gap-1">
-                                <TrendingUp className="h-4 w-4 text-green-600" />
-                                <span className="text-sm font-bold text-green-600">PKR {patient.totalProfit.toLocaleString()}</span>
-                              </div>
-                            </td>
-                            <td className="py-3 px-4">
-                              <span className="text-sm font-semibold text-purple-600">{avgRate.toFixed(2)}%</span>
-                            </td>
-                            <td className="py-3 px-4">
-                              <Button variant="ghost" size="sm">
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </td>
-                          </tr>
-                        )
-                      })
-                    })()}
+                    {patientTotals.map((patient) => (
+                      <tr key={patient.patientId} className="border-b hover:bg-slate-50 transition-colors">
+                        <td className="py-3 px-4">
+                          <span className="text-sm font-medium text-slate-900">{patient.patientId}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <p className="text-sm font-medium text-slate-900">{patient.patientName}</p>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="text-sm text-slate-600">{patient.patientCNIC}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <Badge variant="outline">{patient.completedCount} completed</Badge>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-1">
+                            <TrendingUp className="h-4 w-4 text-green-600" />
+                            <span className="text-sm font-bold text-green-600">PKR {patient.totalDistributed.toLocaleString()}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="text-sm font-semibold text-yellow-700">PKR {patient.pendingAmount.toLocaleString()}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <Button variant="ghost" size="sm">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
