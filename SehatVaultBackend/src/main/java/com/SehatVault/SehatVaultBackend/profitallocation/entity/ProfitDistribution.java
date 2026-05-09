@@ -45,6 +45,9 @@ public class ProfitDistribution {
     @Column(name = "bank_loan_funds")
     private BigDecimal bankLoanFunds = BigDecimal.ZERO;
 
+    @Column(name = "trade_id")
+    private UUID tradeId;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

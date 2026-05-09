@@ -230,8 +230,8 @@ public class ProfitAllocationService {
 
     @Transactional(readOnly = true)
     public List<ProfitDistributionHistoryItemDto> getHistory(String email) {
-        User admin = findHospitalAdmin(email);
-        UUID hospitalId = requireHospitalId(admin);
+        User user = findHospitalUser(email);
+        UUID hospitalId = requireHospitalId(user);
 
         Hospital hospital = hospitalRepository.findById(hospitalId).orElse(null);
         BigDecimal defaultHospitalPct = BigDecimal.valueOf(
@@ -257,6 +257,21 @@ public class ProfitAllocationService {
                     BigDecimal bankPct = distribution.getBankPercentage() != null
                             ? distribution.getBankPercentage() : defaultBankPct;
 
+                    List<ProfitDistributionHistoryItemDto.RecipientDto> recipientDetails = allocations.stream()
+                            .map(allocation -> {
+                                String name = patientRepository.findById(allocation.getPatientId())
+                                        .flatMap(p -> userRepository.findById(p.getUserId()))
+                                        .map(User::getName)
+                                        .orElse("Unknown Patient");
+                                return new ProfitDistributionHistoryItemDto.RecipientDto(
+                                        allocation.getPatientId(),
+                                        name,
+                                        nz(allocation.getAllocatedAmountHt()),
+                                        nz(allocation.getAllocatedPercentage())
+                                );
+                            })
+                            .toList();
+
                     ProfitDistributionHistoryItemDto dto = new ProfitDistributionHistoryItemDto();
                     dto.setDistributionId(distribution.getProfitDistributionId());
                     dto.setTimestamp(distribution.getCreatedAt());
@@ -274,6 +289,18 @@ public class ProfitAllocationService {
                             : totalProfit.multiply(bankPct).divide(ONE_HUNDRED, 6, RoundingMode.HALF_UP));
                     dto.setTotalHtDistributed(totalHt);
                     dto.setRecipients(allocations.size());
+                    dto.setRecipientDetails(recipientDetails);
+
+                    if (distribution.getTradeId() != null) {
+                        marketplaceTradeRepository.findById(distribution.getTradeId()).ifPresent(trade -> {
+                            dto.setTradeId(trade.getTradeId());
+                            dto.setTradeTitle(trade.getTradeTitle());
+                            dto.setTradeDescription(trade.getTradeDescription());
+                            dto.setTradeType(trade.getTradeType() != null ? trade.getTradeType().name() : null);
+                            dto.setTradeProfitLoss(trade.getProfitLoss());
+                            dto.setTradeEndTime(trade.getEndTime());
+                        });
+                    }
                     return dto;
                 })
                 .toList();
@@ -399,6 +426,18 @@ public class ProfitAllocationService {
 
         if (user.getRole() == null || user.getRole().getRoleName() != Role.RoleType.hospital_admin) {
             throw new IllegalArgumentException("Only hospital admin can access profit allocation");
+        }
+
+        return user;
+    }
+
+    private User findHospitalUser(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        Role.RoleType role = user.getRole() != null ? user.getRole().getRoleName() : null;
+        if (role != Role.RoleType.hospital_admin && role != Role.RoleType.hospital_staff) {
+            throw new IllegalArgumentException("Only hospital admin or staff can view profit allocation history");
         }
 
         return user;

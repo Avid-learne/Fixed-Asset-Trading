@@ -7,15 +7,31 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Bell, CheckCircle, RefreshCw, Save, Shield, User } from 'lucide-react'
+import { AlertCircle, Bell, CheckCircle, Loader2, RefreshCw, Save, Shield, User } from 'lucide-react'
 import {
   HospitalStaffSettings,
   UpdateHospitalStaffSettingsRequest,
   hospitalStaffSettingsService,
 } from '@/services/hospitalStaffSettingsService'
 import { authService } from '@/lib/authService'
+import { useAuthStore } from '@/store/authStore'
 
 type FormState = UpdateHospitalStaffSettingsRequest
+
+const toIsoDate = (value: string | null | undefined): string => {
+  if (!value) return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toISOString().split('T')[0]
+}
+
+const formatTs = (ts: string | null | undefined): string => {
+  if (!ts) return 'N/A'
+  const d = new Date(ts)
+  if (Number.isNaN(d.getTime())) return ts
+  return d.toLocaleString()
+}
 
 const toFormState = (settings: HospitalStaffSettings): FormState => ({
   staffName: settings.staffName || '',
@@ -23,7 +39,7 @@ const toFormState = (settings: HospitalStaffSettings): FormState => ({
   address: settings.address || '',
   city: settings.city || '',
   bloodGroup: settings.bloodGroup || '',
-  dateOfBirth: settings.dateOfBirth || '',
+  dateOfBirth: toIsoDate(settings.dateOfBirth),
   mfaEnabled: !!settings.mfaEnabled,
   notificationEnabled: !!settings.notificationEnabled,
 })
@@ -61,7 +77,14 @@ export default function SettingsPage() {
     setError(null)
     setIsLoading(true)
     try {
-      const updated = await hospitalStaffSettingsService.updateSettings(form)
+      // Send null instead of empty string so backend skips DOB parsing.
+      const payload: UpdateHospitalStaffSettingsRequest = {
+        ...form,
+        dateOfBirth: form.dateOfBirth && /^\d{4}-\d{2}-\d{2}$/.test(form.dateOfBirth)
+          ? form.dateOfBirth
+          : null,
+      }
+      const updated = await hospitalStaffSettingsService.updateSettings(payload)
       setSettings(updated)
       setForm(toFormState(updated))
 
@@ -78,6 +101,17 @@ export default function SettingsPage() {
         dateOfBirth: updated.dateOfBirth || '',
         role: (updated.role || cachedUser.role || 'HOSPITAL_STAFF').toUpperCase(),
       })
+
+      // Also update the Zustand auth store so the Header (Welcome banner, avatar)
+      // re-renders immediately without needing a page reload.
+      const storeUser = useAuthStore.getState().user
+      if (storeUser) {
+        useAuthStore.getState().setUser({
+          ...storeUser,
+          name: updated.staffName,
+          email: updated.email,
+        })
+      }
 
       setIsSaved(true)
       setTimeout(() => setIsSaved(false), 3000)
@@ -101,20 +135,28 @@ export default function SettingsPage() {
 
   if (isInitialLoading) {
     return (
-      <div className="container mx-auto p-8">
-        <p className="text-slate-600">Loading staff settings...</p>
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="mx-auto h-10 w-10 animate-spin text-primary" />
+          <p className="mt-3 text-sm text-muted-foreground">Loading staff settings...</p>
+        </div>
       </div>
     )
   }
 
   if (!settings || !form) {
     return (
-      <div className="container mx-auto p-8">
-        <div className="mb-4 p-4 rounded border border-red-200 bg-red-50 text-red-700">
-          Unable to load settings.
-        </div>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <Button onClick={loadSettings} variant="outline" className="mt-4">
+      <div className="container mx-auto p-8 space-y-4">
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="pt-6 flex items-start gap-2 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-medium">Unable to load settings.</p>
+              {error && <p className="mt-1">{error}</p>}
+            </div>
+          </CardContent>
+        </Card>
+        <Button onClick={loadSettings} variant="outline">
           <RefreshCw className="w-4 h-4 mr-2" />
           Retry
         </Button>
@@ -127,21 +169,29 @@ export default function SettingsPage() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold">Staff Settings</h1>
-          <p className="text-gray-600 mt-1">Connected to `users`, `settings`, `hospitals`, and `activity` tables</p>
         </div>
+        <Button variant="outline" onClick={loadSettings} disabled={isLoading}>
+          <RefreshCw className="w-4 h-4 mr-2" />
+          Refresh
+        </Button>
       </div>
 
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-800 font-medium">{error}</p>
-        </div>
+        <Card className="mb-6 border-red-200 bg-red-50">
+          <CardContent className="pt-6 flex items-start gap-2 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+            <span>{error}</span>
+          </CardContent>
+        </Card>
       )}
 
       {isSaved && (
-        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
-          <CheckCircle className="h-5 w-5 text-green-600" />
-          <p className="text-green-800 font-medium">Settings saved successfully</p>
-        </div>
+        <Card className="mb-6 border-green-200 bg-green-50">
+          <CardContent className="pt-6 flex items-center gap-2 text-sm text-green-800">
+            <CheckCircle className="h-5 w-5 text-green-600" />
+            <span className="font-medium">Settings saved successfully</span>
+          </CardContent>
+        </Card>
       )}
 
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
@@ -323,7 +373,7 @@ export default function SettingsPage() {
                     {(settings.recentActivity || []).length > 0 ? (
                       settings.recentActivity.map((log) => (
                         <tr key={log.activityId || `${log.timestamp}-${log.activityName}`} className="border-b hover:bg-gray-50">
-                          <td className="p-3 text-sm">{log.timestamp || 'N/A'}</td>
+                          <td className="p-3 text-sm">{formatTs(log.timestamp)}</td>
                           <td className="p-3 font-medium">{log.activityName || 'N/A'}</td>
                           <td className="p-3 text-sm text-gray-600">{log.description || '-'}</td>
                           <td className="p-3 text-sm">{log.type || '-'}</td>

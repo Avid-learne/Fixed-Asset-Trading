@@ -43,7 +43,7 @@ export interface UpdateHospitalStaffSettingsRequest {
   address: string
   city: string
   bloodGroup: string
-  dateOfBirth: string
+  dateOfBirth: string | null
   mfaEnabled: boolean
   notificationEnabled: boolean
 }

@@ -36,6 +36,13 @@ export interface ProfitAllocationPreview {
   allocations: PatientAllocationPreview[]
 }
 
+export interface ProfitAllocationRecipient {
+  patientId: string
+  patientName: string
+  htAmount: number
+  sharePercent: number
+}
+
 export interface ProfitAllocationHistoryItem {
   distributionId: string
   timestamp: string
@@ -48,6 +55,13 @@ export interface ProfitAllocationHistoryItem {
   bankAmountPkr: number
   totalHtDistributed: number
   recipients: number
+  recipientDetails?: ProfitAllocationRecipient[]
+  tradeId?: string
+  tradeTitle?: string
+  tradeDescription?: string
+  tradeType?: string
+  tradeProfitLoss?: number
+  tradeEndTime?: string
 }
 
 export interface ExecuteProfitAllocationResponse {

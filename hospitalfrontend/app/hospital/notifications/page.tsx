@@ -6,8 +6,9 @@ export default function HospitalStaffNotificationsPage() {
   return (
     <NotificationCenter
       pageTitle="Notifications"
-      pageDescription="Stay updated with alerts and announcements."
-      canSend={false}
+      pageDescription="Receive all notifications. Send messages to patients of your hospital."
+      canSend={true}
+      hospitalPatientsOnly={true}
     />
   )
 }

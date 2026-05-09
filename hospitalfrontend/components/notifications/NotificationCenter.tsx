@@ -14,6 +14,7 @@ import { AlertTriangle, Bell, CheckCircle, Info, RefreshCw, Send } from 'lucide-
 import { notificationService, type PortalNotification } from '@/services/notificationService'
 import { useAuth } from '@/contexts/AuthContext'
 import { authService } from '@/lib/authService'
+import { patientService, type PatientWithBalance } from '@/services/patientService'
 
 type SendTargetType = 'ALL_USERS' | 'ROLE' | 'USER'
 
@@ -22,6 +23,7 @@ interface NotificationCenterProps {
   pageDescription?: string
   canSend?: boolean
   allowedRoleTargets?: string[]
+  hospitalPatientsOnly?: boolean
 }
 
 const defaultRoleTargets = ['patient', 'hospital_staff', 'hospital_admin', 'bank_staff', 'insurance_company', 'admin']
@@ -36,12 +38,14 @@ export default function NotificationCenter({
   pageDescription = 'View and manage your notifications.',
   canSend = false,
   allowedRoleTargets = defaultRoleTargets,
+  hospitalPatientsOnly = false,
 }: NotificationCenterProps) {
   const router = useRouter()
   const { user, isLoading: authLoading } = useAuth()
   const storedUser = authService.getUser()
   const activeUser = user || storedUser
   const userId = (activeUser as any)?.id || (activeUser as any)?.userId
+  const hospitalId = (activeUser as any)?.hospitalId
 
   const [activeTab, setActiveTab] = useState<'received' | 'sent' | 'compose'>('received')
   const [received, setReceived] = useState<PortalNotification[]>([])
@@ -51,11 +55,34 @@ export default function NotificationCenter({
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
 
-  const [targetType, setTargetType] = useState<SendTargetType>('ALL_USERS')
+  const [targetType, setTargetType] = useState<SendTargetType>(hospitalPatientsOnly ? 'USER' : 'ALL_USERS')
   const [targetRole, setTargetRole] = useState(allowedRoleTargets[0] || 'patient')
   const [receiverUserId, setReceiverUserId] = useState('')
   const [title, setTitle] = useState('')
   const [message, setMessage] = useState('')
+
+  const [hospitalPatients, setHospitalPatients] = useState<PatientWithBalance[]>([])
+  const [patientsLoading, setPatientsLoading] = useState(false)
+
+  useEffect(() => {
+    if (!hospitalPatientsOnly || !canSend || !hospitalId) return
+    let cancelled = false
+    const loadPatients = async () => {
+      try {
+        setPatientsLoading(true)
+        const list = await patientService.getPatientsByHospital(String(hospitalId))
+        if (!cancelled) setHospitalPatients(list)
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to load hospital patients')
+        }
+      } finally {
+        if (!cancelled) setPatientsLoading(false)
+      }
+    }
+    loadPatients()
+    return () => { cancelled = true }
+  }, [hospitalPatientsOnly, canSend, hospitalId])
 
   const load = async () => {
     if (authLoading) return
@@ -146,6 +173,16 @@ export default function NotificationCenter({
       return
     }
 
+    // Defensive guard: if restricted to hospital patients, force USER + verify the
+    // selected receiver is in the hospital's patient list.
+    if (hospitalPatientsOnly) {
+      const allowedIds = new Set(hospitalPatients.map((p) => String(p.userId || p.id)))
+      if (!allowedIds.has(receiverUserId.trim())) {
+        setError('You can only send notifications to patients of your hospital.')
+        return
+      }
+    }
+
     try {
       setSending(true)
       setError('')
@@ -153,9 +190,9 @@ export default function NotificationCenter({
       await notificationService.send({
         title: title.trim(),
         message: message.trim(),
-        targetType,
-        targetRole: targetType === 'ROLE' ? targetRole : undefined,
-        receiverUserId: targetType === 'USER' ? receiverUserId.trim() : undefined,
+        targetType: hospitalPatientsOnly ? 'USER' : targetType,
+        targetRole: !hospitalPatientsOnly && targetType === 'ROLE' ? targetRole : undefined,
+        receiverUserId: hospitalPatientsOnly || targetType === 'USER' ? receiverUserId.trim() : undefined,
       })
 
       setTitle('')
@@ -380,45 +417,81 @@ export default function NotificationCenter({
                 <CardDescription>Send quick notifications in a standard format.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <Label>Target Type</Label>
-                  <Select value={targetType} onValueChange={(v) => setTargetType(v as SendTargetType)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ALL_USERS">ALL_USERS</SelectItem>
-                      <SelectItem value="ROLE">ROLE</SelectItem>
-                      <SelectItem value="USER">USER</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {targetType === 'ROLE' && (
+                {hospitalPatientsOnly ? (
                   <div>
-                    <Label>Target Role</Label>
-                    <Select value={targetRole} onValueChange={setTargetRole}>
+                    <Label>Send to Patient</Label>
+                    <Select
+                      value={receiverUserId}
+                      onValueChange={setReceiverUserId}
+                      disabled={patientsLoading || hospitalPatients.length === 0}
+                    >
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue placeholder={
+                          patientsLoading
+                            ? 'Loading hospital patients...'
+                            : hospitalPatients.length === 0
+                              ? 'No patients found for your hospital'
+                              : 'Select a patient'
+                        } />
                       </SelectTrigger>
-                      <SelectContent>
-                        {allowedRoleTargets.map((role) => (
-                          <SelectItem key={role} value={role}>{role}</SelectItem>
-                        ))}
+                      <SelectContent className="bg-white z-50 shadow-lg border">
+                        {hospitalPatients.map((p) => {
+                          const id = String(p.userId || p.id)
+                          return (
+                            <SelectItem key={id} value={id}>
+                              {p.fullName || 'Unnamed'}{p.email ? ` · ${p.email}` : ''}
+                            </SelectItem>
+                          )
+                        })}
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Hospital staff can only message patients of their own hospital.
+                    </p>
                   </div>
-                )}
+                ) : (
+                  <>
+                    <div>
+                      <Label>Target Type</Label>
+                      <Select value={targetType} onValueChange={(v) => setTargetType(v as SendTargetType)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ALL_USERS">ALL_USERS</SelectItem>
+                          <SelectItem value="ROLE">ROLE</SelectItem>
+                          <SelectItem value="USER">USER</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                {targetType === 'USER' && (
-                  <div>
-                    <Label>Receiver User ID</Label>
-                    <Input
-                      value={receiverUserId}
-                      onChange={(e) => setReceiverUserId(e.target.value)}
-                      placeholder="Enter receiver UUID"
-                    />
-                  </div>
+                    {targetType === 'ROLE' && (
+                      <div>
+                        <Label>Target Role</Label>
+                        <Select value={targetRole} onValueChange={setTargetRole}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {allowedRoleTargets.map((role) => (
+                              <SelectItem key={role} value={role}>{role}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {targetType === 'USER' && (
+                      <div>
+                        <Label>Receiver User ID</Label>
+                        <Input
+                          value={receiverUserId}
+                          onChange={(e) => setReceiverUserId(e.target.value)}
+                          placeholder="Enter receiver UUID"
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
 
                 <div>
