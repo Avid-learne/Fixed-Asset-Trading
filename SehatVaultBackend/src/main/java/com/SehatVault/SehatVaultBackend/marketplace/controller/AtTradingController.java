@@ -34,6 +34,34 @@ public class AtTradingController {
     private com.SehatVault.SehatVaultBackend.patient.repository.PatientRepository patientRepository;
 
     /**
+     * Hospital staff/admin view: patient-share monthly HT distributions for the current hospital.
+     */
+    @GetMapping("/hospital/patient-share-distributions")
+    public ResponseEntity<ApiResponse<List<HospitalPatientShareDistributionDto>>> getHospitalPatientShareDistributions(
+            org.springframework.security.core.Authentication authentication) {
+        if (authentication == null || authentication.getName() == null) {
+            return ResponseEntity.status(401).body(ApiResponse.error("Unauthorized"));
+        }
+        try {
+            List<HospitalPatientShareDistributionDto> rows = atTradingService
+                    .getHospitalPatientShareDistributions(authentication.getName());
+            return ResponseEntity.ok(ApiResponse.success("Patient-share distributions loaded", rows));
+        } catch (IllegalArgumentException e) {
+            String msg = e.getMessage() == null ? "Bad request" : e.getMessage();
+            if ("Forbidden".equalsIgnoreCase(msg)) {
+                return ResponseEntity.status(403).body(ApiResponse.error(msg));
+            }
+            if ("Unauthorized".equalsIgnoreCase(msg)) {
+                return ResponseEntity.status(401).body(ApiResponse.error(msg));
+            }
+            return ResponseEntity.badRequest().body(ApiResponse.error(msg));
+        } catch (Exception e) {
+            log.error("Error fetching hospital patient-share distributions", e);
+            return ResponseEntity.status(500).body(ApiResponse.error("Failed to load distributions"));
+        }
+    }
+
+    /**
      * Get patient's AT status summary
      */
     @GetMapping("/patient/{patientId}/status")

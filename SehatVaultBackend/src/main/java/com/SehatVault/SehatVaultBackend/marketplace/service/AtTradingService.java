@@ -10,6 +10,10 @@ import com.SehatVault.SehatVaultBackend.healthcard.entity.Card;
 import com.SehatVault.SehatVaultBackend.healthcard.entity.HealthCard;
 import com.SehatVault.SehatVaultBackend.healthcard.repository.CardRepository;
 import com.SehatVault.SehatVaultBackend.healthcard.repository.HealthCardRepository;
+import com.SehatVault.SehatVaultBackend.auth.entity.Role;
+import com.SehatVault.SehatVaultBackend.auth.entity.User;
+import com.SehatVault.SehatVaultBackend.auth.repository.UserRepository;
+import com.SehatVault.SehatVaultBackend.marketplace.dto.HospitalPatientShareDistributionDto;
 import com.SehatVault.SehatVaultBackend.marketplace.dto.PatientAssetTokenDto;
 import com.SehatVault.SehatVaultBackend.marketplace.entity.*;
 import com.SehatVault.SehatVaultBackend.marketplace.repository.*;
@@ -26,8 +30,12 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -74,6 +82,9 @@ public class AtTradingService {
         private PatientRepository patientRepository;
 
         @Autowired
+        private UserRepository userRepository;
+
+        @Autowired
         private WalletTransactionRepository walletTransactionRepository;
 
         @Autowired
@@ -87,6 +98,86 @@ public class AtTradingService {
 
         @Autowired
         private HospitalAtPoolEntryRepository hospitalAtPoolEntryRepository;
+
+        /**
+         * Hospital-scoped patient-share view of monthly HT distributions.
+         * Includes patient identity and AT allocation context for each distribution.
+         */
+        @Transactional(readOnly = true)
+        public List<HospitalPatientShareDistributionDto> getHospitalPatientShareDistributions(String email) {
+                if (email == null || email.isBlank()) {
+                        throw new IllegalArgumentException("Unauthorized");
+                }
+
+                User requester = userRepository.findByEmail(email)
+                                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+                Set<Role.RoleType> allowed = Set.of(Role.RoleType.hospital_staff, Role.RoleType.hospital_admin);
+                if (requester.getRole() == null || !allowed.contains(requester.getRole().getRoleName())) {
+                        throw new IllegalArgumentException("Forbidden");
+                }
+                if (requester.getHospitalId() == null) {
+                        throw new IllegalArgumentException("No hospital linked to this account");
+                }
+
+                UUID hospitalId = requester.getHospitalId();
+                List<Patient> patients = patientRepository.findByHospitalId(hospitalId);
+                if (patients.isEmpty()) {
+                        return List.of();
+                }
+
+                List<UUID> patientIds = patients.stream().map(Patient::getId).toList();
+                Map<UUID, Patient> patientMap = new HashMap<>();
+                for (Patient p : patients) {
+                        patientMap.put(p.getId(), p);
+                }
+
+                // Resolve patient user identity
+                List<UUID> userIds = patients.stream().map(Patient::getUserId).toList();
+                Map<UUID, User> userMap = new HashMap<>();
+                for (User u : userRepository.findAllById(userIds)) {
+                        userMap.put(u.getUserId(), u);
+                }
+
+                List<MonthlyHtDistribution> distributions = monthlyHtDistributionRepository
+                                .findByPatientIdInOrderByCreatedAtDesc(patientIds);
+                if (distributions.isEmpty()) {
+                        return List.of();
+                }
+
+                // Resolve participation context for AT allocation
+                Collection<UUID> participationIds = distributions.stream()
+                                .map(MonthlyHtDistribution::getParticipationId)
+                                .distinct()
+                                .toList();
+                Map<UUID, TradeParticipation> participationMap = new HashMap<>();
+                for (TradeParticipation tp : tradeParticipationRepository.findAllById(participationIds)) {
+                        participationMap.put(tp.getParticipationId(), tp);
+                }
+
+                return distributions.stream().map(dist -> {
+                        Patient p = patientMap.get(dist.getPatientId());
+                        User pu = p != null ? userMap.get(p.getUserId()) : null;
+                        TradeParticipation tp = participationMap.get(dist.getParticipationId());
+
+                        return HospitalPatientShareDistributionDto.builder()
+                                        .distributionId(dist.getDistributionId())
+                                        .tradeId(dist.getTradeId())
+                                        .participationId(dist.getParticipationId())
+                                        .patientId(dist.getPatientId())
+                                        .patientRegistrationId(p != null ? p.getRegistrationId() : null)
+                                        .patientName(pu != null ? pu.getName() : "Unknown")
+                                        .patientCnic(pu != null ? pu.getCnic() : null)
+                                        .atAllocated(tp != null ? tp.getAtAllocated() : null)
+                                        .atAllocatedAt(tp != null ? tp.getTradeStartTime() : null)
+                                        .htAmount(dist.getCalculatedHtAmount())
+                                        .distributionMonth(dist.getDistributionMonth())
+                                        .isDistributed(dist.getIsDistributed())
+                                        .htDistributedAt(dist.getDistributedAt())
+                                        .createdAt(dist.getCreatedAt())
+                                        .build();
+                }).toList();
+        }
 
         /**
          * Initialize AT assignment when patient deposits assets — DEFAULT into Pool 2.

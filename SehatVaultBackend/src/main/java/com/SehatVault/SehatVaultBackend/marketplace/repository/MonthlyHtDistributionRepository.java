@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -59,4 +60,10 @@ public interface MonthlyHtDistributionRepository extends JpaRepository<MonthlyHt
     @Query("SELECT m FROM MonthlyHtDistribution m WHERE m.patientId = :patientId AND m.distributionMonth = :month")
     List<MonthlyHtDistribution> findDistributionsByPatientAndMonth(@Param("patientId") UUID patientId,
             @Param("month") LocalDate month);
+
+        /**
+         * Find distributions for multiple patients (hospital-scoped views).
+         */
+        @Query("SELECT m FROM MonthlyHtDistribution m WHERE m.patientId IN :patientIds ORDER BY m.createdAt DESC")
+        List<MonthlyHtDistribution> findByPatientIdInOrderByCreatedAtDesc(@Param("patientIds") Collection<UUID> patientIds);
 }
