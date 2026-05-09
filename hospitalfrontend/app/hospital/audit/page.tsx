@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   CheckCircle,
   XCircle,
+  Download,
   Clock,
   Globe,
   Smartphone,

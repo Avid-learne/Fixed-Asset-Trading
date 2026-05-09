@@ -217,15 +217,12 @@ public class WalletService {
                 PatientTokenBalance patientBalance = patientTokenBalanceRepository.findByPatientId(patient.getId())
                                 .orElseThrow(() -> new IllegalArgumentException("Patient wallet balance not found"));
 
-                // Enforce source bucket balance (Subscription Card vs Asset Health Card)
-                String source = request.getSource() == null ? "SUBSCRIPTION" : request.getSource().trim().toUpperCase();
-                String cardName = "SUBSCRIPTION".equals(source) ? "Subscription Card" : "Asset Health Card";
-                deductFromHealthCard(patient.getId(), cardName, request.getAmount());
-
                 BigDecimal currentHt = nz(patientBalance.getTotalHt());
                 if (currentHt.compareTo(request.getAmount()) < 0) {
                         throw new IllegalArgumentException("Insufficient HT balance for redemption");
                 }
+
+                String deductedFrom = deductFromHealthCards(patient.getId(), request.getAmount(), request.getSource());
 
                 patientBalance.setTotalHt(currentHt.subtract(request.getAmount()));
                 patientBalance.setLastUpdated(LocalDateTime.now());
@@ -262,7 +259,7 @@ public class WalletService {
                 ActivityLog patientActivity = new ActivityLog();
                 patientActivity.setUserId(patient.getUserId());
                 patientActivity.setActivityName("HT Redemption");
-                patientActivity.setDescription(String.format("%s HT redeemed from %s for service: %s", request.getAmount(), cardName, reason));
+                patientActivity.setDescription(String.format("%s HT redeemed from %s for service: %s", request.getAmount(), deductedFrom, reason));
                 patientActivity.setType(ActivityLog.ActivityType.ACTION);
                 patientActivity.setStatus("SUCCESS");
                 patientActivity.setTimestamp(LocalDateTime.now());
@@ -279,25 +276,89 @@ public class WalletService {
                 activityLogRepository.save(staffActivity);
         }
 
-        private void deductFromHealthCard(UUID patientId, String cardName, BigDecimal amount) {
+        private String deductFromHealthCards(UUID patientId, BigDecimal amount, String source) {
                 if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
                         throw new IllegalArgumentException("Deduction amount must be greater than zero");
                 }
 
-                Card card = cardRepository.findByCardNameIgnoreCase(cardName)
-                                .orElseThrow(() -> new IllegalArgumentException(cardName + " not found for patient"));
+                if (source != null && !source.isBlank()) {
+                        String normalized = source.trim().toUpperCase();
+                        String cardName = "ASSET".equals(normalized) ? "Asset Health Card" : "Subscription Card";
+                        deductFromHealthCardRequired(patientId, cardName, amount);
+                        return cardName;
+                }
 
-                HealthCard hc = healthCardRepository.findByPatientIdAndCardId(patientId, card.getCardId())
-                                .stream()
-                                .findFirst()
-                                .orElseThrow(() -> new IllegalArgumentException(cardName + " not found for patient"));
+                // Auto-pick bucket based on where HT actually exists.
+                HealthCard subscription = getPatientHealthCardOrNull(patientId, "Subscription Card");
+                HealthCard asset = getPatientHealthCardOrNull(patientId, "Asset Health Card");
 
-                BigDecimal current = hc.getHtBalance() == null ? BigDecimal.ZERO : hc.getHtBalance();
+                BigDecimal subBal = subscription != null ? nz(subscription.getHtBalance()) : BigDecimal.ZERO;
+                BigDecimal assetBal = asset != null ? nz(asset.getHtBalance()) : BigDecimal.ZERO;
+
+                if (subBal.compareTo(amount) >= 0) {
+                        subscription.setHtBalance(subBal.subtract(amount));
+                        healthCardRepository.save(subscription);
+                        return "Subscription Card";
+                }
+
+                if (assetBal.compareTo(amount) >= 0) {
+                        asset.setHtBalance(assetBal.subtract(amount));
+                        healthCardRepository.save(asset);
+                        return "Asset Health Card";
+                }
+
+                BigDecimal combined = subBal.add(assetBal);
+                if (combined.compareTo(amount) >= 0) {
+                        BigDecimal remaining = amount;
+
+                        if (subscription != null && subBal.compareTo(BigDecimal.ZERO) > 0) {
+                                BigDecimal fromSub = subBal.min(remaining);
+                                subscription.setHtBalance(subBal.subtract(fromSub));
+                                healthCardRepository.save(subscription);
+                                remaining = remaining.subtract(fromSub);
+                        }
+
+                        if (remaining.compareTo(BigDecimal.ZERO) > 0) {
+                                if (asset == null) {
+                                        throw new IllegalArgumentException("Asset Health Card not found for patient");
+                                }
+                                asset.setHtBalance(assetBal.subtract(remaining));
+                                healthCardRepository.save(asset);
+                        }
+
+                        return "Subscription Card + Asset Health Card";
+                }
+
+                if (subscription == null && asset == null) {
+                        // Do not block redemption if card rows are missing but wallet HT exists.
+                        return "Wallet";
+                }
+
+                throw new IllegalArgumentException("Insufficient HT balance in Subscription/Asset cards");
+        }
+
+        private void deductFromHealthCardRequired(UUID patientId, String cardName, BigDecimal amount) {
+                HealthCard hc = getPatientHealthCardOrNull(patientId, cardName);
+                if (hc == null) {
+                        throw new IllegalArgumentException(cardName + " not found for patient");
+                }
+
+                BigDecimal current = nz(hc.getHtBalance());
                 if (current.compareTo(amount) < 0) {
                         throw new IllegalArgumentException("Insufficient HT balance in " + cardName);
                 }
                 hc.setHtBalance(current.subtract(amount));
                 healthCardRepository.save(hc);
+        }
+
+        private HealthCard getPatientHealthCardOrNull(UUID patientId, String cardName) {
+                Card card = cardRepository.findByCardNameIgnoreCase(cardName)
+                                .orElseThrow(() -> new IllegalArgumentException("Card not configured: " + cardName));
+
+                return healthCardRepository.findByPatientIdAndCardId(patientId, card.getCardId())
+                                .stream()
+                                .findFirst()
+                                .orElse(null);
         }
 
     private WalletTransactionDto mapRow(WalletTransactionRepository.WalletTransactionRow row) {

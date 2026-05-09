@@ -13,7 +13,7 @@ public class DeductHtRequest {
 
     /**
      * Optional source bucket: SUBSCRIPTION or ASSET.
-     * Defaults to SUBSCRIPTION to match requirements.
+     * If omitted, backend auto-selects based on available HT in patient cards.
      */
     private String source;
 }
