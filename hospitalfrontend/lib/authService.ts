@@ -218,7 +218,6 @@ export const authService = {
         // Store token and user data
         authService.setToken(data.token);
         authService.setUser(data);
-        console.log('[Token Stored] Read back from localStorage:', localStorage.getItem('authToken'));
       } else if (data.success) {
         console.warn('[Login] Success but no token in response:', data);
       } else {
