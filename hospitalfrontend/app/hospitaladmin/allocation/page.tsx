@@ -7,8 +7,11 @@ import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Users, History, AlertCircle, ArrowRight, Loader2, RefreshCw, Coins, CheckCircle2 } from 'lucide-react'
 import { profitAllocationService, ProfitAllocationHistoryItem, ProfitAllocationPreview } from '@/services/profitAllocationService'
+import { marketplaceService, MarketplaceTrade } from '@/services/marketplaceService'
+import { authService } from '@/lib/authService'
 
 export default function ProfitAllocationPage() {
   const [profit, setProfit] = useState(0)
@@ -24,38 +27,95 @@ export default function ProfitAllocationPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
   const [preview, setPreview] = useState<ProfitAllocationPreview | null>(null)
+  const [totals, setTotals] = useState<ProfitAllocationPreview | null>(null)
   const [history, setHistory] = useState<ProfitAllocationHistoryItem[]>([])
+  const [closedTrades, setClosedTrades] = useState<MarketplaceTrade[]>([])
+  const [selectedTradeId, setSelectedTradeId] = useState<string>('')
+  const [showAllHistory, setShowAllHistory] = useState(false)
 
-  const availableProfit = preview?.availableProfit ?? 0
-  const tokenMintPool = preview?.tokenMintPoolPkr ?? 0
-  const totalHT = preview?.totalHtToDistribute ?? 0
-  const recipients = preview?.totalRecipients ?? 0
-  const htConversionRate = preview?.htConversionRate ?? 10
-  const patientSharePct = preview?.patientSharePercent ?? 40
-  const hospitalSharePct = preview?.hospitalSharePercent ?? 50
-  const bankSharePct = preview?.bankSharePercent ?? 10
-  const patientAmountPkr = preview?.patientAmountPkr ?? 0
-  const hospitalAmountPkr = preview?.hospitalAmountPkr ?? 0
-  const bankAmountPkr = preview?.bankAmountPkr ?? 0
+  // Hospital-wide totals (used in the top stat cards)
+  const availableProfit = totals?.availableProfit ?? 0
+  const totalHT = totals?.totalHtToDistribute ?? 0
+  const recipients = totals?.totalRecipients ?? 0
+  const patientSharePct = totals?.patientSharePercent ?? 40
+  const hospitalSharePct = totals?.hospitalSharePercent ?? 50
+  const bankSharePct = totals?.bankSharePercent ?? 10
+  const patientAmountPkr = totals?.patientAmountPkr ?? 0
+  const hospitalAmountPkr = totals?.hospitalAmountPkr ?? 0
+  const bankAmountPkr = totals?.bankAmountPkr ?? 0
+
+  // Selected-trade values (used in Mint Controls widgets and Patient Distribution table)
+  const tradeTokenMintPool = preview?.tokenMintPoolPkr ?? 0
+  const tradeTotalHT = preview?.totalHtToDistribute ?? 0
+  const tradeRecipients = preview?.totalRecipients ?? 0
 
   const loadHistory = async () => {
     const items = await profitAllocationService.getHistory()
     setHistory(items)
+    return items
   }
 
-  const loadPreview = async (profitValue: number | null, init = false) => {
-    const data = await profitAllocationService.getPreview(profitValue)
+  const loadTotals = async () => {
+    try {
+      const data = await profitAllocationService.getPreview(null, null)
+      setTotals(data)
+    } catch {
+      setTotals(null)
+    }
+  }
+
+  const loadPreview = async (
+    profitValue: number | null,
+    tradeId: string | null,
+    init = false,
+  ) => {
+    if (!tradeId) {
+      setPreview(null)
+      if (init) {
+        setProfit(0)
+      }
+      return
+    }
+    const data = await profitAllocationService.getPreview(profitValue, tradeId)
     setPreview(data)
     if (init) {
       setProfit(Math.round(data.totalProfit))
     }
   }
 
+  const loadClosedTrades = async (
+    historyItems: ProfitAllocationHistoryItem[],
+  ): Promise<MarketplaceTrade[]> => {
+    const hospitalId = authService.getUser()?.hospitalId || ''
+    if (!hospitalId) {
+      return []
+    }
+    const distributedTradeIds = new Set(
+      historyItems
+        .map((h) => h.tradeId)
+        .filter((id): id is string => Boolean(id))
+        .map((id) => id.toLowerCase()),
+    )
+    const trades = await marketplaceService.getHospitalTrades(hospitalId)
+    const eligible = trades.filter(
+      (t) => t.status === 'CLOSED' && t.profitLoss > 0 && !distributedTradeIds.has(t.id.toLowerCase()),
+    )
+    setClosedTrades(eligible)
+    return eligible
+  }
+
   const initialize = async () => {
     setLoading(true)
     setError('')
     try {
-      await Promise.all([loadPreview(null, true), loadHistory()])
+      const historyItems = await loadHistory()
+      const [eligible] = await Promise.all([
+        loadClosedTrades(historyItems),
+        loadTotals(),
+      ])
+      const firstTradeId = eligible[0]?.id || ''
+      setSelectedTradeId(firstTradeId)
+      await loadPreview(null, firstTradeId || null, true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load allocation data')
     } finally {
@@ -67,11 +127,41 @@ export default function ProfitAllocationPage() {
     initialize()
   }, [])
 
+  const handleTradeChange = async (tradeId: string) => {
+    setSelectedTradeId(tradeId)
+    setError('')
+    if (!tradeId) {
+      setPreview(null)
+      setProfit(0)
+      return
+    }
+    try {
+      setRefreshing(true)
+      const selected = closedTrades.find((t) => t.id === tradeId)
+      const initialProfit = selected ? Math.round(selected.profitLoss) : 0
+      setProfit(initialProfit)
+      await loadPreview(initialProfit > 0 ? initialProfit : null, tradeId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load trade preview')
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
   const handleRefresh = async () => {
     try {
       setRefreshing(true)
       setError('')
-      await Promise.all([loadPreview(profit), loadHistory()])
+      const historyItems = await loadHistory()
+      const [eligible] = await Promise.all([
+        loadClosedTrades(historyItems),
+        loadTotals(),
+      ])
+      const stillEligible = eligible.some((t) => t.id === selectedTradeId)
+        ? selectedTradeId
+        : eligible[0]?.id || ''
+      setSelectedTradeId(stillEligible)
+      await loadPreview(profit > 0 ? profit : null, stillEligible || null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to refresh allocation data')
     } finally {
@@ -80,10 +170,14 @@ export default function ProfitAllocationPage() {
   }
 
   const handleReview = async () => {
+    if (!selectedTradeId) {
+      setError('Select a closed trade to review distribution')
+      return
+    }
     try {
       setRefreshing(true)
       setError('')
-      await loadPreview(profit)
+      await loadPreview(profit, selectedTradeId)
       setShowConfirmation(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate review')
@@ -93,19 +187,29 @@ export default function ProfitAllocationPage() {
   }
 
   const handleDistribute = async () => {
+    if (!selectedTradeId) {
+      setError('Select a closed trade before distributing profit')
+      return
+    }
     try {
       setAllocating(true)
       setError('')
-      const result = await profitAllocationService.distribute(profit)
-      // Close the confirmation dialog, then open the success dialog.
+      const result = await profitAllocationService.distribute(profit, selectedTradeId)
       setShowConfirmation(false)
       setSuccessDetails({
-        recipients: Number(result?.recipients ?? recipients),
-        totalHt: Number(result?.totalHtDistributed ?? totalHT),
+        recipients: Number(result?.recipients ?? tradeRecipients),
+        totalHt: Number(result?.totalHtDistributed ?? tradeTotalHT),
         profit,
       })
       setShowSuccess(true)
-      await Promise.all([loadPreview(profit), loadHistory()])
+      const historyItems = await loadHistory()
+      const [eligible] = await Promise.all([
+        loadClosedTrades(historyItems),
+        loadTotals(),
+      ])
+      const nextTradeId = eligible[0]?.id || ''
+      setSelectedTradeId(nextTradeId)
+      await loadPreview(null, nextTradeId || null, true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Distribution failed')
     } finally {
@@ -115,7 +219,7 @@ export default function ProfitAllocationPage() {
 
   const updatedAllocations = useMemo(() => preview?.allocations ?? [], [preview])
   const totalAssetContribution = preview?.totalAssetContributionPkr ?? 0
-  const formattedMintNow = totalHT.toLocaleString(undefined, { maximumFractionDigits: 2 })
+  const formattedMintNow = tradeTotalHT.toLocaleString(undefined, { maximumFractionDigits: 2 })
 
   if (loading) {
     return (
@@ -130,7 +234,7 @@ export default function ProfitAllocationPage() {
     <div className="mx-auto max-w-7xl space-y-6 px-4 pb-8 pt-2 lg:px-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">HT Mint & Distribution</h1>
-        <p className="mt-1 text-sm text-slate-600">Minted HT are distributed immediately to patient wallets by approved asset contribution. No HT is kept in hospital wallet.</p>
+        <p className="mt-1 text-sm text-slate-600">Pick a closed trade. HT is minted only to the patients who funded that trade, in proportion to their AT contribution.</p>
       </div>
 
       {error && (
@@ -163,7 +267,7 @@ export default function ProfitAllocationPage() {
           </CardHeader>
           <CardContent>
             <p className="text-xl font-semibold text-emerald-800">PKR {Number(patientAmountPkr).toLocaleString()}</p>
-            <p className="text-xs text-emerald-700 mt-1">Bonus HT to all patients in pool</p>
+            <p className="text-xs text-emerald-700 mt-1">Distributed to trade participants</p>
           </CardContent>
         </Card>
         <Card className="shadow-sm border-blue-200 bg-blue-50">
@@ -196,43 +300,65 @@ export default function ProfitAllocationPage() {
             <CardTitle className="text-lg">Mint Controls</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block">Profit Input (PKR)</label>
-                <Input
-                  type="number"
-                  value={profit}
-                  onChange={(e) => setProfit(Number(e.target.value) || 0)}
-                />
-                <p className="text-xs text-slate-500 mt-1">Minted HT = Profit / {htConversionRate}. Distribution is one-time against available undistributed profit.</p>
-              </div>
-              <div className="grid grid-cols-3 gap-2 items-end">
-                <Button variant="outline" onClick={handleRefresh} disabled={refreshing}>
-                  {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                </Button>
-                <Button variant="outline" onClick={handleReview}>
-                  Review
-                </Button>
-                <Button
-                  className="bg-green-600 hover:bg-green-700"
-                  onClick={() => setShowConfirmation(true)}
-                  disabled={allocating || availableProfit <= 0 || recipients <= 0}
+            <div>
+              <label className="text-sm font-medium mb-2 block">Closed Trade</label>
+              <Select
+                value={selectedTradeId}
+                onValueChange={handleTradeChange}
+                disabled={refreshing || closedTrades.length === 0}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={closedTrades.length === 0 ? 'No closed trades pending distribution' : 'Select a closed trade'} />
+                </SelectTrigger>
+                <SelectContent
+                  className="bg-white"
+                  style={{ backgroundColor: '#ffffff', opacity: 1 }}
                 >
-                  Distribute Profit
-                </Button>
-              </div>
+                  {closedTrades.map((t) => (
+                    <SelectItem
+                      key={t.id}
+                      value={t.id}
+                      className="focus:bg-emerald-600 focus:text-white data-[highlighted]:bg-emerald-600 data-[highlighted]:text-white"
+                    >
+                      {t.title} — P&amp;L PKR {Number(t.profitLoss).toLocaleString()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-slate-500 mt-1">Only patients who funded the selected trade will receive HT.</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Trade Profit (PKR)</label>
+              <Input
+                type="number"
+                value={profit}
+                readOnly
+                disabled
+              />
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button variant="outline" size="icon" onClick={handleRefresh} disabled={refreshing}>
+                {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              </Button>
+              <Button
+                className="bg-green-600 hover:bg-green-700"
+                onClick={() => setShowConfirmation(true)}
+                disabled={allocating || !selectedTradeId || profit <= 0 || tradeRecipients <= 0}
+              >
+                Distribute Profit
+              </Button>
             </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
                 <div className="mb-2 flex items-center gap-2 text-emerald-700"><Coins className="h-4 w-4" />Mint Result</div>
                 <p className="text-2xl font-semibold text-emerald-700">{formattedMintNow} HT</p>
-                <p className="text-xs text-emerald-700">From PKR {tokenMintPool.toLocaleString()}</p>
+                <p className="text-xs text-emerald-700">From PKR {tradeTokenMintPool.toLocaleString()}</p>
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <div className="mb-2 flex items-center gap-2 text-slate-700"><Users className="h-4 w-4" />Distribution</div>
-                <p className="text-2xl font-semibold text-slate-900">{recipients.toLocaleString()} wallets</p>
-                <p className="text-xs text-slate-600">Based on approved asset contribution only</p>
+                <p className="text-2xl font-semibold text-slate-900">{tradeRecipients.toLocaleString()} wallets</p>
+                <p className="text-xs text-slate-600">Trade participants who funded with AT</p>
               </div>
             </div>
 
@@ -244,8 +370,8 @@ export default function ProfitAllocationPage() {
             <CardTitle className="text-lg">Mint Timeline</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {history.slice(0, 6).map((item) => (
+            <div className={showAllHistory ? 'space-y-4 max-h-96 overflow-y-auto pr-1' : 'space-y-4'}>
+              {(showAllHistory ? history : history.slice(0, 1)).map((item) => (
                 <div key={item.distributionId} className="p-3 border-b last:border-0">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -280,6 +406,16 @@ export default function ProfitAllocationPage() {
                 <div className="text-center text-sm text-muted-foreground py-6">No allocation history yet</div>
               )}
             </div>
+
+            {history.length > 1 && (
+              <button
+                type="button"
+                onClick={() => setShowAllHistory((v) => !v)}
+                className="mt-3 text-sm font-medium text-emerald-700 hover:text-emerald-800 hover:underline"
+              >
+                {showAllHistory ? 'Show less' : `View all (${history.length})`}
+              </button>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -317,7 +453,9 @@ export default function ProfitAllocationPage() {
               {updatedAllocations.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={7} className="py-8 text-center text-sm text-slate-500">
-                    No eligible recipients found. Patients need a wallet address and approved asset deposit.
+                    {selectedTradeId
+                      ? 'No participants found for this trade.'
+                      : 'Select a closed trade above to preview its participant distribution.'}
                   </TableCell>
                 </TableRow>
               )}
@@ -326,8 +464,8 @@ export default function ProfitAllocationPage() {
                 <TableCell colSpan={3}>Total</TableCell>
                 <TableCell className="text-right">PKR {totalAssetContribution.toLocaleString()}</TableCell>
                 <TableCell className="text-right">{updatedAllocations.length > 0 ? '100%' : '0%'}</TableCell>
-                <TableCell className="text-right text-green-600">{totalHT.toFixed(2)} HT</TableCell>
-                <TableCell className="text-right">PKR {tokenMintPool.toLocaleString()}</TableCell>
+                <TableCell className="text-right text-green-600">{tradeTotalHT.toFixed(2)} HT</TableCell>
+                <TableCell className="text-right">PKR {tradeTokenMintPool.toLocaleString()}</TableCell>
               </TableRow>
             </TableBody>
           </Table>
@@ -360,8 +498,8 @@ export default function ProfitAllocationPage() {
                 <p className="text-sm font-medium text-green-900">HT Minted & Distributed</p>
                 <Badge variant="default">Single execution</Badge>
               </div>
-              <p className="text-3xl font-bold text-green-700">PKR {tokenMintPool.toLocaleString()}</p>
-              <p className="text-sm text-green-600 mt-1">Converting to {totalHT.toFixed(2)} HT</p>
+              <p className="text-3xl font-bold text-green-700">PKR {tradeTokenMintPool.toLocaleString()}</p>
+              <p className="text-sm text-green-600 mt-1">Converting to {tradeTotalHT.toFixed(2)} HT</p>
             </div>
 
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex gap-2">

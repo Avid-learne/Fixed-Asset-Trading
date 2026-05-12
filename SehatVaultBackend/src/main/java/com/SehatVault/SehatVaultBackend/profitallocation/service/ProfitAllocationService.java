@@ -441,8 +441,8 @@ public class ProfitAllocationService {
                     dto.setRecipientDetails(recipientDetails);
 
                     if (distribution.getTradeId() != null) {
+                        dto.setTradeId(distribution.getTradeId());
                         marketplaceTradeRepository.findById(distribution.getTradeId()).ifPresent(trade -> {
-                            dto.setTradeId(trade.getTradeId());
                             dto.setTradeTitle(trade.getTradeTitle());
                             dto.setTradeDescription(trade.getTradeDescription());
                             dto.setTradeType(trade.getTradeType() != null ? trade.getTradeType().name() : null);

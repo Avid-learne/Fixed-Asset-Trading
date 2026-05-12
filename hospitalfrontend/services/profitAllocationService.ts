@@ -83,10 +83,13 @@ const getAuthHeaders = (): HeadersInit => {
 }
 
 export const profitAllocationService = {
-  async getPreview(totalProfit: number | null): Promise<ProfitAllocationPreview> {
+  async getPreview(totalProfit: number | null, tradeId?: string | null): Promise<ProfitAllocationPreview> {
     const params = new URLSearchParams()
     if (totalProfit !== null && totalProfit > 0) {
       params.set('totalProfit', String(totalProfit))
+    }
+    if (tradeId) {
+      params.set('tradeId', tradeId)
     }
 
     const response = await fetch(`${API_BASE}/profit-allocation/preview?${params.toString()}`, {
@@ -101,8 +104,14 @@ export const profitAllocationService = {
     return result.data
   },
 
-  async distribute(totalProfit: number): Promise<ExecuteProfitAllocationResponse> {
-    const response = await fetch(`${API_BASE}/profit-allocation/distribute`, {
+  async distribute(totalProfit: number, tradeId?: string | null): Promise<ExecuteProfitAllocationResponse> {
+    const params = new URLSearchParams()
+    if (tradeId) {
+      params.set('tradeId', tradeId)
+    }
+    const qs = params.toString() ? `?${params.toString()}` : ''
+
+    const response = await fetch(`${API_BASE}/profit-allocation/distribute${qs}`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ totalProfit }),
