@@ -18,6 +18,7 @@ public class ActivityTransactionDto {
     private String transactionHash;
     private String fromAddress;
     private String toAddress;
+    private String toName;
     private String source;
     private String transactionType;
     private Long blockNumber;

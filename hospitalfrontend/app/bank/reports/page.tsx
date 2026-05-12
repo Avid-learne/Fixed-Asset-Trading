@@ -5,7 +5,7 @@ import React, { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Download, FileText, Calendar, TrendingUp, Shield, Building2, Eye, Filter } from 'lucide-react'
+import { FileText, Calendar, TrendingUp, Shield, Building2, Eye, Filter } from 'lucide-react'
 import { formatDate, formatCurrency } from '@/lib/utils'
 
 type ReportStatus = 'ready' | 'processing' | 'scheduled'
@@ -31,10 +31,6 @@ export default function ReportsPage() {
 
   const handleViewReport = (report: Report) => {
     alert(`Opening report viewer for:\n\n${report.name}\n\nPeriod: ${report.period}\nGenerated: ${report.generatedDate}\nSize: ${report.fileSize}\n\nIn production, this would open the report in a viewer.`)
-  }
-
-  const handleDownloadReport = (report: Report) => {
-    alert(`Downloading ${report.name}...\n\nFile size: ${report.fileSize}\n\nIn production, this would download the PDF/Excel report file.`)
   }
 
   const reports: Report[] = [
@@ -149,7 +145,7 @@ export default function ReportsPage() {
           <p className="text-muted-foreground mt-1">Generate and download bank operational reports</p>
         </div>
         <Button onClick={handleGenerateReport}>
-          <Download className="w-4 h-4 mr-2" />
+          <FileText className="w-4 h-4 mr-2" />
           Generate Report
         </Button>
       </div>
@@ -241,10 +237,6 @@ export default function ReportsPage() {
                             <Button variant="outline" size="sm" onClick={() => handleViewReport(report)}>
                               <Eye className="w-4 h-4 mr-1" />
                               View
-                            </Button>
-                            <Button variant="default" size="sm" onClick={() => handleDownloadReport(report)}>
-                              <Download className="w-4 h-4 mr-1" />
-                              Download
                             </Button>
                           </>
                         )}

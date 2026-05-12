@@ -9,16 +9,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Users, Search, Eye, Download, TrendingUp, Wallet, Activity, Clock, Coins, FileText, ArrowUpRight, ArrowDownRight, Loader2 } from 'lucide-react'
+import { Users, Search, Eye, TrendingUp, Wallet, Activity, Clock, Coins, FileText, ArrowUpRight, ArrowDownRight, Loader2 } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 import { useAuth } from '@/contexts/AuthContext'
 import { authService } from '@/lib/authService'
 import { profileService, type ProfileData } from '@/services/profileService'
 import { DocumentViewer } from '@/components/DocumentViewer'
 
-/** Pull the friendly filename out of a data URL with a #filename= fragment. */
+/** Extract friendly filename from various storage formats. */
 const friendlyDocumentName = (value: string | undefined | null): string => {
   if (!value) return 'Not attached'
+  
+  // Check for data URL with #filename= fragment
   const fragMatch = value.match(/#filename=([^&]+)/)
   if (fragMatch) {
     try {
@@ -27,7 +29,25 @@ const friendlyDocumentName = (value: string | undefined | null): string => {
       return fragMatch[1]
     }
   }
+  
+  // Handle data: URLs
   if (value.startsWith('data:')) return 'Uploaded file'
+  
+  // Handle kyc?path=... or asset?path=... patterns from storage service
+  // Format: kyc?path={uuid}-{filename} or asset?path={uuid}-{filename}
+  const pathMatch = value.match(/(?:kyc|asset)\?path=([^&]+)/i)
+  if (pathMatch) {
+    const objectPath = decodeURIComponent(pathMatch[1])
+    // Object path format is {uuid}-{filename}; extract just the filename
+    const uuidAndDashPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-(.+)$/i
+    const nameMatch = objectPath.match(uuidAndDashPattern)
+    if (nameMatch) {
+      return nameMatch[1]
+    }
+    return objectPath // Fallback to full object path if format doesn't match
+  }
+  
+  // Standard file path: take the last component after /
   return value.split('/').pop() || value
 }
 
@@ -326,32 +346,6 @@ export default function PatientsPage() {
     }
   }
 
-  const exportPatientData = (patient: Patient) => {
-    const data = {
-      patientInfo: {
-        id: patient.id,
-        name: patient.name,
-        email: patient.email,
-        phone: patient.phone,
-        status: patient.status,
-        joinDate: patient.joinDate
-      },
-      balances: {
-        atBalance: patient.atBalance,
-        htBalance: patient.htBalance,
-        totalAssets: patient.totalAssets
-      },
-      history: patient.assetHistory
-    }
-    
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `patient-${patient.id}-${new Date().toISOString().split('T')[0]}.json`
-    a.click()
-  }
-
   const totalPatients = patients.length
   const activePatients = patients.filter(p => p.status === 'active').length
   const totalATBalance = patients.reduce((sum, p) => sum + p.atBalance, 0)
@@ -364,13 +358,6 @@ export default function PatientsPage() {
           <h1 className="text-3xl font-bold text-foreground">Patient Management</h1>
           <p className="text-muted-foreground mt-1">View and manage patient records, assets, and token balances.</p>
         </div>
-        <Button variant="outline" onClick={() => {
-          // Export all patients
-          console.log('Exporting all patients...')
-        }}>
-          <Download className="w-4 h-4 mr-2" />
-          Export All
-        </Button>
       </div>
 
       {isLoading && (
@@ -593,9 +580,9 @@ export default function PatientsPage() {
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground">
                             <div className="space-y-1">
-                              <div>Front: {patient.kycDocumentFront || '—'}</div>
-                              <div>Back: {patient.kycDocumentBack || '—'}</div>
-                              <div>Selfie: {patient.kycSelfie || '—'}</div>
+                              <div>Front: {friendlyDocumentName(patient.kycDocumentFront) || '—'}</div>
+                              <div>Back: {friendlyDocumentName(patient.kycDocumentBack) || '—'}</div>
+                              <div>Selfie: {friendlyDocumentName(patient.kycSelfie) || '—'}</div>
                             </div>
                           </TableCell>
                           <TableCell>{getKycBadge(patient.kycStatus)}</TableCell>
@@ -629,14 +616,6 @@ export default function PatientsPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               <span>Patient Details - {selectedPatient?.name}</span>
-              <Button 
-                size="sm" 
-                variant="outline"
-                onClick={() => selectedPatient && exportPatientData(selectedPatient)}
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Export
-              </Button>
             </DialogTitle>
             <DialogDescription>
               Comprehensive view of patient information, balances, and transaction history.
@@ -998,9 +977,6 @@ export default function PatientsPage() {
       <DocumentViewer
         isOpen={!!docViewer}
         onClose={() => setDocViewer(null)}
-        documentUrl={docViewer?.url}
-        documentName={docViewer?.name}
-      />
         documentUrl={docViewer?.url ?? null}
         documentName={docViewer?.name}
       />

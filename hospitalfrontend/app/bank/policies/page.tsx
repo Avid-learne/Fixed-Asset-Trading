@@ -5,7 +5,7 @@ import React, { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Shield, FileText, Plus, Search, Eye, Download, Calendar } from 'lucide-react'
+import { Shield, FileText, Plus, Search, Eye, Calendar } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { formatDate, formatCurrency } from '@/lib/utils'
 
@@ -29,10 +29,6 @@ export default function PoliciesPage() {
 
   const handleViewPolicy = (policy: Policy) => {
     alert(`Policy Details:\n\nID: ${policy.id}\nName: ${policy.name}\nType: ${policy.type}\nCoverage: $${policy.coverage.toLocaleString()}\nPremium: $${policy.premium.toLocaleString()}/year\nEffective: ${policy.effectiveDate}\nExpiry: ${policy.expiryDate}\n\nIn production, this would open a detailed policy viewer.`)
-  }
-
-  const handleDownloadPolicy = (policy: Policy) => {
-    alert(`Downloading policy ${policy.id} - ${policy.name}... In production, this would download the policy PDF document.`)
   }
 
   const handleNewPolicy = () => {
@@ -194,10 +190,6 @@ export default function PoliciesPage() {
                         <Button variant="outline" size="sm" onClick={() => handleViewPolicy(policy)}>
                           <Eye className="w-4 h-4 mr-1" />
                           View
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleDownloadPolicy(policy)}>
-                          <Download className="w-4 h-4 mr-1" />
-                          Download
                         </Button>
                       </div>
                     </div>

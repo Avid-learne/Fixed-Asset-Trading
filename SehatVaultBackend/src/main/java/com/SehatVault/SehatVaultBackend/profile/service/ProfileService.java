@@ -291,6 +291,7 @@ public class ProfileService {
         patient.setKycReviewedBy(admin.getUserId());
         patient.setKycRejectionReason(approved ? null : (reason != null ? reason.trim() : null));
         patientRepository.save(patient);
+
         return patient.getKycStatus();
     }
 

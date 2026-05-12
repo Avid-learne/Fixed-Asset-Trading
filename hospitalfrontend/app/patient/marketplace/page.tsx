@@ -96,7 +96,6 @@ export default function PatientMarketplace() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-slate-900">Investment Portal</h1>
-        <p className="text-slate-600 mt-1">Your hospital-managed investments shown in AT. Admin enters values in PKR, portal converts them for display.</p>
       </div>
 
       {error && <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}

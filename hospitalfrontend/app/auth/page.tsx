@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Coins,
+  Shield,
   ArrowLeft,
   Loader2,
   CheckCircle2,
@@ -33,7 +33,6 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [cnic, setCnic] = useState("");
-  const [wallet, setWallet] = useState("");
   const [hospitalName, setHospitalName] = useState("");
   const [bankName, setBankName] = useState("");
   const [signupRole, setSignupRole] = useState<SignupRole>("patient");
@@ -110,7 +109,6 @@ export default function Auth() {
         name,
         cnic,
         role: signupRole,
-        walletAddress: wallet || undefined,
         hospitalName: hospitalName || undefined,
         bankName: bankName || undefined,
       });
@@ -118,7 +116,7 @@ export default function Auth() {
       if (response.success) {
         setEmail(email); // Keep email to pre-fill login form
         setPassword(""); setName(""); setCnic("");
-        setWallet(""); setHospitalName(""); setBankName("");
+        setHospitalName(""); setBankName("");
         setSuccessMessage("Account created successfully! Please sign in with your credentials.");
         // Switch to signin tab instead of auto-login
         const signinTab = document.querySelector('[value="signin"]') as HTMLButtonElement;
@@ -155,11 +153,11 @@ export default function Auth() {
       <div className="container mx-auto flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8">
         <div className="w-full max-w-lg">
           <div className="mb-8 text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
-              <Coins className="h-6 w-6 text-primary-foreground" />
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 shadow-lg shadow-emerald-500/30">
+              <Shield className="h-6 w-6 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground">SehatVault</h1>
-            <p className="mt-1 text-muted-foreground">Healthcare Asset Tokenization Platform</p>
+            <h1 className="text-2xl font-bold text-foreground">Sehat Vault</h1>
+            <p className="mt-1 text-muted-foreground">Healthcare Finance Platform</p>
           </div>
 
           <Card className="shadow-elevated">
@@ -276,14 +274,6 @@ export default function Auth() {
                       <div className="space-y-2">
                         <Label htmlFor="signup-bank-name">Bank Name <span className="text-error">*</span></Label>
                         <Input id="signup-bank-name" type="text" placeholder="Enter your bank name" value={bankName} onChange={(e) => setBankName(e.target.value)} required />
-                      </div>
-                    )}
-
-                    {/* Wallet address — only for patient */}
-                    {signupRole === "patient" && (
-                      <div className="space-y-2">
-                        <Label htmlFor="signup-wallet">Wallet Address (Optional)</Label>
-                        <Input id="signup-wallet" type="text" placeholder="0x..." value={wallet} onChange={(e) => setWallet(e.target.value)} />
                       </div>
                     )}
 

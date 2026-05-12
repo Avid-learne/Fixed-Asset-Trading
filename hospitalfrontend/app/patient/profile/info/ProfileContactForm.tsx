@@ -181,10 +181,6 @@ export function ProfileContactForm({
         dateOfBirth: form.dateOfBirth,
       })
 
-      if (form.walletAddress.trim() && form.walletAddress.trim() !== profile.walletAddress) {
-        await profileService.updateWalletAddress(user.id, form.walletAddress.trim())
-      }
-
       // Update local store
       updateProfile({
         fullName: updatedProfile.name,
@@ -307,18 +303,17 @@ export function ProfileContactForm({
             <Input
               id="walletAddress"
               value={form.walletAddress}
-              onChange={handleChange('walletAddress')}
+              disabled
+              readOnly
               placeholder="0x..."
               aria-invalid={Boolean(errors.walletAddress)}
             />
+
             {errors.walletAddress && <p className="text-sm text-error">{errors.walletAddress}</p>}
           </div>
         </div>
       </CardContent>
       <CardFooter className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className={cn('text-sm', savedMessage ? 'text-success' : 'text-muted-foreground')}>
-          {savedMessage || 'Changes save to your account and synced devices.'}
-        </div>
         <div className="flex gap-2">
           {showCancelButton && (
             <Button type="button" variant="outline" onClick={handleCancel}>

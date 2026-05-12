@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '@/components/ui/Modal'
-import { Search, Eye, CheckCircle, XCircle, AlertCircle, Download, X } from 'lucide-react'
+import { Search, Eye, CheckCircle, XCircle, AlertCircle, X } from 'lucide-react'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { profileService, type ProfileData } from '@/services/profileService'
 
@@ -486,16 +486,9 @@ export default function PatientVerificationPage() {
                     title={selectedDocument.label}
                   />
                 ) : (
-                  // Unknown type fallback — keep download as the only option since we can't preview.
                   <div className="text-center py-8">
                     <p className="text-gray-600 text-sm mb-4">File: {friendlyDocumentName(selectedDocument.value)}</p>
-                    <Button
-                      onClick={() => window.open(selectedDocument.value, '_blank')}
-                      className="gap-2"
-                    >
-                      <Download className="w-4 h-4" />
-                      Open Document
-                    </Button>
+                    <p className="text-sm text-gray-500">Preview unavailable for this file type.</p>
                   </div>
                 )}
               </div>

@@ -53,6 +53,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/dashboard/asset-prices").permitAll()
                 .requestMatchers("/api/dashboard/patient/**").permitAll()
                 .requestMatchers("/api/dashboard/hospital/**").permitAll()
+                .requestMatchers("/api/storage/preview/**").permitAll()
                 .requestMatchers("/error", "/error/**").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
