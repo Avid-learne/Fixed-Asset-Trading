@@ -9,6 +9,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -67,6 +68,14 @@ public class TradeParticipation {
 
     @Column(name = "marked_unavailable_at")
     private LocalDateTime markedUnavailableAt;
+
+    /**
+     * Date of the next due monthly HT auto-allocation while AT is locked in this trade.
+     * Bumped forward one month each time the scheduler credits HT. Null on legacy rows
+     * is treated as "due now" + one month after trade start time.
+     */
+    @Column(name = "next_ht_allocation_at")
+    private LocalDate nextHtAllocationAt;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

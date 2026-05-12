@@ -285,7 +285,7 @@ export default function DepositAssetPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Expected AT:</span>
-                  <span className="font-semibold text-lg text-primary">{Number(submittedRequest?.expectedTokens ?? (pendingDepositData?.assetValue && assetPrices?.tokenPricePerPkr ? Math.floor(pendingDepositData.assetValue / assetPrices.tokenPricePerPkr) : calculateTokens())).toLocaleString()} HT</span>
+                  <span className="font-semibold text-lg text-primary">{Number(submittedRequest?.expectedTokens ?? (pendingDepositData?.assetValue && assetPrices?.tokenPricePerPkr ? Math.floor(pendingDepositData.assetValue / assetPrices.tokenPricePerPkr) : calculateTokens())).toLocaleString()} AT</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Hospital:</span>

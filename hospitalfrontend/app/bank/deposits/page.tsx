@@ -185,11 +185,34 @@ export default function BankDepositsPage() {
                 }}
               >
                 <SelectTrigger className="w-[190px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending Bank Review</SelectItem>
-                  <SelectItem value="approved">Bank Approved</SelectItem>
-                  <SelectItem value="rejected">Bank Rejected</SelectItem>
-                  <SelectItem value="all">All</SelectItem>
+                <SelectContent
+                  className="bg-white"
+                  style={{ backgroundColor: '#ffffff', opacity: 1 }}
+                >
+                  <SelectItem
+                    value="pending"
+                    className="focus:bg-emerald-600 focus:text-white data-[highlighted]:bg-emerald-600 data-[highlighted]:text-white"
+                  >
+                    Pending Bank Review
+                  </SelectItem>
+                  <SelectItem
+                    value="approved"
+                    className="focus:bg-emerald-600 focus:text-white data-[highlighted]:bg-emerald-600 data-[highlighted]:text-white"
+                  >
+                    Bank Approved
+                  </SelectItem>
+                  <SelectItem
+                    value="rejected"
+                    className="focus:bg-emerald-600 focus:text-white data-[highlighted]:bg-emerald-600 data-[highlighted]:text-white"
+                  >
+                    Bank Rejected
+                  </SelectItem>
+                  <SelectItem
+                    value="all"
+                    className="focus:bg-emerald-600 focus:text-white data-[highlighted]:bg-emerald-600 data-[highlighted]:text-white"
+                  >
+                    All
+                  </SelectItem>
                 </SelectContent>
               </Select>
               <Button variant="outline" onClick={() => loadRequests(bankStatusFilter)}>
@@ -351,11 +374,34 @@ export default function BankDepositsPage() {
                   onValueChange={(v) => setCustodyForm({ ...custodyForm, assetCondition: v })}
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="EXCELLENT">Excellent</SelectItem>
-                    <SelectItem value="GOOD">Good</SelectItem>
-                    <SelectItem value="ACCEPTABLE">Acceptable</SelectItem>
-                    <SelectItem value="POOR">Poor</SelectItem>
+                  <SelectContent
+                    className="bg-white"
+                    style={{ backgroundColor: '#ffffff', opacity: 1 }}
+                  >
+                    <SelectItem
+                      value="EXCELLENT"
+                      className="focus:bg-emerald-600 focus:text-white data-[highlighted]:bg-emerald-600 data-[highlighted]:text-white"
+                    >
+                      Excellent
+                    </SelectItem>
+                    <SelectItem
+                      value="GOOD"
+                      className="focus:bg-emerald-600 focus:text-white data-[highlighted]:bg-emerald-600 data-[highlighted]:text-white"
+                    >
+                      Good
+                    </SelectItem>
+                    <SelectItem
+                      value="ACCEPTABLE"
+                      className="focus:bg-emerald-600 focus:text-white data-[highlighted]:bg-emerald-600 data-[highlighted]:text-white"
+                    >
+                      Acceptable
+                    </SelectItem>
+                    <SelectItem
+                      value="POOR"
+                      className="focus:bg-emerald-600 focus:text-white data-[highlighted]:bg-emerald-600 data-[highlighted]:text-white"
+                    >
+                      Poor
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>

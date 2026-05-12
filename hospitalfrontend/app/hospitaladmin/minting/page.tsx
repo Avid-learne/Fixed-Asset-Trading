@@ -217,6 +217,21 @@ export default function MintingPage() {
     }
   }
 
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'minted':
+        return 'Minted'
+      case 'processing':
+        return 'Pending Bank Approval'
+      case 'pending':
+        return 'Ready to Mint'
+      case 'failed':
+        return 'Rejected'
+      default:
+        return status.charAt(0).toUpperCase() + status.slice(1)
+    }
+  }
+
   const pendingRecords = records.filter(canMint)
   const totalTokensMinted = records.filter(r => r.status === 'minted').reduce((sum, record) => sum + record.tokensMinted, 0)
   const totalValue = records.filter(r => r.status === 'minted').reduce((sum, record) => sum + record.assetValue, 0)
@@ -280,13 +295,13 @@ export default function MintingPage() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
-              Processing
+              Pending Bank Approval
               <Loader2 className="w-4 h-4 text-blue-600" />
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold text-foreground">{records.filter(r => r.status === 'processing').length}</p>
-            <p className="text-sm text-muted-foreground mt-1">In progress</p>
+            <p className="text-sm text-muted-foreground mt-1">Awaiting bank custody</p>
           </CardContent>
         </Card>
       </div>
@@ -317,12 +332,40 @@ export default function MintingPage() {
                   <Filter className="w-4 h-4 mr-2" />
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="processing">Processing</SelectItem>
-                  <SelectItem value="minted">Minted</SelectItem>
-                  <SelectItem value="failed">Failed</SelectItem>
+                <SelectContent
+                  className="bg-white"
+                  style={{ backgroundColor: '#ffffff', opacity: 1 }}
+                >
+                  <SelectItem
+                    value="all"
+                    className="focus:bg-emerald-600 focus:text-white data-[highlighted]:bg-emerald-600 data-[highlighted]:text-white"
+                  >
+                    All Status
+                  </SelectItem>
+                  <SelectItem
+                    value="pending"
+                    className="focus:bg-emerald-600 focus:text-white data-[highlighted]:bg-emerald-600 data-[highlighted]:text-white"
+                  >
+                    Ready to Mint
+                  </SelectItem>
+                  <SelectItem
+                    value="processing"
+                    className="focus:bg-emerald-600 focus:text-white data-[highlighted]:bg-emerald-600 data-[highlighted]:text-white"
+                  >
+                    Pending Bank Approval
+                  </SelectItem>
+                  <SelectItem
+                    value="minted"
+                    className="focus:bg-emerald-600 focus:text-white data-[highlighted]:bg-emerald-600 data-[highlighted]:text-white"
+                  >
+                    Minted
+                  </SelectItem>
+                  <SelectItem
+                    value="failed"
+                    className="focus:bg-emerald-600 focus:text-white data-[highlighted]:bg-emerald-600 data-[highlighted]:text-white"
+                  >
+                    Rejected
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -387,7 +430,7 @@ export default function MintingPage() {
                     <TableCell>
                       <Badge variant="outline" className={`gap-1 ${getStatusColor(record.status)}`}>
                         {getStatusIcon(record.status)}
-                        {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
+                        {getStatusLabel(record.status)}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">

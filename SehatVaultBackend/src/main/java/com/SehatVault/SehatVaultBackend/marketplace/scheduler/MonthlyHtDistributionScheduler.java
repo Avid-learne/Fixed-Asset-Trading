@@ -14,11 +14,13 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * Scheduler for monthly HT distributions (5% of AT monetary value).
- * Runs on the 1st day of each month at midnight to create distributions for
- * active trades.
+ * Legacy scheduler that credited monthly HT as 5% of AT monetary value while a
+ * trade was active. Superseded by {@link TradeHtAllocationScheduler}, which
+ * credits the basic subscription plan's monthly HT instead. Kept here for
+ * reference; remove {@code @Component} so it does not run alongside the new
+ * scheduler (would double-credit).
  */
-@Component
+// @Component  // disabled — replaced by TradeHtAllocationScheduler
 @RequiredArgsConstructor
 @Slf4j
 public class MonthlyHtDistributionScheduler {

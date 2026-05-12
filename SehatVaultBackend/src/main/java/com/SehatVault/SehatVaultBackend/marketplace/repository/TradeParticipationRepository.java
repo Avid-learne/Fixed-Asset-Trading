@@ -50,4 +50,6 @@ public interface TradeParticipationRepository extends JpaRepository<TradePartici
      */
     @Query("SELECT t FROM TradeParticipation t WHERE t.tradeId = :tradeId AND t.participationStatus = 'SETTLED'")
     List<TradeParticipation> findSettledParticipationsByTradeId(@Param("tradeId") UUID tradeId);
+
+    List<TradeParticipation> findByParticipationStatus(TradeParticipation.ParticipationStatus status);
 }

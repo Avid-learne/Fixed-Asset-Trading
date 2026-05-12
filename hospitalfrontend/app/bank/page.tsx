@@ -48,26 +48,6 @@ export default function BankDashboard() {
 
       {error && <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{data?.bankName || 'Bank'}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border bg-muted/30 p-4 text-sm">
-            <p className="font-medium">Revolving Credit Line Flow</p>
-            <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
-              <li>Use "revolving credit line" terminology (BOP-aligned).</li>
-              <li>Credit restores as installments are paid.</li>
-              <li>Investment pool remains stable while credit cycles.</li>
-              <li>Subscription pool injects fresh cash every month.</li>
-              <li>Pool grows over time as participation increases.</li>
-              <li>New patient deposits naturally expand available credit.</li>
-              <li>The system scales naturally with demand.</li>
-            </ul>
-          </div>
-        </CardContent>
-      </Card>
-
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardContent className="pt-6">

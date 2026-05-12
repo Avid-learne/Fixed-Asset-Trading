@@ -195,6 +195,7 @@ public class AtTradingService {
                 // Calculate monetary value
                 BigDecimal monetaryValue = atToAllocate.multiply(tokenPriceService.getAtPricePkr());
 
+                LocalDateTime now = LocalDateTime.now();
                 // Create trade participation
                 TradeParticipation participation = TradeParticipation.builder()
                                 .tradeId(tradeId)
@@ -204,8 +205,9 @@ public class AtTradingService {
                                 .atAllocated(atToAllocate)
                                 .atMonetaryValuePkr(monetaryValue)
                                 .participationStatus(TradeParticipation.ParticipationStatus.ACTIVE)
-                                .tradeStartTime(LocalDateTime.now())
-                                .markedUnavailableAt(LocalDateTime.now())
+                                .tradeStartTime(now)
+                                .markedUnavailableAt(now)
+                                .nextHtAllocationAt(now.toLocalDate().plusMonths(1))
                                 .build();
 
                 TradeParticipation savedParticipation = tradeParticipationRepository.save(participation);
