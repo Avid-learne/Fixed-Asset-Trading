@@ -216,6 +216,28 @@ public class AtTradingService {
                 assignment.setAvailabilityStatus(PatientAtAssignment.AvailabilityStatus.UNAVAILABLE);
                 patientAtAssignmentRepository.save(assignment);
 
+                // Remove the allocated AT from the hospital trading pool immediately.
+                // The trade consumes Pool 2 capacity as soon as it starts, so the pool
+                // must reflect the reduced availability right away.
+                hospitalAtPoolEntryRepository
+                                .findByHospitalIdAndPatientIdAndAssetId(
+                                                assignment.getHospitalId(),
+                                                patientId,
+                                                assetId)
+                                .ifPresent(entry -> {
+                                        BigDecimal available = entry.getAvailableAt() == null
+                                                        ? BigDecimal.ZERO
+                                                        : entry.getAvailableAt();
+                                        BigDecimal remaining = available.subtract(atToAllocate);
+                                        if (remaining.compareTo(BigDecimal.ZERO) < 0) {
+                                                remaining = BigDecimal.ZERO;
+                                        }
+                                        entry.setAvailableAt(remaining);
+                                        entry.setActive(remaining.compareTo(BigDecimal.ZERO) > 0);
+                                        entry.setUpdatedAt(LocalDateTime.now());
+                                        hospitalAtPoolEntryRepository.save(entry);
+                                });
+
                 log.info("Trade participation created with ID: {}", savedParticipation.getParticipationId());
 
                 return savedParticipation;
@@ -594,24 +616,6 @@ public class AtTradingService {
                                 }
                         });
                 }
-
-                // Burn the AT from the hospital trading pool entry — it's no longer in Pool 2.
-                hospitalAtPoolEntryRepository
-                                .findByHospitalIdAndPatientIdAndAssetId(
-                                                assignment.getHospitalId(),
-                                                participation.getPatientId(),
-                                                participation.getAssetId())
-                                .ifPresent(entry -> {
-                                        BigDecimal avail = entry.getAvailableAt() == null ? BigDecimal.ZERO : entry.getAvailableAt();
-                                        BigDecimal toBurn = avail.min(originalAt);
-                                        entry.setAvailableAt(avail.subtract(toBurn));
-                                        entry.setTotalAtBurned(
-                                                        (entry.getTotalAtBurned() == null ? BigDecimal.ZERO : entry.getTotalAtBurned())
-                                                                        .add(toBurn));
-                                        entry.setActive(entry.getAvailableAt().compareTo(BigDecimal.ZERO) > 0);
-                                        entry.setUpdatedAt(LocalDateTime.now());
-                                        hospitalAtPoolEntryRepository.save(entry);
-                                });
 
                 log.info("Settled participation {}: original={} AT, profitRatio={}, adjusted={} AT (delta={}), returned to Pool 1",
                                 participation.getParticipationId(), originalAt, profitRatio, adjustedAt, atDelta);

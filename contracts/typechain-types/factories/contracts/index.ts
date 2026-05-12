@@ -2,6 +2,5 @@
 /* tslint:disable */
 /* eslint-disable */
 export { AssetToken__factory } from "./AssetToken__factory";
-export { Counter__factory } from "./Counter__factory";
 export { HealthToken__factory } from "./HealthToken__factory";
 export { HospitalFinancials__factory } from "./HospitalFinancials__factory";

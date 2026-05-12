@@ -8,4 +8,6 @@ import java.util.UUID;
 
 public interface ProfitDistributionRepository extends JpaRepository<ProfitDistribution, UUID> {
     List<ProfitDistribution> findByHospitalIdOrderByCreatedAtDesc(UUID hospitalId);
+
+    boolean existsByTradeId(UUID tradeId);
 }

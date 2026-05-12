@@ -769,10 +769,7 @@ public class AssetDepositService {
     }
 
     /**
-     * Hospital admin view of all assets currently in Pool 2 (Trading Pool).
-     * Includes assignments that are released and idle (AVAILABLE) AND those locked in
-     * an active trade (UNAVAILABLE). The DTO carries the live AT counts so the UI shows
-     * what's currently in the pool, broken down into "released" vs "in trade".
+     * Hospital admin view of assets that are currently tradable in Pool 2.
      */
     @Transactional(readOnly = true)
     public List<AssetDepositDto> getHospitalPool2(String email) {
@@ -797,8 +794,7 @@ public class AssetDepositService {
                     if (assignmentOpt.isEmpty()) return null;
                     var assignment = assignmentOpt.get();
                     var status = assignment.getAvailabilityStatus();
-                    if (status != com.SehatVault.SehatVaultBackend.marketplace.entity.PatientAtAssignment.AvailabilityStatus.AVAILABLE
-                            && status != com.SehatVault.SehatVaultBackend.marketplace.entity.PatientAtAssignment.AvailabilityStatus.UNAVAILABLE) {
+                    if (status != com.SehatVault.SehatVaultBackend.marketplace.entity.PatientAtAssignment.AvailabilityStatus.AVAILABLE) {
                         return null;
                     }
                     User pu = userRepository.findById(p.getUserId()).orElse(null);

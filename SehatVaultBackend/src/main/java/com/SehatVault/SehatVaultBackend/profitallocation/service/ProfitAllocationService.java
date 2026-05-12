@@ -8,7 +8,9 @@ import com.SehatVault.SehatVaultBackend.hospital.entity.Hospital;
 import com.SehatVault.SehatVaultBackend.hospital.repository.HospitalRepository;
 import com.SehatVault.SehatVaultBackend.wallet.service.TokenPriceService;
 import com.SehatVault.SehatVaultBackend.marketplace.entity.MarketplaceTrade;
+import com.SehatVault.SehatVaultBackend.marketplace.entity.TradeParticipation;
 import com.SehatVault.SehatVaultBackend.marketplace.repository.MarketplaceTradeRepository;
+import com.SehatVault.SehatVaultBackend.marketplace.repository.TradeParticipationRepository;
 import com.SehatVault.SehatVaultBackend.patient.entity.Patient;
 import com.SehatVault.SehatVaultBackend.patient.repository.PatientRepository;
 import com.SehatVault.SehatVaultBackend.profitallocation.dto.ExecuteProfitAllocationRequest;
@@ -43,6 +45,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -54,6 +58,7 @@ public class ProfitAllocationService {
     private final PatientRepository patientRepository;
     private final PatientTokenBalanceRepository patientTokenBalanceRepository;
     private final MarketplaceTradeRepository marketplaceTradeRepository;
+    private final TradeParticipationRepository tradeParticipationRepository;
     private final ProfitDistributionRepository profitDistributionRepository;
     private final ProfitAllocationRepository profitAllocationRepository;
     private final AssetDepositRefRepository assetDepositRefRepository;
@@ -198,6 +203,150 @@ public class ProfitAllocationService {
         response.setBankAmountPkr(preview.getBankAmountPkr());
         response.setTokenMintPoolPkr(preview.getTokenMintPoolPkr());
         return response;
+    }
+
+    @Transactional(readOnly = true)
+    public ProfitAllocationPreviewResponse getTradePreview(UUID tradeId, BigDecimal requestedProfit) {
+        MarketplaceTrade trade = marketplaceTradeRepository.findById(tradeId)
+                .orElseThrow(() -> new IllegalArgumentException("Trade not found"));
+        UUID hospitalId = trade.getHospitalId();
+
+        Hospital hospital = hospitalRepository.findById(hospitalId)
+                .orElseThrow(() -> new IllegalArgumentException("Hospital not found"));
+
+        BigDecimal availableProfit = calculateAvailableTradeProfit(trade);
+        BigDecimal totalProfit = normalizeTotalProfit(requestedProfit, availableProfit);
+
+        BigDecimal patientPercent = BigDecimal.valueOf(hospital.getPatientProfitPercent() != null ? hospital.getPatientProfitPercent() : 40.0);
+        BigDecimal hospitalPercent = BigDecimal.valueOf(hospital.getHospitalProfitPercent() != null ? hospital.getHospitalProfitPercent() : 50.0);
+        BigDecimal bankPercent = BigDecimal.valueOf(hospital.getBankProfitPercent() != null ? hospital.getBankProfitPercent() : 10.0);
+
+        BigDecimal patientAmountPkr = totalProfit.multiply(patientPercent).divide(ONE_HUNDRED, 6, RoundingMode.HALF_UP);
+        BigDecimal hospitalAmountPkr = totalProfit.multiply(hospitalPercent).divide(ONE_HUNDRED, 6, RoundingMode.HALF_UP);
+        BigDecimal bankAmountPkr = totalProfit.multiply(bankPercent).divide(ONE_HUNDRED, 6, RoundingMode.HALF_UP);
+
+        BigDecimal tokenMintPoolPkr = patientAmountPkr;
+        BigDecimal totalHt = tokenMintPoolPkr.divide(tokenPriceService.getHtPricePkr(), 6, RoundingMode.HALF_UP);
+
+        List<PatientAllocationPreviewDto> allocations = buildTradeAllocations(tradeId, totalHt, tokenMintPoolPkr);
+        BigDecimal totalAssetContributionPkr = allocations.stream()
+                .map(PatientAllocationPreviewDto::getAssetContributionPkr)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        ProfitAllocationPreviewResponse response = new ProfitAllocationPreviewResponse();
+        response.setAvailableProfit(availableProfit);
+        response.setTotalProfit(totalProfit);
+        response.setPatientSharePercent(patientPercent);
+        response.setHospitalSharePercent(hospitalPercent);
+        response.setBankSharePercent(bankPercent);
+        response.setPatientAmountPkr(patientAmountPkr);
+        response.setHospitalAmountPkr(hospitalAmountPkr);
+        response.setBankAmountPkr(bankAmountPkr);
+        response.setTokenMintPoolPkr(tokenMintPoolPkr);
+        response.setHtConversionRate(tokenPriceService.getHtPricePkr());
+        response.setTotalHtToDistribute(totalHt);
+        response.setTotalAssetContributionPkr(totalAssetContributionPkr);
+        response.setTotalRecipients(allocations.size());
+        response.setAllocations(allocations);
+        return response;
+    }
+
+    @Transactional
+    public ExecuteProfitAllocationResponse distributeTradeProfit(UUID tradeId, BigDecimal requestedProfit) {
+        if (tradeId == null) {
+            throw new IllegalArgumentException("tradeId is required");
+        }
+
+        if (profitDistributionRepository.existsByTradeId(tradeId)) {
+            throw new IllegalArgumentException("Profit has already been distributed for this trade");
+        }
+
+        ProfitAllocationPreviewResponse preview = getTradePreview(tradeId, requestedProfit);
+        if (preview.getTotalRecipients() == null || preview.getTotalRecipients() == 0) {
+            throw new IllegalArgumentException("No eligible participants with AT holdings found for this trade");
+        }
+
+        MarketplaceTrade trade = marketplaceTradeRepository.findById(tradeId)
+                .orElseThrow(() -> new IllegalArgumentException("Trade not found"));
+
+        ProfitDistribution distribution = new ProfitDistribution();
+        distribution.setHospitalId(trade.getHospitalId());
+        distribution.setTotalProfit(preview.getTotalProfit());
+        distribution.setPatientsPercentage(preview.getPatientSharePercent());
+        distribution.setHospitalPercentage(preview.getHospitalSharePercent());
+        distribution.setBankPercentage(preview.getBankSharePercent());
+        distribution.setHospitalOperations(preview.getHospitalAmountPkr());
+        distribution.setHospitalEarning(preview.getHospitalAmountPkr());
+        distribution.setBankLoanFunds(nz(preview.getBankAmountPkr()));
+        distribution.setTradeId(tradeId);
+        distribution.setCreatedAt(LocalDateTime.now());
+        distribution = profitDistributionRepository.save(distribution);
+
+        UUID htTokenId = walletTransactionRepository.findTokenIdBySymbol("HT");
+        if (htTokenId == null) {
+            throw new IllegalArgumentException("HT token is not configured in tokens table");
+        }
+
+        for (PatientAllocationPreviewDto item : preview.getAllocations()) {
+            ProfitAllocation allocation = new ProfitAllocation();
+            allocation.setProfitDistributionId(distribution.getProfitDistributionId());
+            allocation.setPatientId(item.getPatientId());
+            allocation.setAssetId(item.getAssetId());
+            allocation.setAllocatedPercentage(item.getSharePercent());
+            allocation.setAllocatedAmountHt(item.getHtAmount());
+            allocation.setTimestamp(LocalDateTime.now());
+            profitAllocationRepository.save(allocation);
+
+            PatientTokenBalance balance = patientTokenBalanceRepository.findByPatientId(item.getPatientId())
+                    .orElseGet(() -> {
+                        PatientTokenBalance created = new PatientTokenBalance();
+                        created.setPatientId(item.getPatientId());
+                        created.setTotalAt(BigDecimal.ZERO);
+                        created.setTotalHt(BigDecimal.ZERO);
+                        created.setLastUpdated(LocalDateTime.now());
+                        return created;
+                    });
+
+            balance.setTotalHt(nz(balance.getTotalHt()).add(nz(item.getHtAmount())));
+            balance.setLastUpdated(LocalDateTime.now());
+            patientTokenBalanceRepository.save(balance);
+
+            creditAssetHealthCard(item.getPatientId(), item.getHtAmount());
+
+            BlockchainTxRef chainTx = tokenContractGateway.mintHT(
+                    item.getWalletAddress(),
+                    TokenUnitConverter.toBaseUnits(nz(item.getHtAmount()), 18)
+            );
+
+            Transaction tx = new Transaction();
+            tx.setUserId(item.getUserId());
+            tx.setTokenId(htTokenId);
+            tx.setType(Transaction.TransactionType.HT_MINT);
+            tx.setAmount(nz(item.getHtAmount()));
+            tx.setDescription("HT minted from trade profit distribution " + distribution.getProfitDistributionId());
+            tx.setSenderWalletAddress("HOSPITAL-TREASURY");
+            tx.setReceiverWalletAddress(item.getWalletAddress());
+            tx.setTransactionHash(chainTx.getTransactionHash());
+            tx.setBlockNumber(chainTx.getBlockNumber());
+            tx.setStatus("CONFIRMED");
+            tx.setTimestamp(LocalDateTime.now());
+            walletTransactionRepository.save(tx);
+        }
+
+        ExecuteProfitAllocationResponse response = new ExecuteProfitAllocationResponse();
+        response.setDistributionId(distribution.getProfitDistributionId());
+        response.setRecipients(preview.getTotalRecipients());
+        response.setTotalHtDistributed(preview.getTotalHtToDistribute());
+        response.setPatientAmountPkr(preview.getPatientAmountPkr());
+        response.setHospitalAmountPkr(preview.getHospitalAmountPkr());
+        response.setBankAmountPkr(preview.getBankAmountPkr());
+        response.setTokenMintPoolPkr(preview.getTokenMintPoolPkr());
+        return response;
+    }
+
+    @Transactional(readOnly = true)
+    public boolean hasTradeProfitDistribution(UUID tradeId) {
+        return tradeId != null && profitDistributionRepository.existsByTradeId(tradeId);
     }
 
     private void creditAssetHealthCard(UUID patientId, BigDecimal htCredit) {
@@ -402,6 +551,106 @@ public class ProfitAllocationService {
         return allocations;
     }
 
+    private List<PatientAllocationPreviewDto> buildTradeAllocations(UUID tradeId, BigDecimal totalHt, BigDecimal tokenMintPoolPkr) {
+        List<TradeParticipation> participations = tradeParticipationRepository.findByTradeId(tradeId);
+        if (participations.isEmpty()) {
+            return List.of();
+        }
+
+        var patientIds = participations.stream().map(TradeParticipation::getPatientId).collect(Collectors.toSet());
+        var patientsById = patientRepository.findAllById(patientIds).stream()
+                .collect(Collectors.toMap(Patient::getId, p -> p));
+        var userIds = patientsById.values().stream()
+                .map(Patient::getUserId)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
+        var usersById = userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getUserId, u -> u));
+
+        List<TradeParticipantHolding> holdings = new ArrayList<>();
+        for (TradeParticipation participation : participations) {
+            Patient patient = patientsById.get(participation.getPatientId());
+            if (patient == null) {
+                continue;
+            }
+            String walletAddress = patient.getWalletAddress();
+            if (walletAddress == null || walletAddress.isBlank()) {
+                throw new IllegalArgumentException("Patient " + participation.getPatientId() + " does not have a wallet address");
+            }
+            BigDecimal contribution = nz(participation.getAtMonetaryValuePkr());
+            if (contribution.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            User user = usersById.get(patient.getUserId());
+            holdings.add(new TradeParticipantHolding(
+                    participation.getPatientId(),
+                    patient.getUserId(),
+                    participation.getAssetId(),
+                    user != null ? user.getName() : "Unknown Patient",
+                    walletAddress,
+                    contribution
+            ));
+        }
+
+        BigDecimal totalContribution = holdings.stream()
+                .map(TradeParticipantHolding::contributionPkr)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (totalContribution.compareTo(BigDecimal.ZERO) <= 0) {
+            return List.of();
+        }
+
+        List<PatientAllocationPreviewDto> allocations = new ArrayList<>();
+        BigDecimal allocatedShare = BigDecimal.ZERO;
+        BigDecimal allocatedHt = BigDecimal.ZERO;
+        BigDecimal allocatedPkrValue = BigDecimal.ZERO;
+
+        for (int i = 0; i < holdings.size(); i++) {
+            TradeParticipantHolding holding = holdings.get(i);
+            boolean isLast = i == holdings.size() - 1;
+
+            BigDecimal sharePercent;
+            BigDecimal htAmount;
+            BigDecimal pkrValue;
+
+            if (isLast) {
+                sharePercent = ONE_HUNDRED.subtract(allocatedShare);
+                htAmount = totalHt.subtract(allocatedHt);
+                pkrValue = tokenMintPoolPkr.subtract(allocatedPkrValue);
+            } else {
+                sharePercent = holding.contributionPkr()
+                        .multiply(ONE_HUNDRED)
+                        .divide(totalContribution, 8, RoundingMode.HALF_UP);
+                htAmount = totalHt.multiply(holding.contributionPkr())
+                        .divide(totalContribution, 8, RoundingMode.HALF_UP);
+                pkrValue = tokenMintPoolPkr.multiply(holding.contributionPkr())
+                        .divide(totalContribution, 8, RoundingMode.HALF_UP);
+
+                allocatedShare = allocatedShare.add(sharePercent);
+                allocatedHt = allocatedHt.add(htAmount);
+                allocatedPkrValue = allocatedPkrValue.add(pkrValue);
+            }
+
+            PatientAllocationPreviewDto dto = new PatientAllocationPreviewDto();
+            dto.setPatientId(holding.patientId());
+            dto.setUserId(holding.userId());
+            dto.setAssetId(holding.assetId());
+            dto.setPatientName(holding.name());
+            dto.setWalletAddress(holding.walletAddress());
+            dto.setAssetContributionPkr(holding.contributionPkr());
+            dto.setSharePercent(sharePercent.max(BigDecimal.ZERO));
+            dto.setHtAmount(htAmount.max(BigDecimal.ZERO));
+            dto.setPkrValue(pkrValue.max(BigDecimal.ZERO));
+            allocations.add(dto);
+        }
+
+        return allocations;
+    }
+
+    private BigDecimal calculateAvailableTradeProfit(MarketplaceTrade trade) {
+        BigDecimal profitLoss = nz(trade.getProfitLoss());
+        return profitLoss.compareTo(BigDecimal.ZERO) > 0 ? profitLoss : BigDecimal.ZERO;
+    }
+
     private BigDecimal calculateAvailableProfit(UUID hospitalId) {
         BigDecimal totalProfitableTradePnl = marketplaceTradeRepository.findByHospitalIdOrderByStartTimeDesc(hospitalId)
             .stream()
@@ -477,4 +726,13 @@ public class ProfitAllocationService {
             String walletAddress,
             BigDecimal assetContributionPkr
     ) {}
+
+        private record TradeParticipantHolding(
+            UUID patientId,
+            UUID userId,
+            UUID assetId,
+            String name,
+            String walletAddress,
+            BigDecimal contributionPkr
+        ) {}
 }

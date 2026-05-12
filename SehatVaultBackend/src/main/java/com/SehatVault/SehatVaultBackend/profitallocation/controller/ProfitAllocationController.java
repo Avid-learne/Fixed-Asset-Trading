@@ -11,6 +11,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,17 +25,22 @@ public class ProfitAllocationController {
     private final ProfitAllocationService profitAllocationService;
 
     @GetMapping("/preview")
-    public ResponseEntity<?> getPreview(
+        public ResponseEntity<?> getPreview(
             Authentication authentication,
-            @RequestParam(required = false) BigDecimal totalProfit
-    ) {
+            @RequestParam(required = false) BigDecimal totalProfit,
+            @RequestParam(required = false) UUID tradeId
+        ) {
         try {
             if (authentication == null || authentication.getName() == null) {
                 return ResponseEntity.status(401).body(error("Unauthorized"));
             }
 
-            ProfitAllocationPreviewResponse data = profitAllocationService
-                    .getPreview(authentication.getName(), totalProfit);
+            ProfitAllocationPreviewResponse data;
+            if (tradeId != null) {
+                data = profitAllocationService.getTradePreview(tradeId, totalProfit);
+            } else {
+                data = profitAllocationService.getPreview(authentication.getName(), totalProfit);
+            }
             return ResponseEntity.ok(success("Preview generated", data));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(error(e.getMessage()));
@@ -44,17 +50,22 @@ public class ProfitAllocationController {
     }
 
     @PostMapping("/distribute")
-    public ResponseEntity<?> distribute(
+        public ResponseEntity<?> distribute(
             Authentication authentication,
-            @RequestBody ExecuteProfitAllocationRequest request
-    ) {
+            @RequestBody ExecuteProfitAllocationRequest request,
+            @RequestParam(required = false) UUID tradeId
+        ) {
         try {
             if (authentication == null || authentication.getName() == null) {
                 return ResponseEntity.status(401).body(error("Unauthorized"));
             }
 
-            ExecuteProfitAllocationResponse data = profitAllocationService
-                    .distribute(authentication.getName(), request);
+            ExecuteProfitAllocationResponse data;
+            if (tradeId != null) {
+                data = profitAllocationService.distributeTradeProfit(tradeId, request.getTotalProfit());
+            } else {
+                data = profitAllocationService.distribute(authentication.getName(), request);
+            }
             return ResponseEntity.ok(success("Distribution completed", data));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(error(e.getMessage()));
