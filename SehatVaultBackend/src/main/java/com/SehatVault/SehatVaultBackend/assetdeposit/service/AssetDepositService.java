@@ -106,9 +106,6 @@ public class AssetDepositService {
         if (request.getPurityCertificate() == null || request.getPurityCertificate().isBlank()) {
             throw new IllegalArgumentException("purityCertificate is required");
         }
-        if (request.getSupportingDocuments() == null || request.getSupportingDocuments().isBlank()) {
-            throw new IllegalArgumentException("supportingDocuments is required");
-        }
 
         User user = requireUser(email);
         requireRole(user, Role.RoleType.patient, "Only patients can submit deposit requests");
@@ -141,7 +138,9 @@ public class AssetDepositService {
         deposit.setAssetValue(request.getAssetValue());
         deposit.setAssetReceipt(request.getAssetReceipt().trim());
         deposit.setPurityCertificate(request.getPurityCertificate().trim());
-        deposit.setSupportingDocuments(request.getSupportingDocuments().trim());
+        deposit.setSupportingDocuments(request.getSupportingDocuments() != null && !request.getSupportingDocuments().isBlank()
+            ? request.getSupportingDocuments().trim()
+            : null);
         deposit.setWeight(request.getWeight());
         deposit.setStatus("pending");
         deposit.setBankApprovalStatus(null);

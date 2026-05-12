@@ -13,6 +13,7 @@ export type Tx = {
   transaction_hash?: string
   from_address?: string
   to_address?: string
+  to_name?: string
   token_id?: string
   gas_used?: number
   

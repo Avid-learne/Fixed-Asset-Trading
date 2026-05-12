@@ -94,6 +94,40 @@ export default function DepositAssetPage() {
     init()
   }, [])
 
+  /**
+   * Read a File as base64 data URL so the actual content (not just the filename) is
+   * persisted in the deposit record. The filename is encoded into the URL fragment so
+   * the hospital admin's preview modal can display it without losing the original name.
+   */
+  const readFileAsDataUrl = (file: File | undefined): Promise<string> => {
+    if (!file) return Promise.resolve('')
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const url = String(reader.result || '')
+        const safeName = encodeURIComponent(file.name)
+        resolve(safeName ? `${url}#filename=${safeName}` : url)
+      }
+      reader.onerror = () => reject(reader.error || new Error('Failed to read file'))
+      reader.readAsDataURL(file)
+    })
+  }
+
+  /** Pull the original filename out of the data URL fragment (or fall back to the raw value). */
+  const describeDocument = (value: string | undefined): string => {
+    if (!value) return 'No file selected'
+    const fragMatch = value.match(/#filename=([^&]+)/)
+    if (fragMatch) {
+      try {
+        return decodeURIComponent(fragMatch[1])
+      } catch {
+        return fragMatch[1]
+      }
+    }
+    if (value.startsWith('data:')) return 'Selected file'
+    return value
+  }
+
   const calculateWorth = () => {
     const weightNum = parseFloat(weight)
     if (!weightNum || !assetType || !assetPrices) return 0
@@ -117,8 +151,8 @@ export default function DepositAssetPage() {
       setError('')
 
       const assetValue = calculateWorth()
-      if (!documents.receipt || !documents.purityCertificate || !documents.supportingDocuments) {
-        throw new Error('Please attach the asset receipt, purity certificate, and supporting document before submitting')
+      if (!documents.receipt || !documents.purityCertificate) {
+        throw new Error('Please attach the asset receipt and purity certificate before submitting')
       }
 
       // Show confirmation dialog instead of submitting immediately
@@ -181,14 +215,13 @@ export default function DepositAssetPage() {
   const isPricingReady = Boolean(assetPrices?.goldPricePerGram && assetPrices?.silverPricePerGram && assetPrices?.tokenPricePerPkr)
 
   const areAllDocumentsSubmitted = () => {
-    return documents.receipt && documents.purityCertificate && documents.supportingDocuments
+    return documents.receipt && documents.purityCertificate
   }
 
   const getMissingDocuments = () => {
     const missing: string[] = []
     if (!documents.receipt) missing.push('Asset Receipt')
     if (!documents.purityCertificate) missing.push('Purity Certificate')
-    if (!documents.supportingDocuments) missing.push('Supporting Document')
     return missing
   }
 
@@ -220,20 +253,22 @@ export default function DepositAssetPage() {
   if (submitted) {
     return (
       <div className="max-w-2xl mx-auto space-y-6">
-        <Card className="text-center">
-              <CardContent className="pt-12 pb-12">
-            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+        <Card>
+          <CardContent className="pt-12 pb-12 text-center space-y-4">
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto">
               <CheckCircle className="w-12 h-12 text-green-600" />
             </div>
-            <h2 className="text-3xl font-bold mb-4">Request Submitted Successfully!</h2>
-            <p className="text-muted-foreground mb-2">
-              Your investment request has been sent to the hospital for verification, including the attached asset documents.
-            </p>
-            <p className="text-sm text-muted-foreground mb-8">
-              You will receive a notification once approvals complete and HT is credited.
-            </p>
+            <div>
+              <h2 className="text-3xl font-bold">Request Submitted Successfully!</h2>
+              <p className="text-muted-foreground mt-2">
+                Your investment request has been sent to the hospital for verification, including the attached asset documents.
+              </p>
+              <p className="text-sm text-muted-foreground mt-2">
+                You will receive a notification once approvals complete and HT is credited.
+              </p>
+            </div>
 
-            <div className="bg-muted/50 rounded-lg p-6 mb-8 text-left">
+            <div className="bg-muted/50 rounded-lg p-6 text-left">
               <h3 className="font-semibold mb-4">Request Summary</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
@@ -246,13 +281,11 @@ export default function DepositAssetPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Asset Worth:</span>
-                    <span className="font-medium">PKR {Number(submittedRequest?.assetValue ?? pendingDepositData?.assetValue ?? calculateWorth()).toLocaleString()}</span>
+                  <span className="font-medium">PKR {Number(submittedRequest?.assetValue ?? pendingDepositData?.assetValue ?? calculateWorth()).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Expected HT:</span>
-                    <span className="font-semibold text-lg text-primary">
-                      {Number(submittedRequest?.expectedTokens ?? (pendingDepositData?.assetValue && assetPrices?.tokenPricePerPkr ? Math.floor(pendingDepositData.assetValue / assetPrices.tokenPricePerPkr) : calculateTokens())).toLocaleString()} HT
-                    </span>
+                  <span className="text-muted-foreground">Expected AT:</span>
+                  <span className="font-semibold text-lg text-primary">{Number(submittedRequest?.expectedTokens ?? (pendingDepositData?.assetValue && assetPrices?.tokenPricePerPkr ? Math.floor(pendingDepositData.assetValue / assetPrices.tokenPricePerPkr) : calculateTokens())).toLocaleString()} HT</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Hospital:</span>
@@ -264,20 +297,20 @@ export default function DepositAssetPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Receipt:</span>
-                  <span className="font-medium">{submittedRequest?.assetReceipt || documents.receipt}</span>
+                  <span className="font-medium">{describeDocument(submittedRequest?.assetReceipt || documents.receipt)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Purity certificate:</span>
-                  <span className="font-medium">{submittedRequest?.purityCertificate || documents.purityCertificate}</span>
+                  <span className="font-medium">{describeDocument(submittedRequest?.purityCertificate || documents.purityCertificate)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Supporting docs:</span>
-                  <span className="font-medium">{submittedRequest?.supportingDocuments || documents.supportingDocuments}</span>
+                  <span className="font-medium">{describeDocument(submittedRequest?.supportingDocuments || documents.supportingDocuments)}</span>
                 </div>
               </div>
             </div>
 
-            <div className="flex gap-3 justify-center">
+            <div className="flex gap-3 justify-center pt-4">
               <Button variant="outline" onClick={() => router.push('/patient/dashboard')}>
                 Go to Dashboard
               </Button>
@@ -412,18 +445,18 @@ export default function DepositAssetPage() {
                       { label: 'Purity / Carat Certificate', key: 'purityCertificate' },
                       { label: 'Supporting Document', key: 'supportingDocuments' }
                     ].map(doc => {
-                      const isSubmitted = documents[doc.key as keyof DepositDocumentState]
+                      const key = doc.key as keyof DepositDocumentState
+                      const isSubmitted = Boolean(documents[key])
+                      const optional = key === 'supportingDocuments'
                       return (
                         <div key={doc.key} className="flex items-center gap-2 text-sm">
                           <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
-                            isSubmitted 
-                              ? 'bg-green-500 text-white' 
-                              : 'bg-gray-300 text-gray-600'
+                            isSubmitted ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'
                           }`}>
                             {isSubmitted ? '✓' : '○'}
                           </div>
-                          <span className={isSubmitted ? 'text-green-700 font-medium' : 'text-amber-700'}>
-                            {doc.label} {isSubmitted ? '(Submitted)' : '(Required)'}
+                          <span className={isSubmitted ? 'text-green-700 font-medium' : optional ? 'text-slate-600' : 'text-amber-700'}>
+                            {doc.label} {isSubmitted ? '(Submitted)' : optional ? '(Optional)' : '(Required)'}
                           </span>
                         </div>
                       )
@@ -445,27 +478,27 @@ export default function DepositAssetPage() {
                   <Input
                     type="file"
                     accept="image/*,.pdf"
-                    onChange={(event) => setDocuments((prev) => ({ ...prev, receipt: event.target.files?.[0]?.name || '' }))}
+                    onChange={(event) => readFileAsDataUrl(event.target.files?.[0]).then((value) => setDocuments((prev) => ({ ...prev, receipt: value })))}
                   />
-                  <p className="text-xs text-muted-foreground">{documents.receipt || 'No file selected'}</p>
+                  <p className="text-xs text-muted-foreground">{describeDocument(documents.receipt)}</p>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Purity / carat certificate</label>
                   <Input
                     type="file"
                     accept="image/*,.pdf"
-                    onChange={(event) => setDocuments((prev) => ({ ...prev, purityCertificate: event.target.files?.[0]?.name || '' }))}
+                    onChange={(event) => readFileAsDataUrl(event.target.files?.[0]).then((value) => setDocuments((prev) => ({ ...prev, purityCertificate: value })))}
                   />
-                  <p className="text-xs text-muted-foreground">{documents.purityCertificate || 'No file selected'}</p>
+                  <p className="text-xs text-muted-foreground">{describeDocument(documents.purityCertificate)}</p>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Supporting document</label>
                   <Input
                     type="file"
                     accept="image/*,.pdf"
-                    onChange={(event) => setDocuments((prev) => ({ ...prev, supportingDocuments: event.target.files?.[0]?.name || '' }))}
+                    onChange={(event) => readFileAsDataUrl(event.target.files?.[0]).then((value) => setDocuments((prev) => ({ ...prev, supportingDocuments: value })))}
                   />
-                  <p className="text-xs text-muted-foreground">{documents.supportingDocuments || 'No file selected'}</p>
+                  <p className="text-xs text-muted-foreground">{documents.supportingDocuments ? describeDocument(documents.supportingDocuments) : 'Optional'}</p>
                 </div>
               </CardContent>
             </Card>
@@ -498,9 +531,8 @@ export default function DepositAssetPage() {
                 <p>You can use or transfer HT once verification is complete.</p>
               </CardContent>
             </Card>
-          </div>
-
           {/* Summary */}
+            </div>
           <div className="space-y-6">
             <Card>
               <CardHeader>
@@ -533,8 +565,8 @@ export default function DepositAssetPage() {
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span>Estimated HT</span>
-                    <span className="font-semibold text-primary">{calculateTokens().toLocaleString()} HT</span>
+                    <span>Estimated AT</span>
+                    <span className="font-semibold text-primary">{calculateTokens().toLocaleString()} AT</span>
                   </div>
                 </div>
 
@@ -578,7 +610,7 @@ export default function DepositAssetPage() {
                 </div>
                 <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm text-muted-foreground">
                   <p>Worth: PKR {Number(item.assetValue).toLocaleString()}</p>
-                  <p>Tokens: {Number(item.expectedTokens).toLocaleString()} HT</p>
+                  <p>Tokens: {Number(item.expectedTokens).toLocaleString()} AT</p>
                   <p>Date: {new Date(item.submittedAt).toLocaleDateString()}</p>
                 </div>
               </div>
@@ -609,7 +641,7 @@ export default function DepositAssetPage() {
                 </div>
                 <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm text-muted-foreground">
                   <p>Worth: PKR {Number(item.assetValue).toLocaleString()}</p>
-                  <p>Tokens: {Number(item.expectedTokens).toLocaleString()} HT</p>
+                  <p>Tokens: {Number(item.expectedTokens).toLocaleString()} AT</p>
                   <p>Submitted: {new Date(item.submittedAt).toLocaleDateString()}</p>
                 </div>
                 {item.rejectionReason && (
@@ -651,8 +683,8 @@ export default function DepositAssetPage() {
                     <span className="text-sm">Rs. {pendingDepositData.assetValue.toLocaleString()}</span>
                   </div>
                   <div className="border-t pt-2 flex justify-between font-semibold">
-                    <span className="text-sm">Estimated HT Tokens:</span>
-                    <span className="text-sm">{assetPrices?.tokenPricePerPkr ? Math.floor(pendingDepositData.assetValue / assetPrices.tokenPricePerPkr).toLocaleString() : '—'} HT</span>
+                    <span className="text-sm">Estimated AT Tokens:</span>
+                    <span className="text-sm">{assetPrices?.tokenPricePerPkr ? Math.floor(pendingDepositData.assetValue / assetPrices.tokenPricePerPkr).toLocaleString() : '—'} AT</span>
                   </div>
                 </div>
               </div>

@@ -51,7 +51,14 @@ export default function TransactionTable({ transactions }: Props) {
                 }
               </TableCell>
               <TableCell className="font-mono text-xs">
-                {t.to_address ? `${t.to_address.slice(0, 10)}...` : 'N/A'}
+                <div className="font-medium text-foreground">
+                  {t.to_name || t.to_address || 'N/A'}
+                </div>
+                {t.to_name && t.to_address && (
+                  <div className="text-xs text-muted-foreground font-mono">
+                    {t.to_address.slice(0, 10)}...
+                  </div>
+                )}
               </TableCell>
               <TableCell className={`text-right font-semibold ${
                 t.amount > 0 ? 'text-green-600' : 'text-red-600'

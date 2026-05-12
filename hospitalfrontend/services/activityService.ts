@@ -20,6 +20,7 @@ type ActivityTransactionResponse = {
   transactionHash?: string
   fromAddress?: string
   toAddress?: string
+  toName?: string
   source?: string
   transactionType?: 'DEBIT' | 'CREDIT' | 'AT_BURN' | 'HT_MINT'
   blockNumber?: number
@@ -87,6 +88,7 @@ export const activityService = {
       transaction_hash: row.transactionHash,
       from_address: row.fromAddress,
       to_address: row.toAddress,
+      to_name: row.toName,
       source: row.source,
       type: mapTransactionViewType(row.transactionType),
       block_number: row.blockNumber,
@@ -94,7 +96,11 @@ export const activityService = {
   },
 
   async getNotifications(userId: string): Promise<NotificationItem[]> {
-    const res = await fetch(`${API_URL}/patient/${userId}/notifications`, {
+    const baseUrl = (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_API_URL)
+      ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api$/, '')
+      : 'http://localhost:8080'
+
+    const res = await fetch(`${baseUrl}/api/notifications/user/${userId}`, {
       method: 'GET',
       headers: getAuthHeaders(),
     })

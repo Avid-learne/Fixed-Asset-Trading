@@ -96,7 +96,6 @@ export default function PatientMarketplace() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-slate-900">Investment Portal</h1>
-        <p className="text-slate-600 mt-1">Your hospital-managed investments shown in HT. Admin enters values in PKR, portal converts them for display.</p>
       </div>
 
       {error && <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
@@ -130,9 +129,9 @@ export default function PatientMarketplace() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card><CardHeader><CardTitle className="text-sm">Invested</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{convertPKRtoAT(totals.invested).toLocaleString(undefined, { maximumFractionDigits: 2 })} HT</p></CardContent></Card>
-        <Card><CardHeader><CardTitle className="text-sm">Current Value</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{convertPKRtoAT(totals.current).toLocaleString(undefined, { maximumFractionDigits: 2 })} HT</p></CardContent></Card>
-        <Card><CardHeader><CardTitle className="text-sm">P&L</CardTitle></CardHeader><CardContent><p className={`text-2xl font-bold ${totals.pnl >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{totals.pnl >= 0 ? '+' : ''}{convertPKRtoAT(totals.pnl).toLocaleString(undefined, { maximumFractionDigits: 2 })} HT</p></CardContent></Card>
+        <Card><CardHeader><CardTitle className="text-sm">Invested</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{convertPKRtoAT(totals.invested).toLocaleString(undefined, { maximumFractionDigits: 2 })} AT</p></CardContent></Card>
+        <Card><CardHeader><CardTitle className="text-sm">Current Value</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{convertPKRtoAT(totals.current).toLocaleString(undefined, { maximumFractionDigits: 2 })} AT</p></CardContent></Card>
+        <Card><CardHeader><CardTitle className="text-sm">P&L</CardTitle></CardHeader><CardContent><p className={`text-2xl font-bold ${totals.pnl >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{totals.pnl >= 0 ? '+' : ''}{convertPKRtoAT(totals.pnl).toLocaleString(undefined, { maximumFractionDigits: 2 })} AT</p></CardContent></Card>
       </div>
 
       <Card>
@@ -181,15 +180,15 @@ export default function PatientMarketplace() {
                     <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                       <div>
                         <p className="text-slate-500">Investment Amount</p>
-                        <p className="font-medium">{convertPKRtoAT(trade.investmentAmount).toLocaleString(undefined, { maximumFractionDigits: 2 })} HT</p>
+                        <p className="font-medium">{convertPKRtoAT(trade.investmentAmount).toLocaleString(undefined, { maximumFractionDigits: 2 })} AT</p>
                       </div>
                       <div>
                         <p className="text-slate-500">Current Value</p>
-                        <p className="font-medium">{convertPKRtoAT(trade.currentValue).toLocaleString(undefined, { maximumFractionDigits: 2 })} HT</p>
+                        <p className="font-medium">{convertPKRtoAT(trade.currentValue).toLocaleString(undefined, { maximumFractionDigits: 2 })} AT</p>
                       </div>
                       <div>
                         <p className="text-slate-500">P&L</p>
-                        <p className={`font-medium ${isPositive ? 'text-emerald-600' : 'text-red-600'}`}>{isPositive ? '+' : ''}{convertPKRtoAT(trade.pnl).toLocaleString(undefined, { maximumFractionDigits: 2 })} HT</p>
+                        <p className={`font-medium ${isPositive ? 'text-emerald-600' : 'text-red-600'}`}>{isPositive ? '+' : ''}{convertPKRtoAT(trade.pnl).toLocaleString(undefined, { maximumFractionDigits: 2 })} AT</p>
                       </div>
                     </div>
                   </div>

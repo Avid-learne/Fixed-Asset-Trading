@@ -107,9 +107,6 @@ export default function EmergencyRedemptionPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Emergency AT→HT Conversion</h1>
-        <p className="text-muted-foreground">
-          Request immediate HT by converting AT with hospital staff approval.
-        </p>
       </div>
 
       {error && (

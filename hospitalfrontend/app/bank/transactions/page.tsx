@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Search, Download, TrendingUp, TrendingDown, DollarSign, Activity } from 'lucide-react'
+import { Search, TrendingUp, TrendingDown, DollarSign, Activity } from 'lucide-react'
 import { formatCurrency, formatDateTime, formatNumber } from '@/lib/utils'
 
 interface Transaction {
@@ -97,10 +97,6 @@ export default function TransactionsPage() {
           <h1 className="text-3xl font-bold text-gray-900">Transaction Monitoring</h1>
           <p className="text-gray-500 mt-1">Monitor all financial transactions across the platform</p>
         </div>
-        <Button variant="outline">
-          <Download className="w-4 h-4 mr-2" />
-          Export Data
-        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">

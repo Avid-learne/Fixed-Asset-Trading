@@ -35,9 +35,9 @@ type KycFormState = {
 }
 
 type DocumentSelectionState = {
-  front: string
-  back: string
-  selfie: string
+  front: File | null
+  back: File | null
+  selfie: File | null
 }
 
 const STATUS_META: Record<KycState, { label: string; className: string; description: string }> = {
@@ -85,9 +85,14 @@ export default function ProfileKYCPage() {
     healthIssues: '',
   })
   const [documents, setDocuments] = useState<DocumentSelectionState>({
-    front: '',
-    back: '',
-    selfie: '',
+    front: null,
+    back: null,
+    selfie: null,
+  })
+  const [documentPreviews, setDocumentPreviews] = useState<DocumentSelectionState>({
+    front: null,
+    back: null,
+    selfie: null,
   })
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -130,10 +135,10 @@ export default function ProfileKYCPage() {
           sourceOfIncome: profileData.sourceOfIncome || '',
           healthIssues: profileData.healthIssues || '',
         })
-        setDocuments({
-          front: profileData.kycDocumentFront || '',
-          back: profileData.kycDocumentBack || '',
-          selfie: profileData.kycSelfie || '',
+        setDocumentPreviews({
+          front: null,
+          back: null,
+          selfie: null,
         })
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unable to load KYC information')
@@ -184,10 +189,46 @@ export default function ProfileKYCPage() {
 
   const selectFile = (key: keyof DocumentSelectionState) => (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    setDocuments(prev => ({ ...prev, [key]: file ? file.name : '' }))
+    if (!file) {
+      setDocuments(prev => ({ ...prev, [key]: null }))
+      setDocumentPreviews(prev => ({ ...prev, [key]: null }))
+      return
+    }
+
+    setDocuments(prev => ({ ...prev, [key]: file }))
+    setDocumentPreviews(prev => ({ ...prev, [key]: null }))
   }
 
-  const buildPayload = () => ({
+  const uploadDocument = async (category: 'kyc', file: File) => {
+    const token = authService.getToken()
+    if (!token) {
+      throw new Error('No authentication token found')
+    }
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const response = await fetch(`http://localhost:8000/api/storage/upload/${category}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    })
+
+    const result = await response.json().catch(() => null)
+    if (!response.ok || !result?.success) {
+      throw new Error(result?.message || 'Failed to upload document')
+    }
+
+    const previewPath = result.data?.previewPath
+    if (!previewPath) {
+      throw new Error('Server did not return preview path for uploaded file')
+    }
+    return { previewPath, objectPath: result.data?.objectPath }
+  }
+
+  const buildPayload = (uploadedDocuments?: Partial<Record<keyof DocumentSelectionState, string>>) => ({
     name: form.fullName,
     cnic: form.cnic,
     gender: form.gender,
@@ -203,9 +244,9 @@ export default function ProfileKYCPage() {
     sourceOfIncome: form.sourceOfIncome,
     healthIssues: form.healthIssues,
     dateOfBirth: form.dateOfBirth,
-    kycDocumentFront: documents.front,
-    kycDocumentBack: documents.back,
-    kycSelfie: documents.selfie,
+    kycDocumentFront: uploadedDocuments?.front || profile?.kycDocumentFront || '',
+    kycDocumentBack: uploadedDocuments?.back || profile?.kycDocumentBack || '',
+    kycSelfie: uploadedDocuments?.selfie || profile?.kycSelfie || '',
   })
 
   const persistDraft = async () => {
@@ -233,7 +274,25 @@ export default function ProfileKYCPage() {
         throw new Error('Please attach front ID, back ID, and selfie/live photo before submitting KYC')
       }
 
-      await persistDraft()
+      const [frontUpload, backUpload, selfieUpload] = await Promise.all([
+        uploadDocument('kyc', documents.front),
+        uploadDocument('kyc', documents.back),
+        uploadDocument('kyc', documents.selfie),
+      ])
+
+      const uploadedDocuments = {
+        front: frontUpload.previewPath || '',
+        back: backUpload.previewPath || '',
+        selfie: selfieUpload.previewPath || '',
+      }
+
+      const user = authService.getUser()
+      if (!user?.id) {
+        throw new Error('User is not authenticated')
+      }
+
+      const updatedProfile = await profileService.updateProfile(user.id, buildPayload(uploadedDocuments))
+      setProfile(updatedProfile)
 
       const response = await profileService.submitKyc()
       setKycStatus(response.status)
@@ -434,17 +493,17 @@ export default function ProfileKYCPage() {
             <div className="space-y-2 rounded-lg border border-dashed p-4">
               <Label htmlFor="idFront">ID front</Label>
               <Input id="idFront" type="file" accept="image/*,.pdf" onChange={selectFile('front')} />
-              <p className="text-xs text-muted-foreground">{documents.front || 'No file selected'}</p>
+              <p className="text-xs text-muted-foreground">{documents.front?.name || 'No file selected'}</p>
             </div>
             <div className="space-y-2 rounded-lg border border-dashed p-4">
               <Label htmlFor="idBack">ID back</Label>
               <Input id="idBack" type="file" accept="image/*,.pdf" onChange={selectFile('back')} />
-              <p className="text-xs text-muted-foreground">{documents.back || 'No file selected'}</p>
+              <p className="text-xs text-muted-foreground">{documents.back?.name || 'No file selected'}</p>
             </div>
             <div className="space-y-2 rounded-lg border border-dashed p-4">
               <Label htmlFor="selfie">Selfie / live photo</Label>
               <Input id="selfie" type="file" accept="image/*" capture="user" onChange={selectFile('selfie')} />
-              <p className="text-xs text-muted-foreground">{documents.selfie || 'No file selected'}</p>
+              <p className="text-xs text-muted-foreground">{documents.selfie?.name || 'No file selected'}</p>
             </div>
             <div className="md:col-span-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
               <div className="flex items-start gap-2">
@@ -459,15 +518,15 @@ export default function ProfileKYCPage() {
               <div className="mt-2 grid gap-2 md:grid-cols-3">
                 <div className="rounded-md border bg-slate-50 px-3 py-2">
                   <p className="text-xs uppercase tracking-wide text-slate-500">ID front</p>
-                  <p className="mt-1 break-words text-sm">{documents.front || 'Not attached yet'}</p>
+                  <p className="mt-1 break-words text-sm">{documents.front?.name || 'Not attached yet'}</p>
                 </div>
                 <div className="rounded-md border bg-slate-50 px-3 py-2">
                   <p className="text-xs uppercase tracking-wide text-slate-500">ID back</p>
-                  <p className="mt-1 break-words text-sm">{documents.back || 'Not attached yet'}</p>
+                  <p className="mt-1 break-words text-sm">{documents.back?.name || 'Not attached yet'}</p>
                 </div>
                 <div className="rounded-md border bg-slate-50 px-3 py-2">
                   <p className="text-xs uppercase tracking-wide text-slate-500">Selfie / live photo</p>
-                  <p className="mt-1 break-words text-sm">{documents.selfie || 'Not attached yet'}</p>
+                  <p className="mt-1 break-words text-sm">{documents.selfie?.name || 'Not attached yet'}</p>
                 </div>
               </div>
             </div>
